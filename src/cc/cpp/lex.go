@@ -76,6 +76,16 @@ func isAlphaNumeric(b rune) bool {
 	return isNumeric(b) || isAlpha(b)
 }
 
+func (ls *lexerState) sendTok(kind TokenKind, val string, line, col int) {
+	var tok Token
+	tok.Kind = kind
+	tok.Val = val
+	tok.Pos.Line = line
+	tok.Pos.Col = col
+	tok.Pos.File = ls.file
+	ls.stream <- &tok
+}
+
 func (ls *lexerState) readIdentOrKeyword() {
 	var buff bytes.Buffer
 	first, _, _ := ls.brdr.ReadRune()
@@ -84,7 +94,7 @@ func (ls *lexerState) readIdentOrKeyword() {
 	}
 	buff.WriteRune(first)
 	for {
-		b, _, err := source.ReadRune()
+		b, _, err := ls.brdr.ReadRune()
 		if isAlphaNumeric(b) || b == '_' {
 			buff.WriteRune(b)
 		} else {
@@ -94,10 +104,11 @@ func (ls *lexerState) readIdentOrKeyword() {
 			str := buff.String()
 			tokType, ok := keywordLUT[str]
 			if !ok {
-				tokType = IDENTIFIER
+				tokType = TOK_IDENTIFIER
 			}
 
-			return makeTok(tokType, str, 0)
+			ls.sendTok(tokType, str, ls.line, ls.col)
+			ls.col += len(str)
 		}
 	}
 }
@@ -120,17 +131,19 @@ func (ls *lexerState) skipWhiteSpace() {
 	}
 }
 
-func readConstantInt(source *bufio.Reader) *Token {
+func (ls *lexerState) readConstantInt() {
 	var buff bytes.Buffer
 	for {
-		r, _, err := source.ReadRune()
+		r, _, err := ls.brdr.ReadRune()
 		if isNumeric(r) {
 			buff.WriteRune(r)
 		} else {
 			if err == nil {
-				source.UnreadRune()
+				ls.brdr.UnreadRune()
 			}
-			return makeTok(CONSTANT, buff.String(), 0)
+			str := buff.String()
+			ls.sendTok(TOK_CONSTANT_INT, str, ls.line, ls.col)
+			ls.col += len(str)
 		}
 	}
 }

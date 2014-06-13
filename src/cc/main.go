@@ -1,12 +1,12 @@
 package main
 
-import ( 
+import (
 	"cc/cpp"
-	"fmt"
 	"flag"
+	"fmt"
 	"io"
 	"os"
- )
+)
 
 func printVersion() {
 	fmt.Println("cc version 0.01")
@@ -25,7 +25,12 @@ func printUsage() {
 }
 
 func preprocessFile(sourceFile string, out io.Writer) {
-	cpp.
+	_, err := os.Open(sourceFile)
+	if err != nil {
+		fmt.Errorf("Failed to open source file %s for preprocessing: %s", sourceFile, err)
+		os.Exit(1)
+	}
+	_ = cpp.New(nil)
 }
 
 func main() {
@@ -65,7 +70,7 @@ func main() {
 	}
 
 	if *preprocessOnly {
-		preprocessOnly
+		preprocessFile(input, output)
 	} else {
 		CompileFile(input, nil, output)
 	}
