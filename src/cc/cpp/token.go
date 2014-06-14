@@ -4,6 +4,29 @@ import (
 	"fmt"
 )
 
+const (
+	TOK_FOR = 1000
+	TOK_WHILE
+	TOK_DO
+	TOK_IF
+	TOK_GOTO
+	TOK_STRUCT
+	TOK_SIGNED
+	TOK_UNSIGNED
+	TOK_TYPEDEF
+	TOK_RETURN
+	TOK_INT
+	TOK_VOID
+	TOK_SIZEOF
+	TOK_IDENTIFIER
+	TOK_CONSTANT_INT
+	TOK_INC_OP
+	TOK_PTR_OP
+	TOK_OR_OP
+	TOK_AND_OP
+	TOK_EQ_OP
+)
+
 type FilePos struct {
 	File string
 	Line int
@@ -25,7 +48,7 @@ func (tk TokenKind) String() string {
 	case TOK_INT:
 		return "TOK_INT"
 	default:
-		return "Unknown token"
+		return fmt.Sprintf("TOK %c", (int)tk)
 	}
 }
 
@@ -40,29 +63,6 @@ type Token struct {
 func (t Token) String() string {
 	return fmt.Sprintf("%s %s at %s", t.Kind, t.Val, t.Pos)
 }
-
-const (
-	TOK_FOR = iota
-	TOK_WHILE
-	TOK_DO
-	TOK_IF
-	TOK_GOTO
-	TOK_STRUCT
-	TOK_SIGNED
-	TOK_UNSIGNED
-	TOK_TYPEDEF
-	TOK_RETURN
-	TOK_INT
-	TOK_VOID
-	TOK_SIZEOF
-	TOK_IDENTIFIER
-	TOK_CONSTANT_INT
-	TOK_INC_OP
-	TOK_PTR_OP
-	TOK_OR_OP
-	TOK_AND_OP
-	TOK_EQ_OP
-)
 
 var keywordLUT = map[string]TokenKind{
 	"for":      TOK_FOR,
