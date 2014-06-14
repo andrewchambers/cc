@@ -27,7 +27,7 @@ func printUsage() {
 func preprocessFile(sourceFile string, out io.Writer) {
 	_, err := os.Open(sourceFile)
 	if err != nil {
-		fmt.Errorf("Failed to open source file %s for preprocessing: %s", sourceFile, err)
+		fmt.Fprintf(os.Stderr, "Failed to open source file %s for preprocessing: %s\n", sourceFile, err)
 		os.Exit(1)
 	}
 	_ = cpp.New(nil)
@@ -36,7 +36,7 @@ func preprocessFile(sourceFile string, out io.Writer) {
 func tokenizeFile(sourceFile string, out io.Writer) {
 	f, err := os.Open(sourceFile)
 	if err != nil {
-		fmt.Errorf("Failed to open source file %s for preprocessing: %s", sourceFile, err)
+		fmt.Fprintf(os.Stderr, "Failed to open source file %s for preprocessing: %s\n", sourceFile, err)
 		os.Exit(1)
 	}
 	stream := cpp.Lex(sourceFile, f)
@@ -64,7 +64,7 @@ func main() {
 	}
 
 	if flag.NArg() != 1 {
-		fmt.Println("Bad number of args, please specify a single source file.")
+		fmt.Fprintf(os.Stderr, "Bad number of args, please specify a single source file.\n")
 		os.Exit(1)
 	}
 
@@ -77,7 +77,7 @@ func main() {
 	} else {
 		output, err = os.Create(*outputPath)
 		if err != nil {
-			fmt.Errorf("Failed to open output file %s", err)
+			fmt.Fprintf(os.Stderr, "Failed to open output file %s\n", err)
 			os.Exit(1)
 		}
 	}

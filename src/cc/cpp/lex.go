@@ -260,6 +260,7 @@ func (ls *lexerState) readConstantInt() {
 			str := buff.String()
 			ls.sendTok(TOK_CONSTANT_INT, str)
 			ls.col += len(str)
+			break
 		}
 	}
 }
