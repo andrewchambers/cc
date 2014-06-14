@@ -3,7 +3,9 @@ package cpp
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"io"
+	"os"
 )
 
 type lexerState struct {
@@ -20,17 +22,30 @@ type lexerState struct {
 //source file.
 func Lex(fname string, r io.Reader) chan *Token {
 	ls := new(lexerState)
+	ls.file = fname
+	ls.line = 1
+	ls.col = 1
 	ls.stream = make(chan *Token)
 	ls.brdr = bufio.NewReader(r)
 	go ls.lex()
 	return ls.stream
 }
 
+func (ls *lexerState) lexError(e error) {
+	fmt.Fprintf(os.Stderr, "Error while reading file %s line %d column %d. %s", ls.file, ls.line, ls.col, e.Error())
+	os.Exit(1)
+}
+
 func (ls *lexerState) lex() {
-
-	first, _, _ := ls.brdr.ReadRune()
-
+	first, _, err := ls.brdr.ReadRune()
 	for {
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			ls.lexError(err)
+			break
+		}
 		switch {
 		case isAlpha(first) || first == '_':
 			ls.brdr.UnreadRune()
@@ -41,7 +56,108 @@ func (ls *lexerState) lex() {
 		case isWhiteSpace(first):
 			ls.brdr.UnreadRune()
 			ls.skipWhiteSpace()
+		default:
+			switch first {
+			case '#':
+				ls.sendTok('#', "#")
+			case '!':
+				ls.sendTok('!', "!")
+			case '?':
+				ls.sendTok('?', "?")
+			case ':':
+				ls.sendTok(':', ":")
+			//case '"':
+			//	source.UnreadByte()
+			//	ls.stream <- readCString(source)
+			case '(':
+				ls.sendTok('(', "(")
+			case ')':
+				ls.sendTok(')', ")")
+			case '{':
+				ls.sendTok('{', "{")
+			case '}':
+				ls.sendTok('}', "}")
+			case '[':
+				ls.sendTok('[', "[")
+			case ']':
+				ls.sendTok(']', "]")
+			case '<':
+				ls.sendTok('<', "<")
+			case '>':
+				ls.sendTok('>', ">")
+			case '+':
+				second, _, _ := ls.brdr.ReadRune()
+				if second == '+' {
+					ls.sendTok(TOK_INC_OP, "++")
+					break
+				}
+				ls.brdr.UnreadRune()
+				ls.sendTok('+', "+")
+			case '-':
+				second, _, _ := ls.brdr.ReadRune()
+				if second == '>' {
+					ls.sendTok(TOK_PTR_OP, "->")
+					break
+				}
+				ls.brdr.UnreadRune()
+				ls.sendTok('-', "-")
+			case ',':
+				ls.sendTok(',', ",")
+			case '*':
+				ls.sendTok('*', "*")
+			case '/':
+				second, _, _ := ls.brdr.ReadRune()
+				if second == '*' { // C comment
+					for {
+						endChar, _, err := ls.brdr.ReadRune()
+						if err == io.EOF {
+							ls.lexError(fmt.Errorf("Unclosed comment."))
+						}
+						if err != nil {
+							ls.lexError(err)
+						}
+						if endChar == '*' {
+							closeBar, _, _ := ls.brdr.ReadRune()
+							if closeBar == '/' {
+								break
+							}
+						}
+					}
+				} else {
+					ls.sendTok('/', "/")
+				}
+			case '|':
+				second, _, _ := ls.brdr.ReadRune()
+				if second == '|' {
+					ls.sendTok(TOK_OR_OP, "||")
+					break
+				}
+				ls.brdr.UnreadRune()
+				ls.sendTok('|', "|")
+			case '&':
+				second, _, _ := ls.brdr.ReadRune()
+				if second == '&' {
+					ls.sendTok(TOK_AND_OP, "&&")
+					break
+				}
+				ls.brdr.UnreadRune()
+				ls.sendTok('&', "&")
+			case '=':
+				second, _, _ := ls.brdr.ReadRune()
+				if second == '=' {
+					ls.sendTok(TOK_EQ_OP, "==")
+					break
+				}
+				ls.brdr.UnreadRune()
+				ls.sendTok('=', "=")
+			case ';':
+				ls.sendTok(';', ";")
+			default:
+				ls.lexError(fmt.Errorf("Internal Error - bad char code '%d'", first))
+				break
+			}
 		}
+		first, _, err = ls.brdr.ReadRune()
 	}
 	close(ls.stream)
 }
@@ -57,7 +173,6 @@ func isAlpha(b rune) bool {
 	if b >= 'A' && b <= 'Z' {
 		return true
 	}
-
 	return false
 }
 
@@ -76,12 +191,12 @@ func isAlphaNumeric(b rune) bool {
 	return isNumeric(b) || isAlpha(b)
 }
 
-func (ls *lexerState) sendTok(kind TokenKind, val string, line, col int) {
+func (ls *lexerState) sendTok(kind TokenKind, val string) {
 	var tok Token
 	tok.Kind = kind
 	tok.Val = val
-	tok.Pos.Line = line
-	tok.Pos.Col = col
+	tok.Pos.Line = ls.line
+	tok.Pos.Col = ls.col
 	tok.Pos.File = ls.file
 	ls.stream <- &tok
 }
@@ -107,8 +222,9 @@ func (ls *lexerState) readIdentOrKeyword() {
 				tokType = TOK_IDENTIFIER
 			}
 
-			ls.sendTok(tokType, str, ls.line, ls.col)
+			ls.sendTok(tokType, str)
 			ls.col += len(str)
+			break
 		}
 	}
 }
@@ -124,7 +240,7 @@ func (ls *lexerState) skipWhiteSpace() {
 		}
 		if r == '\n' {
 			ls.line += 1
-			ls.col = 0
+			ls.col = 1
 		} else {
 			ls.col += 1
 		}
@@ -142,7 +258,7 @@ func (ls *lexerState) readConstantInt() {
 				ls.brdr.UnreadRune()
 			}
 			str := buff.String()
-			ls.sendTok(TOK_CONSTANT_INT, str, ls.line, ls.col)
+			ls.sendTok(TOK_CONSTANT_INT, str)
 			ls.col += len(str)
 		}
 	}

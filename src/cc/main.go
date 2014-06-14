@@ -33,9 +33,22 @@ func preprocessFile(sourceFile string, out io.Writer) {
 	_ = cpp.New(nil)
 }
 
+func tokenizeFile(sourceFile string, out io.Writer) {
+	f, err := os.Open(sourceFile)
+	if err != nil {
+		fmt.Errorf("Failed to open source file %s for preprocessing: %s", sourceFile, err)
+		os.Exit(1)
+	}
+	stream := cpp.Lex(sourceFile, f)
+	for t := range stream {
+		fmt.Println(*t)
+	}
+}
+
 func main() {
 	flag.Usage = printUsage
 	preprocessOnly := flag.Bool("E", false, "Preprocess only")
+	tokenizeOnly := flag.Bool("T", false, "Tokenize only (For debugging).")
 	version := flag.Bool("version", false, "Print version info and exit.")
 	outputPath := flag.String("o", "-", "File to write output to, - for stdout.")
 	flag.Parse()
@@ -71,6 +84,8 @@ func main() {
 
 	if *preprocessOnly {
 		preprocessFile(input, output)
+	} else if *tokenizeOnly {
+		tokenizeFile(input, output)
 	} else {
 		CompileFile(input, nil, output)
 	}
