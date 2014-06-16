@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	TOK_FOR = 1000
+	TOK_FOR = iota + 256
 	TOK_WHILE
 	TOK_DO
 	TOK_IF
@@ -48,7 +48,7 @@ func (tk TokenKind) String() string {
 	case TOK_INT:
 		return "TOK_INT"
 	default:
-		return fmt.Sprintf("TOK %c", (int)tk)
+		return fmt.Sprintf("TOK %c", int(tk))
 	}
 }
 

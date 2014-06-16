@@ -39,10 +39,17 @@ func tokenizeFile(sourceFile string, out io.Writer) {
 		fmt.Fprintf(os.Stderr, "Failed to open source file %s for preprocessing: %s\n", sourceFile, err)
 		os.Exit(1)
 	}
-	stream := cpp.Lex(sourceFile, f)
-	for t := range stream {
+	//Don't care about cancelling the lexing here.
+	errChan, tokChan := cpp.Lex(sourceFile, f, make(chan struct{}))
+	for t := range tokChan {
 		fmt.Println(*t)
 	}
+	err = <-errChan
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
 }
 
 func main() {

@@ -5,46 +5,70 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"os"
 )
 
 type lexerState struct {
-	file   string
-	brdr   *bufio.Reader
-	line   int
-	col    int
+	file string
+	brdr *bufio.Reader
+	line int
+	col  int
+	//If this channel recieves a value, the lexing goroutines should close
+	//its output channel and its error channel and terminate.
+	cancel chan struct{}
+	errors chan error
 	stream chan *Token
 }
 
 //Lex starts a goroutine which lexes the contents of the reader.
 //fname is used for error messages when showing the source location.
 //No preprocessing is done, this is just pure reading of the unprocessed
-//source file.
-func Lex(fname string, r io.Reader) chan *Token {
+//source file. An error will be sent to the error channel in the event of
+//a lexing error, otherwise tokens will be sent to the Token channel
+func Lex(fname string, r io.Reader, cancel chan struct{}) (chan error, chan *Token) {
 	ls := new(lexerState)
 	ls.file = fname
 	ls.line = 1
 	ls.col = 1
 	ls.stream = make(chan *Token)
+	ls.errors = make(chan error)
 	ls.brdr = bufio.NewReader(r)
+	ls.cancel = cancel
 	go ls.lex()
-	return ls.stream
+	return ls.errors, ls.stream
 }
 
 func (ls *lexerState) lexError(e error) {
-	fmt.Fprintf(os.Stderr, "Error while reading file %s line %d column %d. %s", ls.file, ls.line, ls.col, e.Error())
-	os.Exit(1)
+	eWithPos := fmt.Errorf("Error while reading file %s line %d column %d. %s", ls.file, ls.line, ls.col, e.Error())
+	close(ls.stream)
+	ls.errors <- eWithPos
+	close(ls.errors)
+	//Easy way to quit from an error.
+	panic("error while lexing.")
 }
 
 func (ls *lexerState) lex() {
+
+	//This recovery happens if lexError is called.
+	defer func() {
+		recover()
+	}()
+
 	first, _, err := ls.brdr.ReadRune()
+
 	for {
+
+		//If we get cancelled, quit as if we reached EOF
+		select {
+		case <-ls.cancel:
+			ls.cancelErr()
+		default:
+		}
+
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
 			ls.lexError(err)
-			break
 		}
 		switch {
 		case isAlpha(first) || first == '_':
@@ -154,12 +178,12 @@ func (ls *lexerState) lex() {
 				ls.sendTok(';', ";")
 			default:
 				ls.lexError(fmt.Errorf("Internal Error - bad char code '%d'", first))
-				break
 			}
 		}
 		first, _, err = ls.brdr.ReadRune()
 	}
 	close(ls.stream)
+	close(ls.errors)
 }
 
 func isValidIdentStart(b rune) bool {
@@ -198,7 +222,16 @@ func (ls *lexerState) sendTok(kind TokenKind, val string) {
 	tok.Pos.Line = ls.line
 	tok.Pos.Col = ls.col
 	tok.Pos.File = ls.file
-	ls.stream <- &tok
+	select {
+	case <-ls.cancel:
+		ls.cancelErr()
+	case ls.stream <- &tok:
+		break
+	}
+}
+
+func (ls *lexerState) cancelErr() {
+	ls.lexError(fmt.Errorf("Lexing cancelled"))
 }
 
 func (ls *lexerState) readIdentOrKeyword() {
