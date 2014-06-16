@@ -34,7 +34,7 @@ type FilePos struct {
 }
 
 func (pos FilePos) String() string {
-	return fmt.Sprintf("Position line %d col %d of %s.", pos.Line, pos.Col, pos.File)
+	return fmt.Sprintf("position line %d col %d of %s.", pos.Line, pos.Col, pos.File)
 }
 
 type TokenKind int
@@ -47,8 +47,16 @@ func (tk TokenKind) String() string {
 		return "TOK_FOR"
 	case TOK_INT:
 		return "TOK_INT"
+	case TOK_CONSTANT_INT:
+		return "TOK_CONSTANT_INT"
+	case TOK_RETURN:
+		return "TOK_RETURN"
 	default:
-		return fmt.Sprintf("TOK %c", int(tk))
+		if tk < 256 && tk > 10 {
+			return fmt.Sprintf("TOK %c", tk)
+		} else {
+			return fmt.Sprintf("TOK %d", tk)
+		}
 	}
 }
 
