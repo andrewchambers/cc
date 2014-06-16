@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime/pprof"
 )
 
 func printVersion() {
@@ -46,7 +47,7 @@ func tokenizeFile(sourceFile string, out io.Writer) {
 			if tok == nil {
 				return
 			}
-			fmt.Println(*tok)
+			fmt.Println(tok.Val)
 		case err = <-errChan:
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
@@ -59,9 +60,20 @@ func main() {
 	flag.Usage = printUsage
 	preprocessOnly := flag.Bool("E", false, "Preprocess only")
 	tokenizeOnly := flag.Bool("T", false, "Tokenize only (For debugging).")
+	doProfiling := flag.Bool("P", false, "Profile the compiler (For debugging).")
 	version := flag.Bool("version", false, "Print version info and exit.")
 	outputPath := flag.String("o", "-", "File to write output to, - for stdout.")
 	flag.Parse()
+
+	if *doProfiling {
+		profile, err := os.Create("ccrun.prof")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to open profile file %s: %s\n", profile, err)
+			os.Exit(1)
+		}
+		pprof.StartCPUProfile(profile)
+		defer pprof.StopCPUProfile()
+	}
 
 	if *version {
 		printVersion()
