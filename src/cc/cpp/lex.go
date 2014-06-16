@@ -8,10 +8,8 @@ import (
 )
 
 type lexerState struct {
-	file string
+	pos  FilePos
 	brdr *bufio.Reader
-	line int
-	col  int
 	//If this channel recieves a value, the lexing goroutines should close
 	//its output channel and its error channel and terminate.
 	cancel chan struct{}
@@ -28,9 +26,9 @@ type lexerState struct {
 //and nil is returned from the channel.
 func Lex(fname string, r io.Reader) (chan *Token, chan error) {
 	ls := new(lexerState)
-	ls.file = fname
-	ls.line = 1
-	ls.col = 1
+	ls.pos.File = fname
+	ls.pos.Line = 1
+	ls.pos.Col = 1
 	ls.stream = make(chan *Token)
 	ls.errors = make(chan error)
 	ls.brdr = bufio.NewReader(r)
@@ -39,7 +37,7 @@ func Lex(fname string, r io.Reader) (chan *Token, chan error) {
 }
 
 func (ls *lexerState) lexError(e error) {
-	eWithPos := fmt.Errorf("Error while reading file %s line %d column %d. %s", ls.file, ls.line, ls.col, e.Error())
+	eWithPos := fmt.Errorf("Error while reading %s. %s", ls.pos, e.Error())
 	ls.errors <- eWithPos
 	//recover exits the lexer cleanly
 	panic("error while lexing.")
@@ -182,9 +180,9 @@ func (ls *lexerState) sendTok(kind TokenKind, val string) {
 	var tok Token
 	tok.Kind = kind
 	tok.Val = val
-	tok.Pos.Line = ls.line
-	tok.Pos.Col = ls.col
-	tok.Pos.File = ls.file
+	tok.Pos.Line = ls.pos.Line
+	tok.Pos.Col = ls.pos.Col
+	tok.Pos.File = ls.pos.File
 	ls.stream <- &tok
 }
 
@@ -210,7 +208,7 @@ func (ls *lexerState) readIdentOrKeyword() {
 			}
 
 			ls.sendTok(tokType, str)
-			ls.col += len(str)
+			ls.pos.Col += len(str)
 			break
 		}
 	}
@@ -226,10 +224,10 @@ func (ls *lexerState) skipWhiteSpace() {
 			break
 		}
 		if r == '\n' {
-			ls.line += 1
-			ls.col = 1
+			ls.pos.Line += 1
+			ls.pos.Col = 1
 		} else {
-			ls.col += 1
+			ls.pos.Col += 1
 		}
 	}
 }
@@ -246,7 +244,7 @@ func (ls *lexerState) readConstantInt() {
 			}
 			str := buff.String()
 			ls.sendTok(TOK_CONSTANT_INT, str)
-			ls.col += len(str)
+			ls.pos.Col += len(str)
 			break
 		}
 	}

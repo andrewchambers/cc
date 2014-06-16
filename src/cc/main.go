@@ -46,9 +46,9 @@ func tokenizeFile(sourceFile string, out io.WriteCloser) {
 		case tok := <-tokChan:
 			if tok == nil {
 				out.Close()
-				return
+				os.Exit(0)
 			}
-			fmt.Fprintln(out, *tok)
+			fmt.Fprintf(out, "%s:%s:%d:%d\n", tok.Kind, tok.Val, tok.Pos.Line, tok.Pos.Col)
 		case err = <-errChan:
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
