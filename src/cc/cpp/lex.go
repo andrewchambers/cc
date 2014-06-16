@@ -81,9 +81,9 @@ func (ls *lexerState) lex() {
 				ls.sendTok('?', "?")
 			case ':':
 				ls.sendTok(':', ":")
-			//case '"':
-			//	source.UnreadByte()
-			//	ls.stream <- readCString(source)
+			case '"':
+				ls.brdr.UnreadByte()
+				ls.readCString()
 			case '(':
 				ls.sendTok('(', "(")
 			case ')':
@@ -108,6 +108,8 @@ func (ls *lexerState) lex() {
 				}
 				ls.brdr.UnreadRune()
 				ls.sendTok('+', "+")
+			case '.':
+				ls.sendTok('.', ".")
 			case '-':
 				second, _, _ := ls.brdr.ReadRune()
 				if second == '>' {
@@ -250,19 +252,29 @@ func (ls *lexerState) readConstantInt() {
 	}
 }
 
-/*func readCString(source *bufio.Reader) *cparse.Token {
-	first, _ := source.ReadByte()
+func (ls *lexerState) readCString() {
+	first, _, err := ls.brdr.ReadRune()
+
+	if err != nil {
+		ls.lexError(err)
+	}
+
 	if first != '"' {
-		panic("internal error")
+		ls.lexError(fmt.Errorf("internal error"))
 	}
 
 	escaped := false
 	for {
-		b, _ := source.ReadByte()
+		b, _, err := ls.brdr.ReadRune()
+		if err == io.EOF {
+			ls.lexError(fmt.Errorf("Unterminated string literal."))
+		}
+		if err != nil {
+			ls.lexError(err)
+		}
 		if b == '"' && !escaped {
 			break
 		}
-
 		if !escaped {
 			if b == '\\' {
 				escaped = true
@@ -271,9 +283,8 @@ func (ls *lexerState) readConstantInt() {
 			escaped = false
 		}
 	}
-	//XXX
-	return makeTok(cparse.STRING_LITERAL, "", 0)
-}*/
+	ls.sendTok(TOK_STRING, "")
+}
 
 func isValidIdentStart(b rune) bool {
 	return b == '_' || isAlpha(b)
