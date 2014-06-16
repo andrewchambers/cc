@@ -22,9 +22,11 @@ type lexerState struct {
 //Lex starts a goroutine which lexes the contents of the reader.
 //fname is used for error messages when showing the source location.
 //No preprocessing is done, this is just pure reading of the unprocessed
-//source file. An error will be sent to the error channel in the event of
-//a lexing error, otherwise tokens will be sent to the Token channel
-func Lex(fname string, r io.Reader, cancel chan struct{}) (chan error, chan *Token) {
+//source file. returns 2 channels, tokens and errors.
+//On error the goroutine will return.
+//Otherwise the goroutine will not stop until all tokens are read
+//and nil is returned from the channel.
+func Lex(fname string, r io.Reader) (chan *Token, chan error) {
 	ls := new(lexerState)
 	ls.file = fname
 	ls.line = 1
@@ -32,17 +34,14 @@ func Lex(fname string, r io.Reader, cancel chan struct{}) (chan error, chan *Tok
 	ls.stream = make(chan *Token)
 	ls.errors = make(chan error)
 	ls.brdr = bufio.NewReader(r)
-	ls.cancel = cancel
 	go ls.lex()
-	return ls.errors, ls.stream
+	return ls.stream, ls.errors
 }
 
 func (ls *lexerState) lexError(e error) {
 	eWithPos := fmt.Errorf("Error while reading file %s line %d column %d. %s", ls.file, ls.line, ls.col, e.Error())
-	close(ls.stream)
 	ls.errors <- eWithPos
-	close(ls.errors)
-	//Easy way to quit from an error.
+	//recover exits the lexer cleanly
 	panic("error while lexing.")
 }
 
@@ -56,14 +55,6 @@ func (ls *lexerState) lex() {
 	first, _, err := ls.brdr.ReadRune()
 
 	for {
-
-		//If we get cancelled, quit as if we reached EOF
-		select {
-		case <-ls.cancel:
-			ls.cancelErr()
-		default:
-		}
-
 		if err == io.EOF {
 			break
 		}
@@ -183,36 +174,6 @@ func (ls *lexerState) lex() {
 		first, _, err = ls.brdr.ReadRune()
 	}
 	close(ls.stream)
-	close(ls.errors)
-}
-
-func isValidIdentStart(b rune) bool {
-	return b == '_' || isAlpha(b)
-}
-
-func isAlpha(b rune) bool {
-	if b >= 'a' && b <= 'z' {
-		return true
-	}
-	if b >= 'A' && b <= 'Z' {
-		return true
-	}
-	return false
-}
-
-func isWhiteSpace(b rune) bool {
-	return b == ' ' || b == '\r' || b == '\n' || b == '\t'
-}
-
-func isNumeric(b rune) bool {
-	if b >= '0' && b <= '9' {
-		return true
-	}
-	return false
-}
-
-func isAlphaNumeric(b rune) bool {
-	return isNumeric(b) || isAlpha(b)
 }
 
 func (ls *lexerState) sendTok(kind TokenKind, val string) {
@@ -222,16 +183,7 @@ func (ls *lexerState) sendTok(kind TokenKind, val string) {
 	tok.Pos.Line = ls.line
 	tok.Pos.Col = ls.col
 	tok.Pos.File = ls.file
-	select {
-	case <-ls.cancel:
-		ls.cancelErr()
-	case ls.stream <- &tok:
-		break
-	}
-}
-
-func (ls *lexerState) cancelErr() {
-	ls.lexError(fmt.Errorf("Lexing cancelled"))
+	ls.stream <- &tok
 }
 
 func (ls *lexerState) readIdentOrKeyword() {
@@ -322,3 +274,32 @@ func (ls *lexerState) readConstantInt() {
 	//XXX
 	return makeTok(cparse.STRING_LITERAL, "", 0)
 }*/
+
+func isValidIdentStart(b rune) bool {
+	return b == '_' || isAlpha(b)
+}
+
+func isAlpha(b rune) bool {
+	if b >= 'a' && b <= 'z' {
+		return true
+	}
+	if b >= 'A' && b <= 'Z' {
+		return true
+	}
+	return false
+}
+
+func isWhiteSpace(b rune) bool {
+	return b == ' ' || b == '\r' || b == '\n' || b == '\t'
+}
+
+func isNumeric(b rune) bool {
+	if b >= '0' && b <= '9' {
+		return true
+	}
+	return false
+}
+
+func isAlphaNumeric(b rune) bool {
+	return isNumeric(b) || isAlpha(b)
+}
