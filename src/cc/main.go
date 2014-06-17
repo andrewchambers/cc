@@ -34,7 +34,7 @@ func preprocessFile(sourceFile string, out io.Writer) {
 	_ = cpp.New(nil)
 }
 
-func tokenizeFile(sourceFile string, out io.Writer) {
+func tokenizeFile(sourceFile string, out io.WriteCloser) {
 	f, err := os.Open(sourceFile)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to open source file %s for preprocessing: %s\n", sourceFile, err)
@@ -45,9 +45,10 @@ func tokenizeFile(sourceFile string, out io.Writer) {
 		select {
 		case tok := <-tokChan:
 			if tok == nil {
-				return
+				out.Close()
+				os.Exit(0)
 			}
-			fmt.Println(tok.Val)
+			fmt.Fprintf(out, "%s:%s:%d:%d\n", tok.Kind, tok.Val, tok.Pos.Line, tok.Pos.Col)
 		case err = <-errChan:
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
@@ -91,7 +92,7 @@ func main() {
 	}
 
 	input := flag.Args()[0]
-	var output io.Writer
+	var output io.WriteCloser
 	var err error
 
 	if *outputPath == "-" {
