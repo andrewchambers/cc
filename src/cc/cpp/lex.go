@@ -74,52 +74,52 @@ func (ls *lexerState) lex() {
 			case '#':
 				ls.sendTok('#', "#")
 			case '!':
-				ls.sendTok('!', "!")
+				ls.sendTok(NOT, "!")
 			case '?':
 				ls.sendTok('?', "?")
 			case ':':
-				ls.sendTok(':', ":")
+				ls.sendTok(COLON, ":")
 			case '"':
 				ls.brdr.UnreadByte()
 				ls.readCString()
 			case '(':
-				ls.sendTok('(', "(")
+				ls.sendTok(LPAREN, "(")
 			case ')':
-				ls.sendTok(')', ")")
+				ls.sendTok(RPAREN, ")")
 			case '{':
-				ls.sendTok('{', "{")
+				ls.sendTok(LBRACE, "{")
 			case '}':
-				ls.sendTok('}', "}")
+				ls.sendTok(RBRACE, "}")
 			case '[':
-				ls.sendTok('[', "[")
+				ls.sendTok(LBRACK, "[")
 			case ']':
-				ls.sendTok(']', "]")
+				ls.sendTok(RBRACE, "]")
 			case '<':
-				ls.sendTok('<', "<")
+				ls.sendTok(LSS, "<")
 			case '>':
-				ls.sendTok('>', ">")
+				ls.sendTok(GTR, ">")
 			case '+':
 				second, _, _ := ls.brdr.ReadRune()
 				if second == '+' {
-					ls.sendTok(TOK_INC_OP, "++")
+					ls.sendTok(INC, "++")
 					break
 				}
 				ls.brdr.UnreadRune()
-				ls.sendTok('+', "+")
+				ls.sendTok(ADD, "+")
 			case '.':
-				ls.sendTok('.', ".")
+				ls.sendTok(PERIOD, ".")
 			case '-':
 				second, _, _ := ls.brdr.ReadRune()
 				if second == '>' {
-					ls.sendTok(TOK_PTR_OP, "->")
+					ls.sendTok(ARROW, "->")
 					break
 				}
 				ls.brdr.UnreadRune()
-				ls.sendTok('-', "-")
+				ls.sendTok(SUB, "-")
 			case ',':
-				ls.sendTok(',', ",")
+				ls.sendTok(COMMA, ",")
 			case '*':
-				ls.sendTok('*', "*")
+				ls.sendTok(MUL, "*")
 			case '/':
 				second, _, _ := ls.brdr.ReadRune()
 				if second == '*' { // C comment
@@ -139,34 +139,34 @@ func (ls *lexerState) lex() {
 						}
 					}
 				} else {
-					ls.sendTok('/', "/")
+					ls.sendTok(QUO, "/")
 				}
 			case '|':
 				second, _, _ := ls.brdr.ReadRune()
 				if second == '|' {
-					ls.sendTok(TOK_OR_OP, "||")
+					ls.sendTok(LOR, "||")
 					break
 				}
 				ls.brdr.UnreadRune()
-				ls.sendTok('|', "|")
+				ls.sendTok(OR, "|")
 			case '&':
 				second, _, _ := ls.brdr.ReadRune()
 				if second == '&' {
-					ls.sendTok(TOK_AND_OP, "&&")
+					ls.sendTok(LAND, "&&")
 					break
 				}
 				ls.brdr.UnreadRune()
-				ls.sendTok('&', "&")
+				ls.sendTok(AND, "&")
 			case '=':
 				second, _, _ := ls.brdr.ReadRune()
 				if second == '=' {
-					ls.sendTok(TOK_EQ_OP, "==")
+					ls.sendTok(EQL, "==")
 					break
 				}
 				ls.brdr.UnreadRune()
-				ls.sendTok('=', "=")
+				ls.sendTok(ASSIGN, "=")
 			case ';':
-				ls.sendTok(';', ";")
+				ls.sendTok(SEMICOLON, ";")
 			default:
 				ls.lexError(fmt.Errorf("Internal Error - bad char code '%d'", first))
 			}
@@ -204,7 +204,7 @@ func (ls *lexerState) readIdentOrKeyword() {
 			str := buff.String()
 			tokType, ok := keywordLUT[str]
 			if !ok {
-				tokType = TOK_IDENTIFIER
+				tokType = IDENT
 			}
 
 			ls.sendTok(tokType, str)
@@ -243,7 +243,7 @@ func (ls *lexerState) readConstantInt() {
 				ls.brdr.UnreadRune()
 			}
 			str := buff.String()
-			ls.sendTok(TOK_CONSTANT_INT, str)
+			ls.sendTok(INT_CONSTANT, str)
 			ls.pos.Col += len(str)
 			break
 		}
@@ -281,7 +281,7 @@ func (ls *lexerState) readCString() {
 			escaped = false
 		}
 	}
-	ls.sendTok(TOK_STRING, "")
+	ls.sendTok(STRING, "")
 }
 
 func isValidIdentStart(b rune) bool {

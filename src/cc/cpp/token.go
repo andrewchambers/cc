@@ -4,29 +4,193 @@ import (
 	"fmt"
 )
 
+type TokenKind uint32
+
+// The list of tokens.
 const (
-	TOK_FOR = iota + 256
-	TOK_WHILE
-	TOK_DO
-	TOK_IF
-	TOK_GOTO
-	TOK_STRUCT
-	TOK_SIGNED
-	TOK_UNSIGNED
-	TOK_TYPEDEF
-	TOK_RETURN
-	TOK_INT
-	TOK_VOID
-	TOK_SIZEOF
-	TOK_IDENTIFIER
-	TOK_CONSTANT_INT
-	TOK_STRING
-	TOK_INC_OP
-	TOK_PTR_OP
-	TOK_OR_OP
-	TOK_AND_OP
-	TOK_EQ_OP
+	literal_beg = iota
+	// Identifiers and basic type literals
+	// (these tokens stand for classes of literals)
+	IDENT          // main
+	INT_CONSTANT   // 12345
+	FLOAT_CONSTANT // 123.45
+	CHAR           // 'a'
+	STRING         // "abc"
+	literal_end
+
+	operator_beg
+	// Operators and delimiters
+	ADD // +
+	SUB // -
+	MUL // *
+	QUO // /
+	REM // %
+
+	AND // &
+	OR  // |
+	XOR // ^
+	SHL // <<
+	SHR // >>
+
+	ADD_ASSIGN // +=
+	SUB_ASSIGN // -=
+	MUL_ASSIGN // *=
+	QUO_ASSIGN // /=
+	REM_ASSIGN // %=
+
+	AND_ASSIGN // &=
+	OR_ASSIGN  // |=
+	XOR_ASSIGN // ^=
+	SHL_ASSIGN // <<=
+	SHR_ASSIGN // >>=
+
+	LAND  // &&
+	LOR   // ||
+	ARROW // ->
+	INC   // ++
+	DEC   // --
+
+	EQL    // ==
+	LSS    // <
+	GTR    // >
+	ASSIGN // =
+	NOT    // !
+
+	NEQ      // !=
+	LEQ      // <=
+	GEQ      // >=
+	ELLIPSIS // ...
+
+	LPAREN // (
+	LBRACK // [
+	LBRACE // {
+	COMMA  // ,
+	PERIOD // .
+
+	RPAREN    // )
+	RBRACK    // ]
+	RBRACE    // }
+	SEMICOLON // ;
+	COLON     // :
+	operator_end
+
+	keyword_beg
+	// Keywords
+	BREAK
+	CASE
+	DO
+	CONST
+	CONTINUE
+	DEFAULT
+	ELSE
+	FOR
+	WHILE
+	GOTO
+	IF
+	RETURN
+	STRUCT
+	SWITCH
+	TYPEDEF
+	SIZEOF
+	VOID
+	INT
+	FLOAT
+	DOUBLE
+	SIGNED
+	UNSIGNED
+	LONG
+
+	keyword_end
 )
+
+var tokenKindToStr = [...]string{
+	INT_CONSTANT: "intconst",
+	IDENT:        "ident",
+	INT:          "int",
+	LONG:         "long",
+	SIGNED:       "signed",
+	UNSIGNED:     "unsigned",
+	FLOAT:        "float",
+	DOUBLE:       "double",
+	CHAR:         "char",
+	STRING:       "string",
+	ADD:          "+",
+	SUB:          "-",
+	MUL:          "*",
+	QUO:          "/",
+	REM:          "%",
+	AND:          "&",
+	OR:           "|",
+	XOR:          "^",
+	SHL:          "<<",
+	SHR:          ">>",
+	ADD_ASSIGN:   "+=",
+	SUB_ASSIGN:   "-=",
+	MUL_ASSIGN:   "*=",
+	QUO_ASSIGN:   "/=",
+	REM_ASSIGN:   "%=",
+	AND_ASSIGN:   "&=",
+	OR_ASSIGN:    "|=",
+	XOR_ASSIGN:   "^=",
+	SHL_ASSIGN:   "<<=",
+	SHR_ASSIGN:   ">>=",
+	LAND:         "&&",
+	LOR:          "||",
+	ARROW:        "<-",
+	INC:          "++",
+	DEC:          "--",
+	EQL:          "==",
+	LSS:          "<",
+	GTR:          ">",
+	ASSIGN:       "=",
+	NOT:          "!",
+	NEQ:          "!=",
+	LEQ:          "<=",
+	GEQ:          ">=",
+	ELLIPSIS:     "...",
+	LPAREN:       "(",
+	LBRACK:       "[",
+	LBRACE:       "{",
+	COMMA:        ",",
+	PERIOD:       ".",
+	RPAREN:       ")",
+	RBRACK:       "]",
+	RBRACE:       "}",
+	SEMICOLON:    ";",
+	COLON:        ":",
+	SIZEOF:       "sizeof",
+	TYPEDEF:      "typedef",
+	BREAK:        "break",
+	CASE:         "case",
+	CONST:        "const",
+	CONTINUE:     "continue",
+	DEFAULT:      "default",
+	ELSE:         "else",
+	FOR:          "for",
+	DO:           "do",
+	WHILE:        "while",
+	GOTO:         "goto",
+	IF:           "if",
+	RETURN:       "return",
+	STRUCT:       "struct",
+	SWITCH:       "switch",
+}
+
+var keywordLUT = map[string]TokenKind{
+	"for":      FOR,
+	"while":    WHILE,
+	"do":       DO,
+	"if":       IF,
+	"goto":     GOTO,
+	"struct":   STRUCT,
+	"signed":   SIGNED,
+	"unsigned": UNSIGNED,
+	"typedef":  TYPEDEF,
+	"return":   RETURN,
+	"int":      INT,
+	"void":     VOID,
+	"sizeof":   SIZEOF,
+}
 
 type FilePos struct {
 	File string
@@ -38,27 +202,15 @@ func (pos FilePos) String() string {
 	return fmt.Sprintf("%s:%d:%d", pos.File, pos.Line, pos.Col)
 }
 
-type TokenKind int
-
 func (tk TokenKind) String() string {
-	switch tk {
-	case TOK_IDENTIFIER:
-		return "TOK_IDENTIFIER"
-	case TOK_FOR:
-		return "TOK_FOR"
-	case TOK_INT:
-		return "TOK_INT"
-	case TOK_CONSTANT_INT:
-		return "TOK_CONSTANT_INT"
-	case TOK_RETURN:
-		return "TOK_RETURN"
-	default:
-		if tk < 256 && tk > 10 {
-			return fmt.Sprintf("%c", tk)
-		} else {
-			return fmt.Sprintf("TOK %d", tk)
-		}
+	if uint32(tk) >= uint32(len(tokenKindToStr)) {
+		return "Unknown"
 	}
+	ret := tokenKindToStr[tk]
+	if ret == "" {
+		return "Unknown"
+	}
+	return ret
 }
 
 //Token represents a grouping of characters
@@ -71,20 +223,4 @@ type Token struct {
 
 func (t Token) String() string {
 	return fmt.Sprintf("%s %s at %s", t.Kind, t.Val, t.Pos)
-}
-
-var keywordLUT = map[string]TokenKind{
-	"for":      TOK_FOR,
-	"while":    TOK_WHILE,
-	"do":       TOK_DO,
-	"if":       TOK_IF,
-	"goto":     TOK_GOTO,
-	"struct":   TOK_STRUCT,
-	"signed":   TOK_SIGNED,
-	"unsigned": TOK_UNSIGNED,
-	"typedef":  TOK_TYPEDEF,
-	"return":   TOK_RETURN,
-	"int":      TOK_INT,
-	"void":     TOK_VOID,
-	"sizeof":   TOK_SIZEOF,
 }
