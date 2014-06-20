@@ -13,41 +13,45 @@ type lexerState struct {
 	//If this channel recieves a value, the lexing goroutines should close
 	//its output channel and its error channel and terminate.
 	cancel chan struct{}
-	errors chan error
 	stream chan *Token
+}
+
+type breakout struct {
 }
 
 //Lex starts a goroutine which lexes the contents of the reader.
 //fname is used for error messages when showing the source location.
 //No preprocessing is done, this is just pure reading of the unprocessed
-//source file. returns 2 channels, tokens and errors.
-//On error the goroutine will return.
-//Otherwise the goroutine will not stop until all tokens are read
-//and nil is returned from the channel.
-func Lex(fname string, r io.Reader) (chan *Token, chan error) {
+//source file.
+//The goroutine will not stop until all tokens are read
+func Lex(fname string, r io.Reader) chan *Token {
 	ls := new(lexerState)
 	ls.pos.File = fname
 	ls.pos.Line = 1
 	ls.pos.Col = 1
 	ls.stream = make(chan *Token)
-	ls.errors = make(chan error)
 	ls.brdr = bufio.NewReader(r)
 	go ls.lex()
-	return ls.stream, ls.errors
+	return ls.stream
 }
 
 func (ls *lexerState) lexError(e error) {
-	eWithPos := fmt.Errorf("Error while reading %s. %s", ls.pos, e.Error())
-	ls.errors <- eWithPos
+	eWithPos := fmt.Sprintf("Error while reading %s. %s", ls.pos, e.Error())
+	ls.sendTok(ERROR, eWithPos)
+	close(ls.stream)
 	//recover exits the lexer cleanly
-	panic("error while lexing.")
+	panic(&breakout{})
 }
 
 func (ls *lexerState) lex() {
 
 	//This recovery happens if lexError is called.
 	defer func() {
-		recover()
+		//XXX is this correct way to retrigger non breakout?
+		if e := recover(); e != nil {
+			_ = e.(breakout) // Will re-panic if not a parse error.
+		}
+
 	}()
 
 	first, _, err := ls.brdr.ReadRune()
@@ -168,7 +172,7 @@ func (ls *lexerState) lex() {
 			case ';':
 				ls.sendTok(SEMICOLON, ";")
 			default:
-				ls.lexError(fmt.Errorf("Internal Error - bad char code '%d'", first))
+				//ls.lexError(fmt.Errorf("Internal Error - bad char code '%d'", first))
 			}
 		}
 		first, _, err = ls.brdr.ReadRune()
