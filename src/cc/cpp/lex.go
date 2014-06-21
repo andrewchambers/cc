@@ -129,7 +129,7 @@ func (ls *lexerState) lex() {
 				ls.sendTok(MUL, "*")
 			case '/':
 				second, _, _ := ls.brdr.ReadRune()
-				if second == '*' { // C comment
+				if second == '*' { // C comment.
 					for {
 						endChar, _, err := ls.brdr.ReadRune()
 						if err == io.EOF {
@@ -143,6 +143,16 @@ func (ls *lexerState) lex() {
 							if closeBar == '/' {
 								break
 							}
+						}
+					}
+				} else if second == '/' { // C++ comment.
+					for {
+						c, _, err := ls.brdr.ReadRune()
+						if err != nil {
+							break
+						}
+						if c == '\n' {
+							break
 						}
 					}
 				} else {
