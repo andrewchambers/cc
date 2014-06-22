@@ -168,7 +168,7 @@ func (ls *lexerState) lex() {
 			case ';':
 				ls.sendTok(SEMICOLON, ";")
 			default:
-				ls.lexError(fmt.Errorf("Internal Error - bad char code '%d'", first))
+				//ls.lexError(fmt.Errorf("Internal Error - bad char code '%d'", first))
 			}
 		}
 		first, _, err = ls.brdr.ReadRune()
@@ -184,6 +184,7 @@ func (ls *lexerState) sendTok(kind TokenKind, val string) {
 	tok.Pos.Col = ls.pos.Col
 	tok.Pos.File = ls.pos.File
 	ls.stream <- &tok
+	ls.pos.Col += len(val)
 }
 
 func (ls *lexerState) readIdentOrKeyword() {
@@ -208,7 +209,6 @@ func (ls *lexerState) readIdentOrKeyword() {
 			}
 
 			ls.sendTok(tokType, str)
-			ls.pos.Col += len(str)
 			break
 		}
 	}
@@ -244,15 +244,14 @@ func (ls *lexerState) readConstantInt() {
 			}
 			str := buff.String()
 			ls.sendTok(INT_CONSTANT, str)
-			ls.pos.Col += len(str)
 			break
 		}
 	}
 }
 
 func (ls *lexerState) readCString() {
+	var buff bytes.Buffer
 	first, _, err := ls.brdr.ReadRune()
-
 	if err != nil {
 		ls.lexError(err)
 	}
@@ -260,6 +259,7 @@ func (ls *lexerState) readCString() {
 	if first != '"' {
 		ls.lexError(fmt.Errorf("internal error"))
 	}
+	buff.WriteRune('"')
 
 	escaped := false
 	for {
