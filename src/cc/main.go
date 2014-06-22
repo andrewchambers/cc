@@ -40,21 +40,19 @@ func tokenizeFile(sourceFile string, out io.WriteCloser) {
 		fmt.Fprintf(os.Stderr, "Failed to open source file %s for preprocessing: %s\n", sourceFile, err)
 		os.Exit(1)
 	}
-	tokChan, errChan := cpp.Lex(sourceFile, f)
-	for {
-		select {
-		case tok := <-tokChan:
-			if tok == nil {
-				out.Close()
-				os.Exit(0)
-			}
-			fmt.Fprintf(out, "%s:%s:%d:%d\n", tok.Kind, tok.Val, tok.Pos.Line, tok.Pos.Col)
-		case err = <-errChan:
-			fmt.Fprintln(os.Stderr, err)
+	tokChan := cpp.Lex(sourceFile, f)
+	for tok := range tokChan {
+		if tok == nil {
+			out.Close()
+			return
+		}
+		if tok.Kind == cpp.ERROR {
+			out.Close()
+			fmt.Fprintln(os.Stderr, tok.Val)
 			os.Exit(1)
 		}
+		fmt.Fprintf(out, "%s:%s:%d:%d\n", tok.Kind, tok.Val, tok.Pos.Line, tok.Pos.Col)
 	}
-
 }
 
 func main() {

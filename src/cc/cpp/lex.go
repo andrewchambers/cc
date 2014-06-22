@@ -10,44 +10,51 @@ import (
 type lexerState struct {
 	pos  FilePos
 	brdr *bufio.Reader
+	//At the beginning on line not including whitespace
+	bol bool
 	//If this channel recieves a value, the lexing goroutines should close
 	//its output channel and its error channel and terminate.
 	cancel chan struct{}
-	errors chan error
 	stream chan *Token
+}
+
+type breakout struct {
 }
 
 //Lex starts a goroutine which lexes the contents of the reader.
 //fname is used for error messages when showing the source location.
 //No preprocessing is done, this is just pure reading of the unprocessed
-//source file. returns 2 channels, tokens and errors.
-//On error the goroutine will return.
-//Otherwise the goroutine will not stop until all tokens are read
-//and nil is returned from the channel.
-func Lex(fname string, r io.Reader) (chan *Token, chan error) {
+//source file.
+//The goroutine will not stop until all tokens are read
+func Lex(fname string, r io.Reader) chan *Token {
 	ls := new(lexerState)
 	ls.pos.File = fname
 	ls.pos.Line = 1
 	ls.pos.Col = 1
 	ls.stream = make(chan *Token)
-	ls.errors = make(chan error)
 	ls.brdr = bufio.NewReader(r)
+	ls.bol = true
 	go ls.lex()
-	return ls.stream, ls.errors
+	return ls.stream
 }
 
 func (ls *lexerState) lexError(e error) {
-	eWithPos := fmt.Errorf("Error while reading %s. %s", ls.pos, e.Error())
-	ls.errors <- eWithPos
+	eWithPos := fmt.Sprintf("Error while reading %s. %s", ls.pos, e.Error())
+	ls.sendTok(ERROR, eWithPos)
+	close(ls.stream)
 	//recover exits the lexer cleanly
-	panic("error while lexing.")
+	panic(&breakout{})
 }
 
 func (ls *lexerState) lex() {
 
 	//This recovery happens if lexError is called.
 	defer func() {
-		recover()
+		//XXX is this correct way to retrigger non breakout?
+		if e := recover(); e != nil {
+			_ = e.(breakout) // Will re-panic if not a parse error.
+		}
+
 	}()
 
 	first, _, err := ls.brdr.ReadRune()
@@ -72,7 +79,7 @@ func (ls *lexerState) lex() {
 		default:
 			switch first {
 			case '#':
-				ls.sendTok('#', "#")
+				ls.readDirective()
 			case '!':
 				ls.sendTok(NOT, "!")
 			case '?':
@@ -80,7 +87,7 @@ func (ls *lexerState) lex() {
 			case ':':
 				ls.sendTok(COLON, ":")
 			case '"':
-				ls.brdr.UnreadByte()
+				ls.brdr.UnreadRune()
 				ls.readCString()
 			case '(':
 				ls.sendTok(LPAREN, "(")
@@ -122,7 +129,7 @@ func (ls *lexerState) lex() {
 				ls.sendTok(MUL, "*")
 			case '/':
 				second, _, _ := ls.brdr.ReadRune()
-				if second == '*' { // C comment
+				if second == '*' { // C comment.
 					for {
 						endChar, _, err := ls.brdr.ReadRune()
 						if err == io.EOF {
@@ -136,6 +143,16 @@ func (ls *lexerState) lex() {
 							if closeBar == '/' {
 								break
 							}
+						}
+					}
+				} else if second == '/' { // C++ comment.
+					for {
+						c, _, err := ls.brdr.ReadRune()
+						if err != nil {
+							break
+						}
+						if c == '\n' {
+							break
 						}
 					}
 				} else {
@@ -183,8 +200,35 @@ func (ls *lexerState) sendTok(kind TokenKind, val string) {
 	tok.Pos.Line = ls.pos.Line
 	tok.Pos.Col = ls.pos.Col
 	tok.Pos.File = ls.pos.File
+	ls.bol = false
 	ls.stream <- &tok
 	ls.pos.Col += len(val)
+}
+
+func (ls *lexerState) readDirective() {
+
+	if !ls.isAtLineStart() {
+		ls.lexError(fmt.Errorf("Directive not at beginning of line."))
+	}
+
+	//Skip
+	for {
+		ws, _, err := ls.brdr.ReadRune()
+		if err != nil {
+			ls.lexError(err)
+		}
+
+		if ws == ' ' || ws == '\t' {
+			continue
+		}
+
+		if ws == '\n' {
+			ls.lexError(fmt.Errorf("Empty directive"))
+		}
+
+		break
+	}
+
 }
 
 func (ls *lexerState) readIdentOrKeyword() {
@@ -282,6 +326,10 @@ func (ls *lexerState) readCString() {
 		}
 	}
 	ls.sendTok(STRING, "")
+}
+
+func (ls *lexerState) isAtLineStart() bool {
+	return ls.bol
 }
 
 func isValidIdentStart(b rune) bool {

@@ -8,7 +8,7 @@ type TokenKind uint32
 
 // The list of tokens.
 const (
-	literal_beg = iota
+	ERROR = iota
 	// Identifiers and basic type literals
 	// (these tokens stand for classes of literals)
 	IDENT          // main
@@ -16,7 +16,6 @@ const (
 	FLOAT_CONSTANT // 123.45
 	CHAR           // 'a'
 	STRING         // "abc"
-	literal_end
 
 	operator_beg
 	// Operators and delimiters
