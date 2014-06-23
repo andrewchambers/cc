@@ -38,8 +38,8 @@ func Lex(fname string, r io.Reader) chan *Token {
 	return ls.stream
 }
 
-func (ls *lexerState) lexError(e error) {
-	eWithPos := fmt.Sprintf("Error while reading %s. %s", ls.pos, e.Error())
+func (ls *lexerState) lexError(e string) {
+	eWithPos := fmt.Sprintf("Error while reading %s. %s", ls.pos, e)
 	ls.sendTok(ERROR, eWithPos)
 	close(ls.stream)
 	//recover exits the lexer cleanly
@@ -64,7 +64,7 @@ func (ls *lexerState) lex() {
 			break
 		}
 		if err != nil {
-			ls.lexError(err)
+			ls.lexError(err.Error())
 		}
 		switch {
 		case isAlpha(first) || first == '_':
@@ -133,10 +133,10 @@ func (ls *lexerState) lex() {
 					for {
 						endChar, _, err := ls.brdr.ReadRune()
 						if err == io.EOF {
-							ls.lexError(fmt.Errorf("Unclosed comment."))
+							ls.lexError("unclosed comment.")
 						}
 						if err != nil {
-							ls.lexError(err)
+							ls.lexError(err.Error())
 						}
 						if endChar == '*' {
 							closeBar, _, _ := ls.brdr.ReadRune()
@@ -208,25 +208,70 @@ func (ls *lexerState) sendTok(kind TokenKind, val string) {
 func (ls *lexerState) readDirective() {
 
 	if !ls.isAtLineStart() {
-		ls.lexError(fmt.Errorf("Directive not at beginning of line."))
+		ls.lexError("Directive not at beginning of line.")
 	}
 
-	//Skip
+	directiveLine := ls.pos.Line
+	ls.skipWhiteSpace()
+	if ls.pos.Line != directiveLine {
+		ls.lexError("Empty directive")
+	}
+	var buff bytes.Buffer
+	directiveChar, _, err := ls.brdr.ReadRune()
+	if err != nil && err != io.EOF {
+		ls.lexError(fmt.Sprintf("Error reading directive %s", err.Error()))
+	}
+	if isAlpha(directiveChar) {
+		for isAlpha(directiveChar) {
+			buff.WriteRune(directiveChar)
+			directiveChar, _, err = ls.brdr.ReadRune()
+		}
+		directive := buff.String()
+		ls.brdr.UnreadRune()
+		if directive == "include" {
+			ls.readHeaderInclude()
+		}
+	} else {
+		//wasnt a directive, error will be caught by
+		//cpp or parser.
+		ls.brdr.UnreadRune()
+	}
+
+}
+
+func (ls *lexerState) readHeaderInclude() {
+	var buff bytes.Buffer
+	line := ls.pos.Line
+	ls.skipWhiteSpace()
+	if ls.pos.Line != line {
+		ls.lexError("No header after include.")
+	}
+	opening, _, _ := ls.brdr.ReadRune()
+	var terminator rune
+	if opening == '"' {
+		terminator = '"'
+	} else if opening == '<' {
+		terminator = '>'
+	} else {
+		ls.lexError("bad start to header include.")
+	}
+
 	for {
-		ws, _, err := ls.brdr.ReadRune()
+		c, _, err := ls.brdr.ReadRune()
+		if err == io.EOF {
+			ls.lexError("EOF encountered in header include.")
+		}
 		if err != nil {
-			ls.lexError(err)
+			ls.lexError(err.Error())
 		}
 
-		if ws == ' ' || ws == '\t' {
-			continue
+		if c == '\n' {
+			ls.lexError("new line in header include.")
 		}
-
-		if ws == '\n' {
-			ls.lexError(fmt.Errorf("Empty directive"))
+		if c == terminator {
+			break
 		}
-
-		break
+		buff.WriteRune(c)
 	}
 
 }
@@ -297,11 +342,11 @@ func (ls *lexerState) readCString() {
 	var buff bytes.Buffer
 	first, _, err := ls.brdr.ReadRune()
 	if err != nil {
-		ls.lexError(err)
+		ls.lexError(err.Error())
 	}
 
 	if first != '"' {
-		ls.lexError(fmt.Errorf("internal error"))
+		ls.lexError("internal error")
 	}
 	buff.WriteRune('"')
 
@@ -309,10 +354,10 @@ func (ls *lexerState) readCString() {
 	for {
 		b, _, err := ls.brdr.ReadRune()
 		if err == io.EOF {
-			ls.lexError(fmt.Errorf("Unterminated string literal."))
+			ls.lexError("Unterminated string literal.")
 		}
 		if err != nil {
-			ls.lexError(err)
+			ls.lexError(err.Error())
 		}
 		if b == '"' && !escaped {
 			break
