@@ -8,8 +8,11 @@ import (
 )
 
 type lexerState struct {
-	pos  FilePos
-	brdr *bufio.Reader
+	pos       FilePos
+	markedPos FilePos
+	brdr      *bufio.Reader
+	lastChar  rune
+	oldCol    int
 	//At the beginning on line not including whitespace
 	bol bool
 	//If this channel recieves a value, the lexing goroutines should close
@@ -38,6 +41,57 @@ func Lex(fname string, r io.Reader) chan *Token {
 	return ls.stream
 }
 
+func (ls *lexerState) markPos() {
+	ls.markedPos = ls.pos
+}
+
+func (ls *lexerState) sendTok(kind TokenKind, val string) {
+	var tok Token
+	tok.Kind = kind
+	tok.Val = val
+	tok.Pos = ls.markedPos
+	ls.bol = false
+	ls.stream <- &tok
+}
+
+func (ls *lexerState) unreadRune() {
+	switch ls.lastChar {
+	case '\n':
+		ls.pos.Line -= 1
+		ls.pos.Col = ls.oldCol
+		ls.bol = false
+	case '\t':
+		ls.pos.Col -= 4 // Is this ok?
+	default:
+		ls.pos.Col -= 1
+	}
+	ls.brdr.UnreadRune()
+}
+
+func (ls *lexerState) readRune() (rune, bool) {
+	r, _, err := ls.brdr.ReadRune()
+	if err != nil {
+		if err == io.EOF {
+			ls.lastChar = 0
+			return 0, true
+		}
+		ls.lexError(err.Error())
+	}
+	switch r {
+	case '\n':
+		ls.pos.Line += 1
+		ls.oldCol = ls.pos.Col
+		ls.pos.Col = 1
+		ls.bol = true
+	case '\t':
+		ls.pos.Col += 4 // Is this ok?
+	default:
+		ls.pos.Col += 1
+	}
+	ls.lastChar = r
+	return r, false
+}
+
 func (ls *lexerState) lexError(e string) {
 	eWithPos := fmt.Sprintf("Error while reading %s. %s", ls.pos, e)
 	ls.sendTok(ERROR, eWithPos)
@@ -56,25 +110,21 @@ func (ls *lexerState) lex() {
 		}
 
 	}()
-
-	first, _, err := ls.brdr.ReadRune()
-
+	ls.markPos()
+	first, eof := ls.readRune()
 	for {
-		if err == io.EOF {
+		if eof {
 			break
-		}
-		if err != nil {
-			ls.lexError(err.Error())
 		}
 		switch {
 		case isAlpha(first) || first == '_':
-			ls.brdr.UnreadRune()
+			ls.unreadRune()
 			ls.readIdentOrKeyword()
 		case isNumeric(first):
-			ls.brdr.UnreadRune()
+			ls.unreadRune()
 			ls.readConstantInt()
 		case isWhiteSpace(first):
-			ls.brdr.UnreadRune()
+			ls.unreadRune()
 			ls.skipWhiteSpace()
 		default:
 			switch first {
@@ -88,11 +138,14 @@ func (ls *lexerState) lex() {
 			case '!':
 				ls.sendTok(NOT, "!")
 			case '?':
-				ls.sendTok('?', "?")
+				ls.sendTok(QUESTION, "?")
 			case ':':
 				ls.sendTok(COLON, ":")
+			case '\'':
+				ls.unreadRune()
+				ls.readCChar()
 			case '"':
-				ls.brdr.UnreadRune()
+				ls.unreadRune()
 				ls.readCString()
 			case '(':
 				ls.sendTok(LPAREN, "(")
@@ -111,112 +164,104 @@ func (ls *lexerState) lex() {
 			case '>':
 				ls.sendTok(GTR, ">")
 			case '+':
-				second, _, _ := ls.brdr.ReadRune()
+				second, _ := ls.readRune()
 				if second == '+' {
 					ls.sendTok(INC, "++")
 					break
 				}
-				ls.brdr.UnreadRune()
+				ls.unreadRune()
 				ls.sendTok(ADD, "+")
 			case '.':
 				ls.sendTok(PERIOD, ".")
+			case '~':
+				ls.sendTok(BNOT, "~")
+			case '^':
+				ls.sendTok(XOR, "^")
 			case '-':
-				second, _, _ := ls.brdr.ReadRune()
+				second, _ := ls.readRune()
 				if second == '>' {
 					ls.sendTok(ARROW, "->")
 					break
 				}
-				ls.brdr.UnreadRune()
+				ls.unreadRune()
 				ls.sendTok(SUB, "-")
 			case ',':
 				ls.sendTok(COMMA, ",")
 			case '*':
 				ls.sendTok(MUL, "*")
+			case '\\':
+				r, _ := ls.readRune()
+				if r == '\n' {
+					break
+				}
+				ls.lexError("misplaced '\\'.")
 			case '/':
-				second, _, _ := ls.brdr.ReadRune()
+				second, _ := ls.readRune()
 				if second == '*' { // C comment.
 					for {
-						c, _, err := ls.brdr.ReadRune()
-						if err == io.EOF {
+						c, eof := ls.readRune()
+						if eof {
 							ls.lexError("unclosed comment.")
 						}
-						if err != nil {
-							ls.lexError(err.Error())
-						}
 						if c == '*' {
-							closeBar, _, _ := ls.brdr.ReadRune()
+							closeBar, eof := ls.readRune()
+							if eof {
+								ls.lexError("unclosed comment.")
+							}
 							if closeBar == '/' {
 								break
 							}
 							//Unread so that we dont lose newlines.
-							ls.brdr.UnreadRune()
-						}
-						if c == '\n' {
-							ls.pos.Col = 1
-							ls.pos.Line += 1
+							ls.unreadRune()
 						}
 					}
 				} else if second == '/' { // C++ comment.
 					for {
-						c, _, err := ls.brdr.ReadRune()
-						if err != nil {
-							break
-						}
+						c, _ := ls.readRune()
 						if c == '\n' {
-							ls.pos.Col = 1
-							ls.pos.Line += 1
 							break
 						}
 					}
 				} else {
+					ls.unreadRune()
 					ls.sendTok(QUO, "/")
-					ls.brdr.UnreadRune()
 				}
+			case '%':
+				ls.sendTok(REM, "%")
 			case '|':
-				second, _, _ := ls.brdr.ReadRune()
+				second, _ := ls.readRune()
 				if second == '|' {
 					ls.sendTok(LOR, "||")
 					break
 				}
-				ls.brdr.UnreadRune()
+				ls.unreadRune()
 				ls.sendTok(OR, "|")
 			case '&':
-				second, _, _ := ls.brdr.ReadRune()
+				second, _ := ls.readRune()
 				if second == '&' {
 					ls.sendTok(LAND, "&&")
 					break
 				}
-				ls.brdr.UnreadRune()
+				ls.unreadRune()
 				ls.sendTok(AND, "&")
 			case '=':
-				second, _, _ := ls.brdr.ReadRune()
+				second, _ := ls.readRune()
 				if second == '=' {
 					ls.sendTok(EQL, "==")
 					break
 				}
-				ls.brdr.UnreadRune()
+				ls.unreadRune()
 				ls.sendTok(ASSIGN, "=")
 			case ';':
 				ls.sendTok(SEMICOLON, ";")
 			default:
-				//ls.lexError(fmt.Errorf("Internal Error - bad char code '%d'", first))
+				ls.lexError(fmt.Sprintf("Internal Error - bad char code '%d'", first))
 			}
 		}
-		first, _, err = ls.brdr.ReadRune()
+		ls.markPos()
+		first, eof = ls.readRune()
 	}
 	close(ls.stream)
-}
-
-func (ls *lexerState) sendTok(kind TokenKind, val string) {
-	var tok Token
-	tok.Kind = kind
-	tok.Val = val
-	tok.Pos.Line = ls.pos.Line
-	tok.Pos.Col = ls.pos.Col
-	tok.Pos.File = ls.pos.File
-	ls.bol = false
-	ls.stream <- &tok
-	ls.pos.Col += len(val)
 }
 
 func (ls *lexerState) readDirective() {
@@ -226,16 +271,19 @@ func (ls *lexerState) readDirective() {
 		ls.lexError("Empty directive")
 	}
 	var buff bytes.Buffer
-	directiveChar, _, err := ls.brdr.ReadRune()
-	if err != nil && err != io.EOF {
-		ls.lexError(fmt.Sprintf("Error reading directive %s", err.Error()))
+	ls.markPos()
+	directiveChar, eof := ls.readRune()
+	if eof {
+		ls.lexError("end of file in directive.")
 	}
 	if isAlpha(directiveChar) {
 		for isAlpha(directiveChar) {
 			buff.WriteRune(directiveChar)
-			directiveChar, _, err = ls.brdr.ReadRune()
+			directiveChar, eof = ls.readRune()
 		}
-		ls.brdr.UnreadRune()
+		if !eof {
+			ls.unreadRune()
+		}
 		directive := buff.String()
 		ls.sendTok(DIRECTIVE, directive)
 		if directive == "include" {
@@ -244,7 +292,7 @@ func (ls *lexerState) readDirective() {
 	} else {
 		//wasnt a directive, error will be caught by
 		//cpp or parser.
-		ls.brdr.UnreadRune()
+		ls.unreadRune()
 	}
 
 }
@@ -256,7 +304,8 @@ func (ls *lexerState) readHeaderInclude() {
 	if ls.pos.Line != line {
 		ls.lexError("No header after include.")
 	}
-	opening, _, _ := ls.brdr.ReadRune()
+	ls.markPos()
+	opening, _ := ls.readRune()
 	var terminator rune
 	if opening == '"' {
 		terminator = '"'
@@ -267,12 +316,9 @@ func (ls *lexerState) readHeaderInclude() {
 	}
 	buff.WriteRune(opening)
 	for {
-		c, _, err := ls.brdr.ReadRune()
-		if err == io.EOF {
+		c, eof := ls.readRune()
+		if eof {
 			ls.lexError("EOF encountered in header include.")
-		}
-		if err != nil {
-			ls.lexError(err.Error())
 		}
 		if c == '\n' {
 			ls.lexError("new line in header include.")
@@ -288,25 +334,25 @@ func (ls *lexerState) readHeaderInclude() {
 
 func (ls *lexerState) readIdentOrKeyword() {
 	var buff bytes.Buffer
-	first, _, _ := ls.brdr.ReadRune()
+	ls.markPos()
+	first, _ := ls.readRune()
 	if !isValidIdentStart(first) {
 		panic("internal error")
 	}
 	buff.WriteRune(first)
 	for {
-		b, _, err := ls.brdr.ReadRune()
+		b, eof := ls.readRune()
 		if isAlphaNumeric(b) || b == '_' {
 			buff.WriteRune(b)
 		} else {
-			if err == nil {
-				ls.brdr.UnreadByte()
+			if !eof {
+				ls.unreadRune()
 			}
 			str := buff.String()
 			tokType, ok := keywordLUT[str]
 			if !ok {
 				tokType = IDENT
 			}
-
 			ls.sendTok(tokType, str)
 			break
 		}
@@ -315,32 +361,26 @@ func (ls *lexerState) readIdentOrKeyword() {
 
 func (ls *lexerState) skipWhiteSpace() {
 	for {
-		r, _, err := ls.brdr.ReadRune()
+		r, eof := ls.readRune()
 		if !isWhiteSpace(r) {
-			if err == nil {
-				ls.brdr.UnreadRune()
+			if !eof {
+				ls.unreadRune()
 			}
 			break
-		}
-		if r == '\n' {
-			ls.pos.Line += 1
-			ls.pos.Col = 1
-			ls.bol = true
-		} else {
-			ls.pos.Col += 1
 		}
 	}
 }
 
 func (ls *lexerState) readConstantInt() {
 	var buff bytes.Buffer
+	ls.markPos()
 	for {
-		r, _, err := ls.brdr.ReadRune()
+		r, eof := ls.readRune()
 		if isNumeric(r) {
 			buff.WriteRune(r)
 		} else {
-			if err == nil {
-				ls.brdr.UnreadRune()
+			if !eof {
+				ls.unreadRune()
 			}
 			str := buff.String()
 			ls.sendTok(INT_CONSTANT, str)
@@ -351,24 +391,17 @@ func (ls *lexerState) readConstantInt() {
 
 func (ls *lexerState) readCString() {
 	var buff bytes.Buffer
-	first, _, err := ls.brdr.ReadRune()
-	if err != nil {
-		ls.lexError(err.Error())
-	}
-
+	ls.markPos()
+	first, _ := ls.readRune()
 	if first != '"' {
 		ls.lexError("internal error")
 	}
 	buff.WriteRune('"')
-
 	escaped := false
 	for {
-		b, _, err := ls.brdr.ReadRune()
-		if err == io.EOF {
+		b, eof := ls.readRune()
+		if eof {
 			ls.lexError("Unterminated string literal.")
-		}
-		if err != nil {
-			ls.lexError(err.Error())
 		}
 		if b == '"' && !escaped {
 			break
@@ -387,6 +420,34 @@ func (ls *lexerState) readCString() {
 	}
 	buff.WriteRune('"')
 	ls.sendTok(STRING, buff.String())
+}
+
+func (ls *lexerState) readCChar() {
+	var buff bytes.Buffer
+	ls.markPos()
+	first, _ := ls.readRune()
+	if first != '\'' {
+		ls.lexError("internal error")
+	}
+	buff.WriteRune('\'')
+	b, eof := ls.readRune()
+	if eof || b == '\n' {
+		ls.lexError("Unterminated char literal.")
+	}
+	if b == '\\' {
+		buff.WriteRune('\\')
+		b, eof = ls.readRune()
+	}
+	if eof || b == '\n' {
+		ls.lexError("Unterminated char literal.")
+	}
+	buff.WriteRune(b)
+	b, _ = ls.readRune()
+	if b != '\'' {
+		ls.lexError("bad char literal.")
+	}
+	buff.WriteRune('\'')
+	ls.sendTok(CHAR_CONSTANT, buff.String())
 }
 
 func (ls *lexerState) isAtLineStart() bool {
@@ -408,7 +469,7 @@ func isAlpha(b rune) bool {
 }
 
 func isWhiteSpace(b rune) bool {
-	return b == ' ' || b == '\r' || b == '\n' || b == '\t'
+	return b == ' ' || b == '\r' || b == '\n' || b == '\t' || b == '\f'
 }
 
 func isNumeric(b rune) bool {

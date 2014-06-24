@@ -18,16 +18,17 @@ const (
 	IDENT          // main
 	INT_CONSTANT   // 12345
 	FLOAT_CONSTANT // 123.45
-	CHAR           // 'a'
+	CHAR_CONSTANT  // 'a'
 	STRING         // "abc"
 
 	operator_beg
 	// Operators and delimiters
-	ADD // +
-	SUB // -
-	MUL // *
-	QUO // /
-	REM // %
+	ADD      // +
+	SUB      // -
+	MUL      // *
+	QUO      // /
+	REM      // %
+	QUESTION // ?
 
 	AND // &
 	OR  // |
@@ -58,6 +59,7 @@ const (
 	GTR    // >
 	ASSIGN // =
 	NOT    // !
+	BNOT   // ~
 
 	NEQ      // !=
 	LEQ      // <=
@@ -96,6 +98,7 @@ const (
 	TYPEDEF
 	SIZEOF
 	VOID
+	CHAR
 	INT
 	FLOAT
 	DOUBLE
@@ -107,79 +110,81 @@ const (
 )
 
 var tokenKindToStr = [...]string{
-	HASH:         "#",
-	DIRECTIVE:    "cpp_directive",
-	HEADER:       "header",
-	INT_CONSTANT: "intconst",
-	IDENT:        "ident",
-	INT:          "int",
-	LONG:         "long",
-	SIGNED:       "signed",
-	UNSIGNED:     "unsigned",
-	FLOAT:        "float",
-	DOUBLE:       "double",
-	CHAR:         "char",
-	STRING:       "string",
-	ADD:          "+",
-	SUB:          "-",
-	MUL:          "*",
-	QUO:          "/",
-	REM:          "%",
-	AND:          "&",
-	OR:           "|",
-	XOR:          "^",
-	SHL:          "<<",
-	SHR:          ">>",
-	ADD_ASSIGN:   "+=",
-	SUB_ASSIGN:   "-=",
-	MUL_ASSIGN:   "*=",
-	QUO_ASSIGN:   "/=",
-	REM_ASSIGN:   "%=",
-	AND_ASSIGN:   "&=",
-	OR_ASSIGN:    "|=",
-	XOR_ASSIGN:   "^=",
-	SHL_ASSIGN:   "<<=",
-	SHR_ASSIGN:   ">>=",
-	LAND:         "&&",
-	LOR:          "||",
-	ARROW:        "->",
-	INC:          "++",
-	DEC:          "--",
-	EQL:          "==",
-	LSS:          "<",
-	GTR:          ">",
-	ASSIGN:       "=",
-	NOT:          "!",
-	NEQ:          "!=",
-	LEQ:          "<=",
-	GEQ:          ">=",
-	ELLIPSIS:     "...",
-	LPAREN:       "(",
-	LBRACK:       "[",
-	LBRACE:       "{",
-	COMMA:        ",",
-	PERIOD:       ".",
-	RPAREN:       ")",
-	RBRACK:       "]",
-	RBRACE:       "}",
-	SEMICOLON:    ";",
-	COLON:        ":",
-	SIZEOF:       "sizeof",
-	TYPEDEF:      "typedef",
-	BREAK:        "break",
-	CASE:         "case",
-	CONST:        "const",
-	CONTINUE:     "continue",
-	DEFAULT:      "default",
-	ELSE:         "else",
-	FOR:          "for",
-	DO:           "do",
-	WHILE:        "while",
-	GOTO:         "goto",
-	IF:           "if",
-	RETURN:       "return",
-	STRUCT:       "struct",
-	SWITCH:       "switch",
+	HASH:          "#",
+	DIRECTIVE:     "cpp_directive",
+	HEADER:        "header",
+	CHAR_CONSTANT: "charconst",
+	INT_CONSTANT:  "intconst",
+	IDENT:         "ident",
+	INT:           "int",
+	LONG:          "long",
+	SIGNED:        "signed",
+	UNSIGNED:      "unsigned",
+	FLOAT:         "float",
+	DOUBLE:        "double",
+	CHAR:          "char",
+	STRING:        "string",
+	ADD:           "+",
+	SUB:           "-",
+	MUL:           "*",
+	QUO:           "/",
+	REM:           "%",
+	AND:           "&",
+	OR:            "|",
+	XOR:           "^",
+	SHL:           "<<",
+	SHR:           ">>",
+	ADD_ASSIGN:    "+=",
+	SUB_ASSIGN:    "-=",
+	MUL_ASSIGN:    "*=",
+	QUO_ASSIGN:    "/=",
+	REM_ASSIGN:    "%=",
+	AND_ASSIGN:    "&=",
+	OR_ASSIGN:     "|=",
+	XOR_ASSIGN:    "^=",
+	SHL_ASSIGN:    "<<=",
+	SHR_ASSIGN:    ">>=",
+	LAND:          "&&",
+	LOR:           "||",
+	ARROW:         "->",
+	INC:           "++",
+	DEC:           "--",
+	EQL:           "==",
+	LSS:           "<",
+	GTR:           ">",
+	ASSIGN:        "=",
+	NOT:           "!",
+	BNOT:          "~",
+	NEQ:           "!=",
+	LEQ:           "<=",
+	GEQ:           ">=",
+	ELLIPSIS:      "...",
+	LPAREN:        "(",
+	LBRACK:        "[",
+	LBRACE:        "{",
+	COMMA:         ",",
+	PERIOD:        ".",
+	RPAREN:        ")",
+	RBRACK:        "]",
+	RBRACE:        "}",
+	SEMICOLON:     ";",
+	COLON:         ":",
+	SIZEOF:        "sizeof",
+	TYPEDEF:       "typedef",
+	BREAK:         "break",
+	CASE:          "case",
+	CONST:         "const",
+	CONTINUE:      "continue",
+	DEFAULT:       "default",
+	ELSE:          "else",
+	FOR:           "for",
+	DO:            "do",
+	WHILE:         "while",
+	GOTO:          "goto",
+	IF:            "if",
+	RETURN:        "return",
+	STRUCT:        "struct",
+	SWITCH:        "switch",
 }
 
 var keywordLUT = map[string]TokenKind{
@@ -193,6 +198,7 @@ var keywordLUT = map[string]TokenKind{
 	"unsigned": UNSIGNED,
 	"typedef":  TYPEDEF,
 	"return":   RETURN,
+	"char":     CHAR,
 	"int":      INT,
 	"void":     VOID,
 	"sizeof":   SIZEOF,
