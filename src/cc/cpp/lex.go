@@ -265,7 +265,7 @@ func (ls *lexerState) readHeaderInclude() {
 	} else {
 		ls.lexError("bad start to header include.")
 	}
-
+	buff.WriteRune(opening)
 	for {
 		c, _, err := ls.brdr.ReadRune()
 		if err == io.EOF {
@@ -274,15 +274,15 @@ func (ls *lexerState) readHeaderInclude() {
 		if err != nil {
 			ls.lexError(err.Error())
 		}
-
 		if c == '\n' {
 			ls.lexError("new line in header include.")
 		}
+		buff.WriteRune(c)
 		if c == terminator {
 			break
 		}
-		buff.WriteRune(c)
 	}
+	ls.sendTok(HEADER, buff.String())
 
 }
 

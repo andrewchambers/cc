@@ -1,5 +1,6 @@
 #:#:2:1
 cpp_directive:include:2:2
+header:<stdio.h>:2:10
 #:#:4:1
 cpp_directive:ifdef:4:3
 ident:FOO:4:9
