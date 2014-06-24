@@ -22,11 +22,9 @@ func performLexTestCase(t *testing.T, cfile string, expectfile string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	scanner := bufio.NewScanner(ef)
 	errorReported := false
 	tokChan := Lex(cfile, f)
-
 	for {
 		expectedTokS := ""
 		for {
@@ -70,8 +68,6 @@ func TestLexer(t *testing.T) {
 			continue
 		}
 		expectPath := sourceToExpectFile(filename)
-
 		performLexTestCase(t, "lextestdata/"+filename, "lextestdata/"+expectPath)
-
 	}
 }
