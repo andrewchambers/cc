@@ -136,18 +136,24 @@ func (ls *lexerState) lex() {
 				second, _, _ := ls.brdr.ReadRune()
 				if second == '*' { // C comment.
 					for {
-						endChar, _, err := ls.brdr.ReadRune()
+						c, _, err := ls.brdr.ReadRune()
 						if err == io.EOF {
 							ls.lexError("unclosed comment.")
 						}
 						if err != nil {
 							ls.lexError(err.Error())
 						}
-						if endChar == '*' {
+						if c == '*' {
 							closeBar, _, _ := ls.brdr.ReadRune()
 							if closeBar == '/' {
 								break
 							}
+							//Unread so that we dont lose newlines.
+							ls.brdr.UnreadRune()
+						}
+						if c == '\n' {
+							ls.pos.Col = 1
+							ls.pos.Line += 1
 						}
 					}
 				} else if second == '/' { // C++ comment.
@@ -157,11 +163,14 @@ func (ls *lexerState) lex() {
 							break
 						}
 						if c == '\n' {
+							ls.pos.Col = 1
+							ls.pos.Line += 1
 							break
 						}
 					}
 				} else {
 					ls.sendTok(QUO, "/")
+					ls.brdr.UnreadRune()
 				}
 			case '|':
 				second, _, _ := ls.brdr.ReadRune()
@@ -364,6 +373,9 @@ func (ls *lexerState) readCString() {
 		if b == '"' && !escaped {
 			break
 		}
+		if b == '\n' {
+			ls.lexError("unterminated string")
+		}
 		if !escaped {
 			if b == '\\' {
 				escaped = true
@@ -371,8 +383,10 @@ func (ls *lexerState) readCString() {
 		} else {
 			escaped = false
 		}
+		buff.WriteRune(b)
 	}
-	ls.sendTok(STRING, "")
+	buff.WriteRune('"')
+	ls.sendTok(STRING, buff.String())
 }
 
 func (ls *lexerState) isAtLineStart() bool {
