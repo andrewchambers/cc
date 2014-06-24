@@ -47,8 +47,8 @@ func tokenizeFile(sourceFile string, out io.WriteCloser) {
 			return
 		}
 		if tok.Kind == cpp.ERROR {
-			out.Close()
 			fmt.Fprintln(os.Stderr, tok.Val)
+			out.Close()
 			os.Exit(1)
 		}
 		fmt.Fprintf(out, "%s:%s:%d:%d\n", tok.Kind, tok.Val, tok.Pos.Line, tok.Pos.Col)

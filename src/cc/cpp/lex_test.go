@@ -26,15 +26,15 @@ func performLexTestCase(t *testing.T, cfile string, expectfile string) {
 	scanner := bufio.NewScanner(ef)
 
 	errorReported := false
-	tokChan, errChan := Lex(cfile, f)
+	tokChan := Lex(cfile, f)
 
 	for {
 		expectedTokS := ""
 		if scanner.Scan() {
 			expectedTokS = scanner.Text()
 		}
-		select {
-		case tok := <-tokChan:
+		for {
+			tok := <-tokChan
 			if tok == nil {
 				if expectedTokS != "" {
 					t.Errorf("Unexpected end of token stream. Expected %s", expectedTokS)
@@ -42,7 +42,12 @@ func performLexTestCase(t *testing.T, cfile string, expectfile string) {
 				return
 			}
 
-			tokS := fmt.Sprintf("%s:%d:%d", tok.Val, tok.Pos.Line, tok.Pos.Col)
+			if tok.Kind == ERROR {
+				t.Errorf("Testfile %s failed because %s", cfile, tok.Val)
+				return
+			}
+
+			tokS := tok.String()
 			if tokS != expectedTokS && !errorReported {
 				if expectedTokS == "" {
 					t.Errorf("Error while lexing %s - extra token %s", cfile, tokS)
@@ -51,9 +56,6 @@ func performLexTestCase(t *testing.T, cfile string, expectfile string) {
 				}
 				errorReported = true
 			}
-		case err = <-errChan:
-			t.Errorf("Testfile %s failed because %s", cfile, err)
-			return
 		}
 	}
 

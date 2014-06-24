@@ -52,7 +52,7 @@ func (ls *lexerState) lex() {
 	defer func() {
 		//XXX is this correct way to retrigger non breakout?
 		if e := recover(); e != nil {
-			_ = e.(breakout) // Will re-panic if not a parse error.
+			_ = e.(*breakout) // Will re-panic if not a parse error.
 		}
 
 	}()
@@ -79,7 +79,12 @@ func (ls *lexerState) lex() {
 		default:
 			switch first {
 			case '#':
-				ls.readDirective()
+				if ls.isAtLineStart() {
+					ls.sendTok(HASH, "#")
+					ls.readDirective()
+				} else {
+					ls.sendTok(HASH, "#")
+				}
 			case '!':
 				ls.sendTok(NOT, "!")
 			case '?':
@@ -206,11 +211,6 @@ func (ls *lexerState) sendTok(kind TokenKind, val string) {
 }
 
 func (ls *lexerState) readDirective() {
-
-	if !ls.isAtLineStart() {
-		ls.lexError("Directive not at beginning of line.")
-	}
-
 	directiveLine := ls.pos.Line
 	ls.skipWhiteSpace()
 	if ls.pos.Line != directiveLine {
@@ -226,8 +226,9 @@ func (ls *lexerState) readDirective() {
 			buff.WriteRune(directiveChar)
 			directiveChar, _, err = ls.brdr.ReadRune()
 		}
-		directive := buff.String()
 		ls.brdr.UnreadRune()
+		directive := buff.String()
+		ls.sendTok(DIRECTIVE, directive)
 		if directive == "include" {
 			ls.readHeaderInclude()
 		}
@@ -315,6 +316,7 @@ func (ls *lexerState) skipWhiteSpace() {
 		if r == '\n' {
 			ls.pos.Line += 1
 			ls.pos.Col = 1
+			ls.bol = true
 		} else {
 			ls.pos.Col += 1
 		}

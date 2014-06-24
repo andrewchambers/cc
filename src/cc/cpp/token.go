@@ -8,7 +8,9 @@ type TokenKind uint32
 
 // The list of tokens.
 const (
-	ERROR = iota
+	ERROR     = iota
+	HASH      //# cpp only
+	DIRECTIVE // cpp only, #if #include etc
 	// Identifiers and basic type literals
 	// (these tokens stand for classes of literals)
 	IDENT          // main
@@ -103,6 +105,8 @@ const (
 )
 
 var tokenKindToStr = [...]string{
+	HASH:         "#",
+	DIRECTIVE:    "cpp_directive",
 	INT_CONSTANT: "intconst",
 	IDENT:        "ident",
 	INT:          "int",
@@ -135,7 +139,7 @@ var tokenKindToStr = [...]string{
 	SHR_ASSIGN:   ">>=",
 	LAND:         "&&",
 	LOR:          "||",
-	ARROW:        "<-",
+	ARROW:        "->",
 	INC:          "++",
 	DEC:          "--",
 	EQL:          "==",
