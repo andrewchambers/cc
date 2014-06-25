@@ -342,7 +342,7 @@ func (ls *lexerState) readIdentOrKeyword() {
 	buff.WriteRune(first)
 	for {
 		b, eof := ls.readRune()
-		if isAlphaNumeric(b) || b == '_' {
+		if isValidIdentTail(b) {
 			buff.WriteRune(b)
 		} else {
 			if !eof {
@@ -430,21 +430,26 @@ func (ls *lexerState) readCChar() {
 		ls.lexError("internal error")
 	}
 	buff.WriteRune('\'')
-	b, eof := ls.readRune()
-	if eof || b == '\n' {
-		ls.lexError("Unterminated char literal.")
-	}
-	if b == '\\' {
-		buff.WriteRune('\\')
-		b, eof = ls.readRune()
-	}
-	if eof || b == '\n' {
-		ls.lexError("Unterminated char literal.")
-	}
-	buff.WriteRune(b)
-	b, _ = ls.readRune()
-	if b != '\'' {
-		ls.lexError("bad char literal.")
+	escaped := false
+	for {
+		b, eof := ls.readRune()
+		if eof {
+			ls.lexError("unterminated char literal.")
+		}
+		if b == '\'' && !escaped {
+			break
+		}
+		if b == '\n' {
+			ls.lexError("unterminated char literal")
+		}
+		if !escaped {
+			if b == '\\' {
+				escaped = true
+			}
+		} else {
+			escaped = false
+		}
+		buff.WriteRune(b)
 	}
 	buff.WriteRune('\'')
 	ls.sendTok(CHAR_CONSTANT, buff.String())
@@ -452,6 +457,10 @@ func (ls *lexerState) readCChar() {
 
 func (ls *lexerState) isAtLineStart() bool {
 	return ls.bol
+}
+
+func isValidIdentTail(b rune) bool {
+	return isValidIdentStart(b) || isNumeric(b) || b == '$'
 }
 
 func isValidIdentStart(b rune) bool {

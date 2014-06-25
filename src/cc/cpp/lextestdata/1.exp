@@ -15,7 +15,12 @@ ident:main:18:5
 (:(:18:9
 ):):18:10
 {:{:18:12
-return:return:19:5
-intconst:0:19:12
-;:;:19:13
-}:}:20:1
+char:char:19:5
+ident:c:19:10
+=:=:19:12
+charconst:'x':19:14
+;:;:19:17
+return:return:20:5
+intconst:0:20:12
+;:;:20:13
+}:}:21:1

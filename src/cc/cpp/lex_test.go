@@ -27,34 +27,31 @@ func performLexTestCase(t *testing.T, cfile string, expectfile string) {
 	tokChan := Lex(cfile, f)
 	for {
 		expectedTokS := ""
-		for {
-			if scanner.Scan() {
-				expectedTokS = scanner.Text()
+		if scanner.Scan() {
+			expectedTokS = scanner.Text()
+		}
+		tok := <-tokChan
+		t.Log(expectedTokS)
+		if tok == nil {
+			if expectedTokS != "" {
+				t.Errorf("Unexpected end of token stream. Expected %s", expectedTokS)
 			}
-			tok := <-tokChan
-			//t.Log(expectedTokS)
-			if tok == nil {
-				if expectedTokS != "" {
-					t.Errorf("Unexpected end of token stream. Expected %s", expectedTokS)
-				}
-				return
+			return
+		}
+		if tok.Kind == ERROR {
+			t.Errorf("Testfile %s failed because %s", cfile, tok.Val)
+			return
+		}
+		tokS := fmt.Sprintf("%s:%s:%d:%d", tok.Kind, tok.Val, tok.Pos.Line, tok.Pos.Col)
+		if tokS != expectedTokS && !errorReported {
+			if expectedTokS == "" {
+				t.Errorf("Test failed %s - extra token %s", cfile, tokS)
+			} else {
+				t.Errorf("Test failed %s: got %s expected %s ", cfile, tokS, expectedTokS)
 			}
-			if tok.Kind == ERROR {
-				t.Errorf("Testfile %s failed because %s", cfile, tok.Val)
-				return
-			}
-			tokS := fmt.Sprintf("%s:%s:%d:%d", tok.Kind, tok.Val, tok.Pos.Line, tok.Pos.Col)
-			if tokS != expectedTokS && !errorReported {
-				if expectedTokS == "" {
-					t.Errorf("Test failed %s - extra token %s", cfile, tokS)
-				} else {
-					t.Errorf("Test failed %s: got %s expected %s ", cfile, tokS, expectedTokS)
-				}
-				errorReported = true
-			}
+			errorReported = true
 		}
 	}
-
 }
 
 func TestLexer(t *testing.T) {
