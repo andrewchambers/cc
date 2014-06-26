@@ -67,7 +67,7 @@ func main() {
 	if *doProfiling {
 		profile, err := os.Create("ccrun.prof")
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to open profile file %s: %s\n", profile, err)
+			fmt.Fprintf(os.Stderr, "Failed to open profile file: %s\n", err)
 			os.Exit(1)
 		}
 		pprof.StartCPUProfile(profile)

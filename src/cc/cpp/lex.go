@@ -15,6 +15,8 @@ type lexerState struct {
 	oldCol    int
 	//At the beginning on line not including whitespace
 	bol bool
+	// Set to true if we have hit the end of file
+	eof bool
 	//If this channel recieves a value, the lexing goroutines should close
 	//its output channel and its error channel and terminate.
 	cancel chan struct{}
@@ -55,6 +57,9 @@ func (ls *lexerState) sendTok(kind TokenKind, val string) {
 }
 
 func (ls *lexerState) unreadRune() {
+	if ls.eof {
+		return
+	}
 	switch ls.lastChar {
 	case '\n':
 		ls.pos.Line -= 1
@@ -72,6 +77,7 @@ func (ls *lexerState) readRune() (rune, bool) {
 	r, _, err := ls.brdr.ReadRune()
 	if err != nil {
 		if err == io.EOF {
+			ls.eof = true
 			ls.lastChar = 0
 			return 0, true
 		}
@@ -341,13 +347,11 @@ func (ls *lexerState) readIdentOrKeyword() {
 	}
 	buff.WriteRune(first)
 	for {
-		b, eof := ls.readRune()
+		b, _ := ls.readRune()
 		if isValidIdentTail(b) {
 			buff.WriteRune(b)
 		} else {
-			if !eof {
-				ls.unreadRune()
-			}
+			ls.unreadRune()
 			str := buff.String()
 			tokType, ok := keywordLUT[str]
 			if !ok {
@@ -363,9 +367,7 @@ func (ls *lexerState) skipWhiteSpace() {
 	for {
 		r, eof := ls.readRune()
 		if !isWhiteSpace(r) {
-			if !eof {
-				ls.unreadRune()
-			}
+			ls.unreadRune()
 			break
 		}
 	}
@@ -374,19 +376,82 @@ func (ls *lexerState) skipWhiteSpace() {
 func (ls *lexerState) readConstantInt() {
 	var buff bytes.Buffer
 	ls.markPos()
-	for {
+	const (
+		START = iota
+		SECOND
+		HEX
+		DEC
+		TAIL
+		END
+	)
+	state := START
+	var eof bool
+	for state != END {
 		r, eof := ls.readRune()
-		if isNumeric(r) {
-			buff.WriteRune(r)
-		} else {
-			if !eof {
-				ls.unreadRune()
-			}
-			str := buff.String()
-			ls.sendTok(INT_CONSTANT, str)
+		if eof {
+			state = END
 			break
 		}
+		switch state {
+		case START:
+			if !isNumeric(r) {
+				ls.lexError("internal error")
+			}
+			buff.WriteRune(r)
+			state = SECOND
+		case SECOND:
+			if r == 'x' {
+				state = HEX
+				buff.WriteRune(r)
+			} else if isNumeric(r) {
+				state = DEC
+				buff.WriteRune(r)
+			} else {
+				state = END
+			}
+		case DEC:
+			if !isNumeric(r) {
+				switch r {
+				case 'l', 'L', 'u', 'U':
+					state = TAIL
+					buff.WriteRune(r)
+				default:
+					if isValidIdentStart(r) {
+						ls.lexError("invalid constant int")
+					}
+					state = END
+				}
+			} else {
+				buff.WriteRune(r)
+			}
+		case HEX:
+			if !isHexDigit(r) {
+				switch r {
+				case 'l', 'L', 'u', 'U':
+					state = TAIL
+					buff.WriteRune(r)
+				default:
+					if isValidIdentStart(r) {
+						ls.lexError("invalid constant int")
+					}
+					state = END
+				}
+			} else {
+				buff.WriteRune(r)
+			}
+		case TAIL:
+			switch r {
+			case 'l', 'L', 'u', 'U':
+				buff.WriteRune(r)
+			default:
+				state = END
+			}
+		default:
+			ls.lexError("internal error.")
+		}
 	}
+	ls.sendTok(INT_CONSTANT, buff.String())
+	break
 }
 
 func (ls *lexerState) readCString() {
@@ -486,6 +551,10 @@ func isNumeric(b rune) bool {
 		return true
 	}
 	return false
+}
+
+func isHexDigit(b rune) bool {
+	return isNumeric(b) || (b >= 'a' && b <= 'f') || (b >= 'A' && b <= 'F')
 }
 
 func isAlphaNumeric(b rune) bool {
