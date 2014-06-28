@@ -400,7 +400,7 @@ func (ls *lexerState) readConstantInt() {
 			buff.WriteRune(r)
 			state = SECOND
 		case SECOND:
-			if r == 'x' {
+			if r == 'x' || r == 'X' {
 				state = HEX
 				buff.WriteRune(r)
 			} else if isNumeric(r) {
@@ -470,69 +470,88 @@ func (ls *lexerState) readConstantInt() {
 }
 
 func (ls *lexerState) readCString() {
+	const (
+		START = iota
+		MID
+		ESCAPED
+		END
+	)
 	var buff bytes.Buffer
+	var state int
 	ls.markPos()
-	first, _ := ls.readRune()
-	if first != '"' {
-		ls.lexError("internal error")
-	}
-	buff.WriteRune('"')
-	escaped := false
-	for {
-		b, eof := ls.readRune()
+	for state != END {
+		r, eof := ls.readRune()
 		if eof {
-			ls.lexError("Unterminated string literal.")
+			ls.lexError("eof in string literal")
 		}
-		if b == '"' && !escaped {
-			break
-		}
-		if b == '\n' {
-			ls.lexError("unterminated string")
-		}
-		if !escaped {
-			if b == '\\' {
-				escaped = true
+		switch state {
+		case START:
+			if r != '"' {
+				ls.lexError("internal error")
 			}
-		} else {
-			escaped = false
+			buff.WriteRune(r)
+			state = MID
+		case MID:
+			switch r {
+			case '\\':
+				state = ESCAPED
+			case '"':
+				buff.WriteRune(r)
+				state = END
+			default:
+				buff.WriteRune(r)
+			}
+		case ESCAPED:
+			switch r {
+			case 'n', 'r', 't':
+				buff.WriteRune('\\')
+				buff.WriteRune(r)
+				state = MID
+			case '\r':
+				// empty
+			case '\n':
+				state = MID
+			default:
+				ls.lexError(fmt.Sprintf("unknown escape char %c", r))
+			}
 		}
-		buff.WriteRune(b)
 	}
-	buff.WriteRune('"')
 	ls.sendTok(STRING, buff.String())
 }
 
 func (ls *lexerState) readCChar() {
-	var buff bytes.Buffer
-	ls.markPos()
-	first, _ := ls.readRune()
-	if first != '\'' {
-		ls.lexError("internal error")
-	}
-	buff.WriteRune('\'')
-	escaped := false
-	for {
-		b, eof := ls.readRune()
-		if eof {
-			ls.lexError("unterminated char literal.")
+	/*
+		var buff bytes.Buffer
+		ls.markPos()
+		first, _ := ls.readRune()
+		if first != '\'' {
+			ls.lexError("internal error")
 		}
-		if b == '\'' && !escaped {
-			break
-		}
-		if b == '\n' {
-			ls.lexError("unterminated char literal")
-		}
-		if !escaped {
-			if b == '\\' {
-				escaped = true
+		buff.WriteRune('\'')
+		escaped := false
+		for {
+			b, eof := ls.readRune()
+			if eof {
+				ls.lexError("unterminated char literal.")
 			}
-		} else {
-			escaped = false
+			if b == '\'' && !escaped {
+				break
+			}
+			if b == '\n' {
+				ls.lexError("unterminated char literal")
+			}
+			if !escaped {
+				if b == '\\' {
+					escaped = true
+				}
+			} else {
+				escaped = false
+			}
+			buff.WriteRune(b)
 		}
-		buff.WriteRune(b)
-	}
-	buff.WriteRune('\'')
-	ls.sendTok(CHAR_CONSTANT, buff.String())
+		buff.WriteRune('\'')
+		ls.sendTok(CHAR_CONSTANT, buff.String())
+	*/
 }
 
 func (ls *lexerState) isAtLineStart() bool {
