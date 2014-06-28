@@ -31,7 +31,7 @@ func performLexTestCase(t *testing.T, cfile string, expectfile string) {
 			expectedTokS = scanner.Text()
 		}
 		tok := <-tokChan
-		t.Log(expectedTokS)
+		//t.Log(expectedTokS)
 		if tok == nil {
 			if expectedTokS != "" {
 				t.Errorf("Unexpected end of token stream. Expected %s", expectedTokS)

@@ -22,5 +22,4 @@ charconst:'x':19:14
 ;:;:19:17
 return:return:20:5
 intconst:0:20:12
-;:;:20:13
 }:}:21:1

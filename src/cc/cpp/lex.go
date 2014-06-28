@@ -335,7 +335,6 @@ func (ls *lexerState) readHeaderInclude() {
 		}
 	}
 	ls.sendTok(HEADER, buff.String())
-
 }
 
 func (ls *lexerState) readIdentOrKeyword() {
@@ -365,7 +364,7 @@ func (ls *lexerState) readIdentOrKeyword() {
 
 func (ls *lexerState) skipWhiteSpace() {
 	for {
-		r, eof := ls.readRune()
+		r, _ := ls.readRune()
 		if !isWhiteSpace(r) {
 			ls.unreadRune()
 			break
@@ -381,11 +380,12 @@ func (ls *lexerState) readConstantInt() {
 		SECOND
 		HEX
 		DEC
+		FLOAT
 		TAIL
 		END
 	)
+	var tokType TokenKind = INT_CONSTANT
 	state := START
-	var eof bool
 	for state != END {
 		r, eof := ls.readRune()
 		if eof {
@@ -415,9 +415,25 @@ func (ls *lexerState) readConstantInt() {
 				case 'l', 'L', 'u', 'U':
 					state = TAIL
 					buff.WriteRune(r)
+				case '.':
+					state = FLOAT
+					tokType = FLOAT_CONSTANT
+					buff.WriteRune(r)
 				default:
 					if isValidIdentStart(r) {
 						ls.lexError("invalid constant int")
+					}
+					state = END
+				}
+			} else {
+				buff.WriteRune(r)
+			}
+		case FLOAT:
+			if !isNumeric(r) {
+				switch r {
+				default:
+					if isValidIdentStart(r) {
+						ls.lexError("invalid floating point constant.")
 					}
 					state = END
 				}
@@ -450,8 +466,7 @@ func (ls *lexerState) readConstantInt() {
 			ls.lexError("internal error.")
 		}
 	}
-	ls.sendTok(INT_CONSTANT, buff.String())
-	break
+	ls.sendTok(tokType, buff.String())
 }
 
 func (ls *lexerState) readCString() {
