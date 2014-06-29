@@ -166,17 +166,34 @@ func (ls *lexerState) lex() {
 			case ']':
 				ls.sendTok(RBRACE, "]")
 			case '<':
-				ls.sendTok(LSS, "<")
+				second, _ := ls.readRune()
+				switch second {
+				case '<':
+					ls.sendTok(SHL, "<<")
+				default:
+					ls.unreadRune()
+					ls.sendTok(LSS, "<")
+				}
 			case '>':
-				ls.sendTok(GTR, ">")
+				second, _ := ls.readRune()
+				switch second {
+				case '>':
+					ls.sendTok(SHR, ">>")
+				default:
+					ls.unreadRune()
+					ls.sendTok(GTR, ">")
+				}
 			case '+':
 				second, _ := ls.readRune()
-				if second == '+' {
+				switch second {
+				case '+':
 					ls.sendTok(INC, "++")
-					break
+				case '=':
+					ls.sendTok(ADD_ASSIGN, "+=")
+				default:
+					ls.unreadRune()
+					ls.sendTok(ADD, "+")
 				}
-				ls.unreadRune()
-				ls.sendTok(ADD, "+")
 			case '.':
 				second, _ := ls.readRune()
 				ls.unreadRune()
@@ -188,19 +205,38 @@ func (ls *lexerState) lex() {
 			case '~':
 				ls.sendTok(BNOT, "~")
 			case '^':
-				ls.sendTok(XOR, "^")
+				second, _ := ls.readRune()
+				switch second {
+				case '=':
+					ls.sendTok(XOR_ASSIGN, "-=")
+				default:
+					ls.unreadRune()
+					ls.sendTok(XOR, "^")
+				}
 			case '-':
 				second, _ := ls.readRune()
-				if second == '>' {
+				switch second {
+				case '>':
 					ls.sendTok(ARROW, "->")
-					break
+				case '-':
+					ls.sendTok(DEC, "--")
+				case '=':
+					ls.sendTok(SUB_ASSIGN, "-=")
+				default:
+					ls.unreadRune()
+					ls.sendTok(SUB, "-")
 				}
-				ls.unreadRune()
-				ls.sendTok(SUB, "-")
 			case ',':
 				ls.sendTok(COMMA, ",")
 			case '*':
-				ls.sendTok(MUL, "*")
+				second, _ := ls.readRune()
+				switch second {
+				case '=':
+					ls.sendTok(MUL_ASSIGN, "*=")
+				default:
+					ls.unreadRune()
+					ls.sendTok(MUL, "*")
+				}
 			case '\\':
 				r, _ := ls.readRune()
 				if r == '\n' {
@@ -209,7 +245,8 @@ func (ls *lexerState) lex() {
 				ls.lexError("misplaced '\\'.")
 			case '/':
 				second, _ := ls.readRune()
-				if second == '*' { // C comment.
+				switch second {
+				case '*':
 					for {
 						c, eof := ls.readRune()
 						if eof {
@@ -227,43 +264,59 @@ func (ls *lexerState) lex() {
 							ls.unreadRune()
 						}
 					}
-				} else if second == '/' { // C++ comment.
+				case '/':
 					for {
 						c, _ := ls.readRune()
 						if c == '\n' {
 							break
 						}
 					}
-				} else {
+				case '=':
+					ls.sendTok(QUO_ASSIGN, "/")
+				default:
 					ls.unreadRune()
 					ls.sendTok(QUO, "/")
 				}
 			case '%':
-				ls.sendTok(REM, "%")
+				second, _ := ls.readRune()
+				switch second {
+				case '=':
+					ls.sendTok(REM_ASSIGN, "%=")
+				default:
+					ls.unreadRune()
+					ls.sendTok(REM, "%")
+				}
 			case '|':
 				second, _ := ls.readRune()
-				if second == '|' {
+				switch second {
+				case '|':
 					ls.sendTok(LOR, "||")
-					break
+				case '=':
+					ls.sendTok(OR_ASSIGN, "|=")
+				default:
+					ls.unreadRune()
+					ls.sendTok(OR, "|")
 				}
-				ls.unreadRune()
-				ls.sendTok(OR, "|")
 			case '&':
 				second, _ := ls.readRune()
-				if second == '&' {
+				switch second {
+				case '&':
 					ls.sendTok(LAND, "&&")
-					break
+				case '=':
+					ls.sendTok(AND_ASSIGN, "&=")
+				default:
+					ls.unreadRune()
+					ls.sendTok(AND, "&")
 				}
-				ls.unreadRune()
-				ls.sendTok(AND, "&")
 			case '=':
 				second, _ := ls.readRune()
-				if second == '=' {
+				switch second {
+				case '=':
 					ls.sendTok(EQL, "==")
-					break
+				default:
+					ls.unreadRune()
+					ls.sendTok(ASSIGN, "=")
 				}
-				ls.unreadRune()
-				ls.sendTok(ASSIGN, "=")
 			case ';':
 				ls.sendTok(SEMICOLON, ";")
 			default:

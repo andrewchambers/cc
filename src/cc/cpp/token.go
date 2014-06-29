@@ -170,6 +170,7 @@ var tokenKindToStr = [...]string{
 	RBRACE:         "}",
 	SEMICOLON:      ";",
 	COLON:          ":",
+	QUESTION:       "?",
 	SIZEOF:         "sizeof",
 	TYPEDEF:        "typedef",
 	BREAK:          "break",
