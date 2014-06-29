@@ -15,3 +15,8 @@ intconst:12UL:15:1
 intconst:0:16:1
 intconst:1:16:3
 intconst:2:16:5
+floatconst:.1:17:1
+floatconst:0.1:18:1
+floatconst:.25e-2:19:1
+floatconst:25e+2:20:1
+floatconst:0e5:21:1

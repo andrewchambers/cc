@@ -36,7 +36,7 @@ func Lex(fname string, r io.Reader) chan *Token {
 	ls.pos.File = fname
 	ls.pos.Line = 1
 	ls.pos.Col = 1
-	ls.stream = make(chan *Token)
+	ls.stream = make(chan *Token, 1024)
 	ls.brdr = bufio.NewReader(r)
 	ls.bol = true
 	go ls.lex()
@@ -128,7 +128,7 @@ func (ls *lexerState) lex() {
 			ls.readIdentOrKeyword()
 		case isNumeric(first):
 			ls.unreadRune()
-			ls.readConstantInt()
+			ls.readConstantIntOrFloat(false)
 		case isWhiteSpace(first):
 			ls.unreadRune()
 			ls.skipWhiteSpace()
@@ -178,7 +178,13 @@ func (ls *lexerState) lex() {
 				ls.unreadRune()
 				ls.sendTok(ADD, "+")
 			case '.':
-				ls.sendTok(PERIOD, ".")
+				second, _ := ls.readRune()
+				ls.unreadRune()
+				if isNumeric(second) {
+					ls.readConstantIntOrFloat(true)
+				} else {
+					ls.sendTok(PERIOD, ".")
+				}
 			case '~':
 				ls.sendTok(BNOT, "~")
 			case '^':
@@ -274,7 +280,7 @@ func (ls *lexerState) readDirective() {
 	directiveLine := ls.pos.Line
 	ls.skipWhiteSpace()
 	if ls.pos.Line != directiveLine {
-		ls.lexError("Empty directive")
+		return
 	}
 	var buff bytes.Buffer
 	ls.markPos()
@@ -372,20 +378,31 @@ func (ls *lexerState) skipWhiteSpace() {
 	}
 }
 
-func (ls *lexerState) readConstantInt() {
+// Due to the 1 character lookahead we need this bool
+func (ls *lexerState) readConstantIntOrFloat(startedWithPeriod bool) {
 	var buff bytes.Buffer
-	ls.markPos()
 	const (
 		START = iota
 		SECOND
 		HEX
 		DEC
-		FLOAT
-		TAIL
+		FLOAT_START
+		FLOAT_AFTER_E
+		FLOAT_AFTER_E_SIGN
+		INT_TAIL
+		FLOAT_TAIL
 		END
 	)
-	var tokType TokenKind = INT_CONSTANT
-	state := START
+	var tokType TokenKind
+	var state int
+	if startedWithPeriod {
+		state = FLOAT_START
+		tokType = FLOAT_CONSTANT
+		buff.WriteRune('.')
+	} else {
+		state = START
+		tokType = INT_CONSTANT
+	}
 	for state != END {
 		r, eof := ls.readRune()
 		if eof {
@@ -394,6 +411,11 @@ func (ls *lexerState) readConstantInt() {
 		}
 		switch state {
 		case START:
+			if r == '.' {
+				state = FLOAT
+				buff.WriteRune(r)
+				break
+			}
 			if !isNumeric(r) {
 				ls.lexError("internal error")
 			}
@@ -406,6 +428,14 @@ func (ls *lexerState) readConstantInt() {
 			} else if isNumeric(r) {
 				state = DEC
 				buff.WriteRune(r)
+			} else if r == 'e' || r == 'E' {
+				state = FLOAT_AFTER_E
+				tokType = FLOAT_CONSTANT
+				buff.WriteRune(r)
+			} else if r == '.' {
+				state = FLOAT_START
+				tokType = FLOAT_CONSTANT
+				buff.WriteRune(r)
 			} else {
 				state = END
 			}
@@ -413,10 +443,14 @@ func (ls *lexerState) readConstantInt() {
 			if !isNumeric(r) {
 				switch r {
 				case 'l', 'L', 'u', 'U':
-					state = TAIL
+					state = INT_TAIL
+					buff.WriteRune(r)
+				case 'e', 'E':
+					state = FLOAT_AFTER_E
+					tokType = FLOAT_CONSTANT
 					buff.WriteRune(r)
 				case '.':
-					state = FLOAT
+					state = FLOAT_START
 					tokType = FLOAT_CONSTANT
 					buff.WriteRune(r)
 				default:
@@ -428,23 +462,11 @@ func (ls *lexerState) readConstantInt() {
 			} else {
 				buff.WriteRune(r)
 			}
-		case FLOAT:
-			if !isNumeric(r) {
-				switch r {
-				default:
-					if isValidIdentStart(r) {
-						ls.lexError("invalid floating point constant.")
-					}
-					state = END
-				}
-			} else {
-				buff.WriteRune(r)
-			}
 		case HEX:
 			if !isHexDigit(r) {
 				switch r {
 				case 'l', 'L', 'u', 'U':
-					state = TAIL
+					state = INT_TAIL
 					buff.WriteRune(r)
 				default:
 					if isValidIdentStart(r) {
@@ -455,17 +477,69 @@ func (ls *lexerState) readConstantInt() {
 			} else {
 				buff.WriteRune(r)
 			}
-		case TAIL:
+		case INT_TAIL:
 			switch r {
 			case 'l', 'L', 'u', 'U':
 				buff.WriteRune(r)
 			default:
 				state = END
 			}
+		case FLOAT_START:
+			if !isNumeric(r) {
+				switch r {
+				case 'e', 'E':
+					state = FLOAT_AFTER_E
+					buff.WriteRune(r)
+				default:
+					if isValidIdentStart(r) {
+						ls.lexError("invalid floating point constant.")
+					}
+					state = END
+				}
+			} else {
+				buff.WriteRune(r)
+			}
+		case FLOAT_AFTER_E:
+			if r == '-' || r == '+' {
+				state = FLOAT_AFTER_E_SIGN
+				buff.WriteRune(r)
+			} else if isNumeric(r) {
+				state = FLOAT_AFTER_E_SIGN
+				buff.WriteRune(r)
+			} else {
+				ls.lexError("invalid float constant - expected number or signed after e")
+			}
+		case FLOAT_AFTER_E_SIGN:
+			if isNumeric(r) {
+				buff.WriteRune(r)
+			} else {
+				switch r {
+				case 'l', 'L', 'f', 'F':
+					buff.WriteRune(r)
+					state = FLOAT_TAIL
+				default:
+					if isValidIdentStart(r) {
+						ls.lexError("invalid float constant")
+					} else {
+						state = END
+					}
+				}
+			}
+		case FLOAT_TAIL:
+			switch r {
+			case 'l', 'L', 'f', 'F':
+				buff.WriteRune(r)
+			default:
+				if isValidIdentStart(r) {
+					ls.lexError("invalid float constant")
+				}
+				state = END
+			}
 		default:
 			ls.lexError("internal error.")
 		}
 	}
+	ls.unreadRune()
 	ls.sendTok(tokType, buff.String())
 }
 
@@ -503,16 +577,14 @@ func (ls *lexerState) readCString() {
 			}
 		case ESCAPED:
 			switch r {
-			case 'n', 'r', 't':
-				buff.WriteRune('\\')
-				buff.WriteRune(r)
-				state = MID
 			case '\r':
 				// empty
 			case '\n':
 				state = MID
 			default:
-				ls.lexError(fmt.Sprintf("unknown escape char %c", r))
+				buff.WriteRune('\\')
+				buff.WriteRune(r)
+				state = MID
 			}
 		}
 	}
@@ -520,38 +592,52 @@ func (ls *lexerState) readCString() {
 }
 
 func (ls *lexerState) readCChar() {
-	/*
-		var buff bytes.Buffer
-		ls.markPos()
-		first, _ := ls.readRune()
-		if first != '\'' {
-			ls.lexError("internal error")
+	const (
+		START = iota
+		MID
+		ESCAPED
+		END
+	)
+	var buff bytes.Buffer
+	var state int
+	ls.markPos()
+	for state != END {
+		r, eof := ls.readRune()
+		if eof {
+			ls.lexError("eof in char literal")
 		}
-		buff.WriteRune('\'')
-		escaped := false
-		for {
-			b, eof := ls.readRune()
-			if eof {
-				ls.lexError("unterminated char literal.")
+		switch state {
+		case START:
+			if r != '\'' {
+				ls.lexError("internal error")
 			}
-			if b == '\'' && !escaped {
-				break
+			buff.WriteRune(r)
+			state = MID
+		case MID:
+			switch r {
+			case '\\':
+				state = ESCAPED
+			case '\'':
+				buff.WriteRune(r)
+				state = END
+			default:
+				buff.WriteRune(r)
 			}
-			if b == '\n' {
-				ls.lexError("unterminated char literal")
+		case ESCAPED:
+			switch r {
+			case '\r':
+				// empty
+			case '\n':
+				state = MID
+			default:
+				buff.WriteRune('\\')
+				buff.WriteRune(r)
+				state = MID
 			}
-			if !escaped {
-				if b == '\\' {
-					escaped = true
-				}
-			} else {
-				escaped = false
-			}
-			buff.WriteRune(b)
 		}
-		buff.WriteRune('\'')
-		ls.sendTok(CHAR_CONSTANT, buff.String())
-	*/
+	}
+	ls.sendTok(CHAR_CONSTANT, buff.String())
+
 }
 
 func (ls *lexerState) isAtLineStart() bool {
