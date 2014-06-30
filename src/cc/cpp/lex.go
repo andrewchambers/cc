@@ -17,6 +17,8 @@ type lexerState struct {
 	bol bool
 	// Set to true if we have hit the end of file
 	eof bool
+	//Set to true if we are currently reading a # directive line
+	inDirective bool
 	//If this channel recieves a value, the lexing goroutines should close
 	//its output channel and its error channel and terminate.
 	cancel chan struct{}
@@ -342,6 +344,7 @@ func (ls *lexerState) readDirective() {
 		ls.lexError("end of file in directive.")
 	}
 	if isAlpha(directiveChar) {
+		ls.inDirective = true
 		for isAlpha(directiveChar) {
 			buff.WriteRune(directiveChar)
 			directiveChar, eof = ls.readRune()
@@ -427,6 +430,13 @@ func (ls *lexerState) skipWhiteSpace() {
 		if !isWhiteSpace(r) {
 			ls.unreadRune()
 			break
+		}
+		if r == '\n' {
+			if ls.inDirective {
+				ls.sendTok(END_DIRECTIVE, "")
+				ls.inDirective = false
+			}
+
 		}
 	}
 }

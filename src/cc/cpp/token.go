@@ -10,8 +10,9 @@ type TokenKind uint32
 const (
 	ERROR = iota
 	//some cpp only tokens
-	HASH      //# cpp only
-	DIRECTIVE //#if #include etc
+	HASH          //# cpp only
+	DIRECTIVE     //#if #include etc
+	END_DIRECTIVE //New line at the end of a directive
 	HEADER
 	// Identifiers and basic type literals
 	// (these tokens stand for classes of literals)
@@ -112,6 +113,7 @@ const (
 var tokenKindToStr = [...]string{
 	HASH:           "#",
 	DIRECTIVE:      "cpp_directive",
+	END_DIRECTIVE:  "end_directive",
 	HEADER:         "header",
 	CHAR_CONSTANT:  "charconst",
 	INT_CONSTANT:   "intconst",
