@@ -67,6 +67,7 @@ func (pp *Preprocessor) preprocess(in chan *Token) {
 }
 
 func (pp *Preprocessor) preprocess2(in chan *Token) {
+	defer emptyTokChan(in)
 	for tok := range in {
 		if tok.Kind == ERROR {
 			pp.out <- tok
@@ -80,6 +81,12 @@ func (pp *Preprocessor) preprocess2(in chan *Token) {
 			pp.out <- tok
 		}
 
+	}
+}
+
+func emptyTokChan(t chan *Token) {
+	for _ = range t {
+		//PASS
 	}
 }
 
