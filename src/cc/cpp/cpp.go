@@ -3,6 +3,7 @@ package cpp
 import (
 	"fmt"
 	"io"
+	"strings"
 )
 
 type IncludeSearcher interface {
@@ -21,8 +22,8 @@ type Preprocessor struct {
 
 type StandardIncludeSearcher struct {
 	//Priority order list of paths to search for headers
-	systemHeaders []string
-	localHeaders  []string
+	systemHeadersPath []string
+	localPath         string
 }
 
 func (is *StandardIncludeSearcher) IncludeQuote(path string) (io.Reader, error) {
@@ -33,6 +34,13 @@ func (is *StandardIncludeSearcher) IncludeAngled(path string) (io.Reader, error)
 	return nil, fmt.Errorf("dummy include search.")
 }
 
+func NewStandardIncludeSearcher(path string, includePaths string) IncludeSearcher {
+	ret := &StandardIncludeSearcher{}
+	ret.localPath = path
+	ret.systemHeadersPath = strings.Split(includePaths, ":")
+	return ret
+}
+
 func New(is IncludeSearcher) *Preprocessor {
 	ret := &Preprocessor{is: is}
 	return ret
@@ -41,7 +49,6 @@ func New(is IncludeSearcher) *Preprocessor {
 func (pp *Preprocessor) cppError(e string, pos FilePos) {
 	emsg := fmt.Sprintf("Preprocessor error %s at %s", e, pos)
 	pp.out <- &Token{Kind: ERROR, Val: emsg, Pos: pos}
-	close(pp.out)
 	//recover exits cleanly
 	panic(&breakout{})
 }
@@ -59,28 +66,26 @@ func (pp *Preprocessor) preprocess(in chan *Token) {
 		//XXX is this correct way to retrigger non breakout?
 		if e := recover(); e != nil {
 			_ = e.(*breakout) // Will re-panic if not a parse error.
-			close(pp.out)
 		}
+		close(pp.out)
 	}()
 	pp.preprocess2(in)
 	close(pp.out)
 }
 
 func (pp *Preprocessor) preprocess2(in chan *Token) {
+	//We have to run the lexer dry or it is a leak.
 	defer emptyTokChan(in)
 	for tok := range in {
-		if tok.Kind == ERROR {
+		switch tok.Kind {
+		case ERROR:
 			pp.out <- tok
 			panic(&breakout{})
-		}
-
-		switch tok.Kind {
 		case DIRECTIVE:
 			pp.handleDirective(tok, in)
 		default:
 			pp.out <- tok
 		}
-
 	}
 }
 
@@ -103,7 +108,7 @@ func (pp *Preprocessor) handleDirective(dirTok *Token, in chan *Token) {
 	//case "endif":
 	//case "define":
 	case "include":
-		pp.handleInclude()
+		pp.handleInclude(in)
 	//case "error":
 	//case "warning":
 	default:
@@ -111,21 +116,42 @@ func (pp *Preprocessor) handleDirective(dirTok *Token, in chan *Token) {
 	}
 }
 
-func (pp *Preprocessor) handleInclude() {
-	tok := <-pp.out
+func (pp *Preprocessor) handleInclude(in chan *Token) {
+	tok := <-in
 	if tok.Kind != HEADER {
 		pp.cppError("expected a header at %s", tok.Pos)
 	}
 	headerStr := tok.Val
 	path := headerStr[1 : len(headerStr)-1]
 
+	var rdr io.Reader
+	var err error
 	switch headerStr[0] {
 	case '<':
-		pp.is.IncludeAngled(path)
+		rdr, err = pp.is.IncludeAngled(path)
 	case '"':
-		pp.is.IncludeAngled(path)
+		rdr, err = pp.is.IncludeQuote(path)
+		if err != nil {
+			pp.cppError(fmt.Sprintf("internal error %s", err), tok.Pos)
+		}
+		if rdr == nil {
+			rdr, err = pp.is.IncludeAngled(path)
+		}
 	default:
 		pp.cppError("internal error %s", tok.Pos)
+	}
+	if err != nil {
+		pp.cppError(fmt.Sprintf("internal error %s", err), tok.Pos)
+	}
+	if rdr == nil {
+		pp.cppError(fmt.Sprintf("failed to header file %s", path), tok.Pos)
+	}
+
+	pp.preprocess2(Lex(path, rdr))
+
+	tok = <-in
+	if tok.Kind != END_DIRECTIVE {
+		pp.cppError("Expected newline after include %s", tok.Pos)
 	}
 }
 

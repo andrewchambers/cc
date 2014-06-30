@@ -79,9 +79,9 @@ func performCPPTestCase(t *testing.T, cfile string, expectfile string) {
 	}
 	scanner := bufio.NewScanner(ef)
 	errorReported := false
-	pp := New()
+	pp := New(NewStandardIncludeSearcher("lextestdata/", ""))
 	lexChan := Lex(cfile, f)
-	tokChan := pp.preprocess(lexChan)
+	tokChan := pp.Preprocess(lexChan)
 	for {
 		expectedTokS := ""
 		if scanner.Scan() {
