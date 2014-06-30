@@ -4,8 +4,6 @@ import (
 	"fmt"
 )
 
-type TokenKind uint32
-
 // The list of tokens.
 const (
 	ERROR = iota
@@ -209,15 +207,7 @@ var keywordLUT = map[string]TokenKind{
 	"sizeof":   SIZEOF,
 }
 
-type FilePos struct {
-	File string
-	Line int
-	Col  int
-}
-
-func (pos FilePos) String() string {
-	return fmt.Sprintf("%s:%d:%d", pos.File, pos.Line, pos.Col)
-}
+type TokenKind uint32
 
 func (tk TokenKind) String() string {
 	if uint32(tk) >= uint32(len(tokenKindToStr)) {
@@ -228,6 +218,16 @@ func (tk TokenKind) String() string {
 		return "Unknown"
 	}
 	return ret
+}
+
+type FilePos struct {
+	File string
+	Line int
+	Col  int
+}
+
+func (pos FilePos) String() string {
+	return fmt.Sprintf("%s:%d:%d", pos.File, pos.Line, pos.Col)
 }
 
 //Token represents a grouping of characters

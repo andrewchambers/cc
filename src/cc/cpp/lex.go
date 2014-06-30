@@ -138,7 +138,6 @@ func (ls *lexerState) lex() {
 			switch first {
 			case '#':
 				if ls.isAtLineStart() {
-					ls.sendTok(HASH, "#")
 					ls.readDirective()
 				} else {
 					ls.sendTok(HASH, "#")
@@ -338,7 +337,6 @@ func (ls *lexerState) readDirective() {
 		return
 	}
 	var buff bytes.Buffer
-	ls.markPos()
 	directiveChar, eof := ls.readRune()
 	if eof {
 		ls.lexError("end of file in directive.")
