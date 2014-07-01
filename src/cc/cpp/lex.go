@@ -766,7 +766,3 @@ func isNumeric(b rune) bool {
 func isHexDigit(b rune) bool {
 	return isNumeric(b) || (b >= 'a' && b <= 'f') || (b >= 'A' && b <= 'F')
 }
-
-func isAlphaNumeric(b rune) bool {
-	return isNumeric(b) || isAlpha(b)
-}
