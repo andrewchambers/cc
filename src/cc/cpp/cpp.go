@@ -130,8 +130,6 @@ func (pp *Preprocessor) handleInclude(in chan *Token) {
 	}
 }
 
-//Define can be used to predefine values in the preprocessor.
-//This is what is used to perform -D defines from the command line.
-func (pp *Preprocessor) Define() {
+func (pp *Preprocessor) handleDefine(in chan *Token) {
 
 }

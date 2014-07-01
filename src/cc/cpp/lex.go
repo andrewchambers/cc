@@ -54,7 +54,12 @@ func (ls *lexerState) sendTok(kind TokenKind, val string) {
 	tok.Kind = kind
 	tok.Val = val
 	tok.Pos = ls.markedPos
-	ls.bol = false
+	switch kind {
+	case END_DIRECTIVE:
+		//Do nothing as this is a pseudo directive.
+	default:
+		ls.bol = false
+	}
 	ls.stream <- &tok
 }
 
@@ -368,7 +373,7 @@ func (ls *lexerState) readDirective() {
 }
 
 func (ls *lexerState) readDefine() {
-	ls.readRune()
+	line := ls.pos.Line
 	ls.skipWhiteSpace()
 	if ls.pos.Line != line {
 		ls.lexError("No identifier after define")

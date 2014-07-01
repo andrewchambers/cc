@@ -111,9 +111,9 @@ const (
 
 var tokenKindToStr = [...]string{
 	HASH:            "#",
-	FUNCLIKE_DEFINE: "funclike_define",
-	DIRECTIVE:       "cpp_directive",
-	END_DIRECTIVE:   "end_directive",
+	FUNCLIKE_DEFINE: "funclikedefine",
+	DIRECTIVE:       "cppdirective",
+	END_DIRECTIVE:   "enddirective",
 	HEADER:          "header",
 	CHAR_CONSTANT:   "charconst",
 	INT_CONSTANT:    "intconst",
