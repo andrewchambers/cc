@@ -75,14 +75,30 @@ func (pp *Preprocessor) handleDirective(dirTok *Token, in chan *Token) {
 	//case "elif":
 	//case "else":
 	//case "endif":
-	//case "define":
+	case "define":
+		pp.handleDefine(in)
 	case "include":
 		pp.handleInclude(in)
-	//case "error":
-	//case "warning":
+	case "error":
+		pp.handleError(in)
+	case "warning":
+		pp.handleWarning(in)
 	default:
 		pp.cppError(fmt.Sprintf("unknown directive error %s", dirTok), dirTok.Pos)
 	}
+}
+
+func (pp *Preprocessor) handleError(in chan *Token) {
+	tok := <-in
+	if tok.Kind != STRING {
+		pp.cppError("error string %s", tok.Pos)
+	}
+	pp.cppError(tok.String(), tok.Pos)
+}
+
+func (pp *Preprocessor) handleWarning(in chan *Token) {
+	//XXX
+	pp.handleError(in)
 }
 
 func (pp *Preprocessor) handleInclude(in chan *Token) {

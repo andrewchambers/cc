@@ -352,12 +352,36 @@ func (ls *lexerState) readDirective() {
 		}
 		directive := buff.String()
 		ls.sendTok(DIRECTIVE, directive)
-		if directive == "include" {
+		switch directive {
+		case "include":
 			ls.readHeaderInclude()
+		case "define":
+			ls.readDefine()
+		default:
 		}
 	} else {
 		//wasnt a directive, error will be caught by
 		//cpp or parser.
+		ls.unreadRune()
+	}
+
+}
+
+func (ls *lexerState) readDefine() {
+	ls.readRune()
+	ls.skipWhiteSpace()
+	if ls.pos.Line != line {
+		ls.lexError("No identifier after define")
+	}
+	ls.readIdentOrKeyword()
+	r, eof := ls.readRune()
+	if eof {
+		ls.lexError("End of File in #efine")
+	}
+	//Distinguish between a funclike macro
+	//and a regular macro.
+	if r == '(' {
+		ls.sendTok(FUNCLIKE_DEFINE, "")
 		ls.unreadRune()
 	}
 
