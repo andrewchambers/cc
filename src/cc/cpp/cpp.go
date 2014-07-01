@@ -3,42 +3,11 @@ package cpp
 import (
 	"fmt"
 	"io"
-	"strings"
 )
-
-type IncludeSearcher interface {
-	//IncludeQuote is invoked when the preprocessor
-	//encounters an include of the form #include "foo.h".
-	IncludeQuote(path string) (io.Reader, error)
-	//IncludeAngled is invoked when the preprocessor
-	//encounters an include of the form #include <foo.h>.
-	IncludeAngled(path string) (io.Reader, error)
-}
 
 type Preprocessor struct {
 	is  IncludeSearcher
 	out chan *Token
-}
-
-type StandardIncludeSearcher struct {
-	//Priority order list of paths to search for headers
-	systemHeadersPath []string
-	localPath         string
-}
-
-func (is *StandardIncludeSearcher) IncludeQuote(path string) (io.Reader, error) {
-	return nil, fmt.Errorf("dummy include search.")
-}
-
-func (is *StandardIncludeSearcher) IncludeAngled(path string) (io.Reader, error) {
-	return nil, fmt.Errorf("dummy include search.")
-}
-
-func NewStandardIncludeSearcher(path string, includePaths string) IncludeSearcher {
-	ret := &StandardIncludeSearcher{}
-	ret.localPath = path
-	ret.systemHeadersPath = strings.Split(includePaths, ":")
-	return ret
 }
 
 func New(is IncludeSearcher) *Preprocessor {
@@ -66,8 +35,8 @@ func (pp *Preprocessor) preprocess(in chan *Token) {
 		//XXX is this correct way to retrigger non breakout?
 		if e := recover(); e != nil {
 			_ = e.(*breakout) // Will re-panic if not a parse error.
+			close(pp.out)
 		}
-		close(pp.out)
 	}()
 	pp.preprocess2(in)
 	close(pp.out)
@@ -124,31 +93,21 @@ func (pp *Preprocessor) handleInclude(in chan *Token) {
 	headerStr := tok.Val
 	path := headerStr[1 : len(headerStr)-1]
 
+	var headerName string
 	var rdr io.Reader
 	var err error
 	switch headerStr[0] {
 	case '<':
-		rdr, err = pp.is.IncludeAngled(path)
+		headerName, rdr, err = pp.is.IncludeAngled(tok.Pos.File, path)
 	case '"':
-		rdr, err = pp.is.IncludeQuote(path)
-		if err != nil {
-			pp.cppError(fmt.Sprintf("internal error %s", err), tok.Pos)
-		}
-		if rdr == nil {
-			rdr, err = pp.is.IncludeAngled(path)
-		}
+		headerName, rdr, err = pp.is.IncludeQuote(tok.Pos.File, path)
 	default:
 		pp.cppError("internal error %s", tok.Pos)
 	}
 	if err != nil {
-		pp.cppError(fmt.Sprintf("internal error %s", err), tok.Pos)
+		pp.cppError(fmt.Sprintf("error during include %s", err), tok.Pos)
 	}
-	if rdr == nil {
-		pp.cppError(fmt.Sprintf("failed to header file %s", path), tok.Pos)
-	}
-
-	pp.preprocess2(Lex(path, rdr))
-
+	pp.preprocess2(Lex(headerName, rdr))
 	tok = <-in
 	if tok.Kind != END_DIRECTIVE {
 		pp.cppError("Expected newline after include %s", tok.Pos)
