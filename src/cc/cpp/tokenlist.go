@@ -33,3 +33,10 @@ func (tl *tokenList) appendList(toAdd *tokenList) {
 		tl.l.PushBack(e.Value)
 	}
 }
+
+func (tl *tokenList) front() *list.Element {
+	if tl.isEmpty() {
+		panic("internal error")
+	}
+	return tl.l.Front()
+}
