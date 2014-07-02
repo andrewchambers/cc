@@ -6,13 +6,20 @@ import (
 )
 
 type Preprocessor struct {
-	is  IncludeSearcher
-	tl  *tokenList
+	is IncludeSearcher
+	//List of all pushed back tokens
+	tl *tokenList
+	//Map of defined macros
+	objMacros map[string]objMacro
+	//Where the tokens are to be sent
 	out chan *Token
 }
 
 func New(is IncludeSearcher) *Preprocessor {
-	ret := &Preprocessor{is: is, tl: newTokenList()}
+	ret := new(Preprocessor)
+	ret.is = is
+	ret.tl = newTokenList()
+	ret.objMacros = make(map[string]objMacro)
 	return ret
 }
 
@@ -21,6 +28,21 @@ func (pp *Preprocessor) nextToken(in chan *Token) *Token {
 		return <-in
 	}
 	return pp.tl.popFront()
+}
+
+func (pp *Preprocessor) nextTokenExpand(in chan *Token) *Token {
+	t := pp.nextToken(in)
+	_, ok := pp.objMacros[t.Val]
+	if ok {
+		if t.hs.contains(t.Val) {
+			return t
+		}
+		//replacementTokens := macro.copyTokens()
+		//replacementTokens.addToHideSets(t.Val)
+		//pp.ungetTokens(replacementTokens)
+		//return nextTokenExpand(in)
+	}
+	return t
 }
 
 func (pp *Preprocessor) ungetTokens(tl *tokenList) {

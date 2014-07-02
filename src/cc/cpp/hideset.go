@@ -8,8 +8,25 @@ type hideSet struct {
 	kv map[string]struct{}
 }
 
-func (hs *hideSet) put(val string) {
-	hs.kv[val] = struct{}{}
+func (hs *hideSet) copy() *hideSet {
+	ret := newHideSet()
+	for k := range hs.kv {
+		ret.kv[k] = struct{}{}
+	}
+	return ret
+}
+
+func (hs *hideSet) put(tok *Token) {
+	ret := hs.copy()
+	ret.kv[tok.Val] = struct{}{}
+}
+
+func (hs *hideSet) putTokList(tl *tokenList) {
+	ret := hs.copy()
+	for e := tl.front(); e != nil; e = e.Next() {
+		t := e.Value.(*Token)
+		ret.kv[t.Val] = struct{}{}
+	}
 }
 
 func (hs *hideSet) contains(val string) bool {
@@ -27,7 +44,7 @@ func hideSetIntersection(a *hideSet, b *hideSet) *hideSet {
 	ret := newHideSet()
 	for k := range a.kv {
 		if b.contains(k) {
-			ret.put(k)
+			ret.kv[k] = struct{}{}
 		}
 	}
 	return ret
@@ -36,10 +53,10 @@ func hideSetIntersection(a *hideSet, b *hideSet) *hideSet {
 func hideSetUnion(a *hideSet, b *hideSet) *hideSet {
 	ret := newHideSet()
 	for k := range a.kv {
-		ret.put(k)
+		ret.kv[k] = struct{}{}
 	}
 	for k := range b.kv {
-		ret.put(k)
+		ret.kv[k] = struct{}{}
 	}
 	return ret
 }

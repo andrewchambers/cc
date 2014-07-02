@@ -2,6 +2,8 @@ package cpp
 
 import "container/list"
 
+//Immutable list of tokens.
+
 type tokenList struct {
 	l *list.List
 }
@@ -21,10 +23,6 @@ func (tl *tokenList) popFront() *Token {
 	fronte := tl.l.Front()
 	ret := fronte.Value.(*Token)
 	return ret
-}
-
-func (tl *tokenList) append(tok *Token) {
-	tl.l.PushBack(tok)
 }
 
 func (tl *tokenList) appendList(toAdd *tokenList) {
