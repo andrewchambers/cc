@@ -7,12 +7,24 @@ import (
 
 type Preprocessor struct {
 	is  IncludeSearcher
+	tl  *tokenList
 	out chan *Token
 }
 
 func New(is IncludeSearcher) *Preprocessor {
-	ret := &Preprocessor{is: is}
+	ret := &Preprocessor{is: is, tl: newTokenList()}
 	return ret
+}
+
+func (pp *Preprocessor) nextToken(in chan *Token) *Token {
+	if pp.tl.isEmpty() {
+		return <-in
+	}
+	return pp.tl.popFront()
+}
+
+func (pp *Preprocessor) ungetTokens(tl *tokenList) {
+	pp.tl.appendList(tl)
 }
 
 func (pp *Preprocessor) cppError(e string, pos FilePos) {
@@ -45,7 +57,11 @@ func (pp *Preprocessor) preprocess(in chan *Token) {
 func (pp *Preprocessor) preprocess2(in chan *Token) {
 	//We have to run the lexer dry or it is a leak.
 	defer emptyTokChan(in)
-	for tok := range in {
+	for {
+		tok := pp.nextToken(in)
+		if tok == nil {
+			break
+		}
 		switch tok.Kind {
 		case ERROR:
 			pp.out <- tok
@@ -89,7 +105,7 @@ func (pp *Preprocessor) handleDirective(dirTok *Token, in chan *Token) {
 }
 
 func (pp *Preprocessor) handleError(in chan *Token) {
-	tok := <-in
+	tok := pp.nextToken(in)
 	if tok.Kind != STRING {
 		pp.cppError("error string %s", tok.Pos)
 	}
@@ -102,7 +118,7 @@ func (pp *Preprocessor) handleWarning(in chan *Token) {
 }
 
 func (pp *Preprocessor) handleInclude(in chan *Token) {
-	tok := <-in
+	tok := pp.nextToken(in)
 	if tok.Kind != HEADER {
 		pp.cppError("expected a header at %s", tok.Pos)
 	}
@@ -124,7 +140,7 @@ func (pp *Preprocessor) handleInclude(in chan *Token) {
 		pp.cppError(fmt.Sprintf("error during include %s", err), tok.Pos)
 	}
 	pp.preprocess2(Lex(headerName, rdr))
-	tok = <-in
+	tok = pp.nextToken(in)
 	if tok.Kind != END_DIRECTIVE {
 		pp.cppError("Expected newline after include %s", tok.Pos)
 	}
