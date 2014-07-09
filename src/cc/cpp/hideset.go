@@ -3,6 +3,19 @@ package cpp
 //This file defines hidesets. Each token has a hideset.
 //The hideset of a token is the set of identifiers whose expansion resulted inthe token.
 //Hidesets prevent infinite expansion by not rexpanding if its hideset contains the macro.
+//Needs a copy method
+
+type tokWithHideSet struct {
+	tok *Token
+	hs  *hideSet
+}
+
+func (twhs *tokWithHideSet) copy() *tokWithHideSet {
+	ret := &tokWithHideSet{}
+	ret.tok = twhs.tok.copy()
+	ret.hs = twhs.hs.copy()
+	return ret
+}
 
 type hideSet struct {
 	kv map[string]struct{}

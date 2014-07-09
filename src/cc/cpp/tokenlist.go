@@ -2,7 +2,7 @@ package cpp
 
 import "container/list"
 
-//Immutable list of tokens.
+//list of tokens
 
 type tokenList struct {
 	l *list.List
@@ -10,6 +10,12 @@ type tokenList struct {
 
 func newTokenList() *tokenList {
 	return &tokenList{list.New()}
+}
+
+func (tl *tokenList) copy() *tokenList {
+	ret := newTokenList()
+	ret.appendList(tl)
+	return ret
 }
 
 func (tl *tokenList) isEmpty() bool {
@@ -25,10 +31,11 @@ func (tl *tokenList) popFront() *Token {
 	return ret
 }
 
+//Makes a copy of all tokens.
 func (tl *tokenList) appendList(toAdd *tokenList) {
 	l := toAdd.l
 	for e := l.Front(); e != nil; e = e.Next() {
-		tl.l.PushBack(e.Value)
+		tl.l.PushBack(e.Value.(*Token).copy())
 	}
 }
 

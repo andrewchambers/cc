@@ -34,9 +34,9 @@ func (pp *Preprocessor) nextTokenExpand(in chan *Token) *Token {
 	t := pp.nextToken(in)
 	_, ok := pp.objMacros[t.Val]
 	if ok {
-		if t.hs.contains(t.Val) {
-			return t
-		}
+		//if t.hs.contains(t.Val) {
+		//	return t
+		//}
 		//replacementTokens := macro.copyTokens()
 		//replacementTokens.addToHideSets(t.Val)
 		//pp.ungetTokens(replacementTokens)

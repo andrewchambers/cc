@@ -1,5 +1,8 @@
 package cpp
 
+//Data structures representing macros inside the cpreprocessor.
+//These should be immutable.
+
 type objMacro struct {
 	tokens *tokenList
 }
