@@ -32,15 +32,18 @@ func (pp *Preprocessor) nextToken(in chan *Token) *Token {
 
 func (pp *Preprocessor) nextTokenExpand(in chan *Token) *Token {
 	t := pp.nextToken(in)
-	_, ok := pp.objMacros[t.Val]
+	if t == nil {
+		return nil
+	}
+	macro, ok := pp.objMacros[t.Val]
 	if ok {
-		//if t.hs.contains(t.Val) {
-		//	return t
-		//}
-		//replacementTokens := macro.copyTokens()
-		//replacementTokens.addToHideSets(t.Val)
-		//pp.ungetTokens(replacementTokens)
-		//return nextTokenExpand(in)
+		if t.hs.contains(t.Val) {
+			return t
+		}
+		replacementTokens := macro.tokens.copy()
+		replacementTokens.addToHideSets(t)
+		pp.ungetTokens(replacementTokens)
+		return pp.nextTokenExpand(in)
 	}
 	return t
 }
@@ -80,7 +83,7 @@ func (pp *Preprocessor) preprocess2(in chan *Token) {
 	//We have to run the lexer dry or it is a leak.
 	defer emptyTokChan(in)
 	for {
-		tok := pp.nextToken(in)
+		tok := pp.nextTokenExpand(in)
 		if tok == nil {
 			break
 		}
@@ -169,5 +172,14 @@ func (pp *Preprocessor) handleInclude(in chan *Token) {
 }
 
 func (pp *Preprocessor) handleDefine(in chan *Token) {
+	tl := newTokenList()
+	ident := pp.nextToken(in)
+	//XXX should also support keywords and maybe other things
+	if ident.Kind != IDENT {
+		pp.cppError("#define expected an ident", ident.Pos)
+	}
 
+	for t := pp.nextToken(in); t.Kind != END_DIRECTIVE; t = pp.nextToken(in) {
+		tl.append(t)
+	}
 }

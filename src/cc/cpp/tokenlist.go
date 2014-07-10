@@ -39,9 +39,19 @@ func (tl *tokenList) appendList(toAdd *tokenList) {
 	}
 }
 
+func (tl *tokenList) append(toAdd *Token) {
+	tl.l.PushBack(toAdd.copy())
+}
+
 func (tl *tokenList) front() *list.Element {
 	if tl.isEmpty() {
 		panic("internal error")
 	}
 	return tl.l.Front()
+}
+
+func (tl *tokenList) addToHideSets(tok *Token) {
+	for e := tl.front(); e != nil; e = e.Next() {
+		e.Value.(*Token).hs.put(tok)
+	}
 }
