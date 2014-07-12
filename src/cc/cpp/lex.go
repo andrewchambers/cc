@@ -54,6 +54,9 @@ func (ls *lexerState) sendTok(kind TokenKind, val string) {
 	tok.Kind = kind
 	tok.Val = val
 	tok.Pos = ls.markedPos
+	//XXX This might slow things down.
+	//Not all tokens need a hideset.
+	tok.hs = newHideSet()
 	switch kind {
 	case END_DIRECTIVE:
 		//Do nothing as this is a pseudo directive.

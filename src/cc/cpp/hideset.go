@@ -34,6 +34,9 @@ func (hs *hideSet) putTokList(tl *tokenList) {
 }
 
 func (hs *hideSet) contains(val string) bool {
+	if hs == nil {
+		return false
+	}
 	_, ok := hs.kv[val]
 	return ok
 }

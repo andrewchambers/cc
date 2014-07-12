@@ -10,7 +10,7 @@ type Preprocessor struct {
 	//List of all pushed back tokens
 	tl *tokenList
 	//Map of defined macros
-	objMacros map[string]objMacro
+	objMacros map[string]*objMacro
 	//Where the tokens are to be sent
 	out chan *Token
 }
@@ -19,7 +19,7 @@ func New(is IncludeSearcher) *Preprocessor {
 	ret := new(Preprocessor)
 	ret.is = is
 	ret.tl = newTokenList()
-	ret.objMacros = make(map[string]objMacro)
+	ret.objMacros = make(map[string]*objMacro)
 	return ret
 }
 
@@ -182,4 +182,6 @@ func (pp *Preprocessor) handleDefine(in chan *Token) {
 	for t := pp.nextToken(in); t.Kind != END_DIRECTIVE; t = pp.nextToken(in) {
 		tl.append(t)
 	}
+	m := newObjMacro(tl)
+	pp.objMacros[ident.Val] = m
 }
