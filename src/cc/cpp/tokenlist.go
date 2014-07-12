@@ -57,6 +57,12 @@ func (tl *tokenList) addToHideSets(tok *Token) {
 	}
 }
 
+func (tl *tokenList) setPositions(pos FilePos) {
+	for e := tl.front(); e != nil; e = e.Next() {
+		e.Value.(*Token).Pos = pos
+	}
+}
+
 func (tl *tokenList) String() string {
 	ret := ""
 	for e := tl.front(); e != nil; e = e.Next() {
