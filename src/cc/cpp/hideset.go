@@ -21,15 +21,13 @@ func (hs *hideSet) copy() *hideSet {
 }
 
 func (hs *hideSet) put(tok *Token) {
-	ret := hs.copy()
-	ret.kv[tok.Val] = struct{}{}
+	hs.kv[tok.Val] = struct{}{}
 }
 
 func (hs *hideSet) putTokList(tl *tokenList) {
-	ret := hs.copy()
 	for e := tl.front(); e != nil; e = e.Next() {
 		t := e.Value.(*Token)
-		ret.kv[t.Val] = struct{}{}
+		hs.kv[t.Val] = struct{}{}
 	}
 }
 

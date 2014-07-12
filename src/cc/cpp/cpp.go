@@ -38,10 +38,12 @@ func (pp *Preprocessor) nextTokenExpand(in chan *Token) *Token {
 	macro, ok := pp.objMacros[t.Val]
 	if ok {
 		if t.hs.contains(t.Val) {
+			//fmt.Println("not expanding ", t.Val)
 			return t
 		}
 		replacementTokens := macro.tokens.copy()
 		replacementTokens.addToHideSets(t)
+		//fmt.Println("expanding ", t.Val, "to", replacementTokens)
 		pp.ungetTokens(replacementTokens)
 		return pp.nextTokenExpand(in)
 	}
