@@ -130,6 +130,9 @@ func (ls *lexerState) lex() {
 	first, eof := ls.readRune()
 	for {
 		if eof {
+			if ls.inDirective {
+				ls.sendTok(END_DIRECTIVE, "")
+			}
 			break
 		}
 		switch {
@@ -466,7 +469,6 @@ func (ls *lexerState) skipWhiteSpace() {
 				ls.sendTok(END_DIRECTIVE, "")
 				ls.inDirective = false
 			}
-
 		}
 	}
 }
