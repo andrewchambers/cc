@@ -67,6 +67,10 @@ func tokenizeFile(sourceFile string, out io.WriteCloser) {
 	}
 }
 
+func CompileFile(path string, includeDirs []string, out io.Writer) error {
+	return nil
+}
+
 func main() {
 	flag.Usage = printUsage
 	preprocessOnly := flag.Bool("E", false, "Preprocess only")
