@@ -11,6 +11,8 @@ type Preprocessor struct {
 	tl *tokenList
 	//Map of defined macros
 	objMacros map[string]*objMacro
+	//Map of defined FUNC macros
+	funcMacros map[string]*funcMacro
 	//Where the tokens are to be sent
 	out chan *Token
 }
@@ -20,6 +22,7 @@ func New(is IncludeSearcher) *Preprocessor {
 	ret.is = is
 	ret.tl = newTokenList()
 	ret.objMacros = make(map[string]*objMacro)
+	ret.funcMacros = make(map[string]*funcMacro)
 	return ret
 }
 
@@ -48,7 +51,62 @@ func (pp *Preprocessor) nextTokenExpand(in chan *Token) *Token {
 		pp.ungetTokens(replacementTokens)
 		return pp.nextTokenExpand(in)
 	}
+
+	_, ok = pp.funcMacros[t.Val]
+	if ok {
+		opening := pp.nextToken(in)
+		if opening.Kind == LPAREN {
+			_, _ = pp.readMacroInvokeArguments(in)
+			panic("args...")
+		} else {
+			panic("macro() with no opening paren")
+		}
+	}
+
 	return t
+}
+
+//Read the tokens that are part of a macro invocation, not including the first paren.
+//But including the last paren. Handles nested parens.
+//returns a slice of token lists. Each token list represents a read macro param.
+//e.g. FOO(BAR,(A,B),C)  -> { <BAR> , <(A,B)> , <C> }
+// Where FOO( has already been consumed.
+func (pp *Preprocessor) readMacroInvokeArguments(in chan *Token) ([]*tokenList, error) {
+	parenDepth := 1
+	argIdx := 0
+	ret := make([]*tokenList, 0, 16)
+	ret = append(ret, newTokenList())
+	for {
+		t := pp.nextToken(in)
+		if t == nil {
+			return nil, fmt.Errorf("EOF while reading macro arguments")
+		}
+		switch t.Kind {
+		case LPAREN:
+			parenDepth += 1
+			if parenDepth != 1 {
+				ret[argIdx].append(t)
+			}
+		case RPAREN:
+			parenDepth -= 1
+			if parenDepth == 0 {
+				break
+			} else {
+				ret[argIdx].append(t)
+			}
+		case COMMA:
+			if parenDepth == 1 {
+				//nextArg
+				argIdx += 1
+				ret = append(ret, newTokenList())
+			} else {
+				ret[argIdx].append(t)
+			}
+		default:
+			ret[argIdx].append(t)
+		}
+	}
+	return ret, nil
 }
 
 func (pp *Preprocessor) ungetTokens(tl *tokenList) {
