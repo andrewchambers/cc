@@ -254,13 +254,32 @@ func (pp *Preprocessor) handleDefine(in chan *Token) {
 
 func (pp *Preprocessor) handleFuncLikeDefine(ident *Token, in chan *Token) {
 	//First read the arguments.
-	t := pp.nextToken(in)
-	if t.Kind != LPAREN {
+	paren := pp.nextToken(in)
+	if paren.Kind != LPAREN {
 		panic("Bug, func like define without opening LPAREN")
 	}
 	for {
-		t = pp.nextToken(in)
-		//if t.KIND ==
+		t := pp.nextToken(in)
+		if t.Kind == RPAREN {
+			break
+		}
+		if t.Kind != IDENT {
+			pp.cppError("Expected macro argument", t.Pos)
+		}
+		t2 := pp.nextToken(in)
+		if t2.Kind == COMMA {
+
+		} else if t2.Kind == RPAREN {
+			break
+		} else {
+		}
+	}
+
+	for {
+		t := pp.nextToken(in)
+		if t.Kind == END_DIRECTIVE {
+			break
+		}
 	}
 }
 

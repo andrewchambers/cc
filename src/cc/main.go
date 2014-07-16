@@ -25,6 +25,10 @@ func printUsage() {
 	flag.PrintDefaults()
 }
 
+func CompileFile(path string, includeDirs []string, out io.Writer) error {
+	return nil
+}
+
 func preprocessFile(sourceFile string, out io.WriteCloser) {
 	defer out.Close()
 	f, err := os.Open(sourceFile)
@@ -65,10 +69,6 @@ func tokenizeFile(sourceFile string, out io.WriteCloser) {
 		}
 		fmt.Fprintf(out, "%s:%s:%d:%d\n", tok.Kind, tok.Val, tok.Pos.Line, tok.Pos.Col)
 	}
-}
-
-func CompileFile(path string, includeDirs []string, out io.Writer) error {
-	return nil
 }
 
 func main() {
