@@ -113,6 +113,10 @@ func (pp *Preprocessor) ungetTokens(tl *tokenList) {
 	pp.tl.appendList(tl)
 }
 
+func (pp *Preprocessor) ungetToken(t *Token) {
+	pp.tl.append(t)
+}
+
 func (pp *Preprocessor) cppError(e string, pos FilePos) {
 	emsg := fmt.Sprintf("Preprocessor error %s at %s", e, pos)
 	pp.out <- &Token{Kind: ERROR, Val: emsg, Pos: pos}
@@ -233,14 +237,62 @@ func (pp *Preprocessor) handleInclude(in chan *Token) {
 }
 
 func (pp *Preprocessor) handleDefine(in chan *Token) {
-	tl := newTokenList()
 	ident := pp.nextToken(in)
 	//XXX should also support keywords and maybe other things
 	if ident.Kind != IDENT {
 		pp.cppError("#define expected an ident", ident.Pos)
 	}
+	t := pp.nextToken(in)
+	if t.Kind == FUNCLIKE_DEFINE {
+		pp.handleFuncLikeDefine(ident, in)
+	} else {
+		pp.ungetToken(t)
+		pp.handleObjDefine(ident, in)
+	}
 
-	for t := pp.nextToken(in); t.Kind != END_DIRECTIVE; t = pp.nextToken(in) {
+}
+
+func (pp *Preprocessor) handleFuncLikeDefine(ident *Token, in chan *Token) {
+	//First read the arguments.
+	paren := pp.nextToken(in)
+	if paren.Kind != LPAREN {
+		panic("Bug, func like define without opening LPAREN")
+	}
+	for {
+		t := pp.nextToken(in)
+		if t.Kind == RPAREN {
+			break
+		}
+		if t.Kind != IDENT {
+			pp.cppError("Expected macro argument", t.Pos)
+		}
+		t2 := pp.nextToken(in)
+		if t2.Kind == COMMA {
+
+		} else if t2.Kind == RPAREN {
+			break
+		} else {
+		}
+	}
+
+	for {
+		t := pp.nextToken(in)
+		if t.Kind == END_DIRECTIVE {
+			break
+		}
+	}
+}
+
+func (pp *Preprocessor) handleObjDefine(ident *Token, in chan *Token) {
+	tl := newTokenList()
+	for {
+		t := pp.nextToken(in)
+		if t == nil {
+			panic("Bug, EOF before END_DIRECTIVE in define at" + t.String())
+		}
+		if t.Kind == END_DIRECTIVE {
+			break
+		}
 		tl.append(t)
 	}
 	m := newObjMacro(tl)

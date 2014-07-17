@@ -25,6 +25,10 @@ func printUsage() {
 	flag.PrintDefaults()
 }
 
+func CompileFile(path string, includeDirs []string, out io.Writer) error {
+	return nil
+}
+
 func preprocessFile(sourceFile string, out io.WriteCloser) {
 	defer out.Close()
 	f, err := os.Open(sourceFile)
