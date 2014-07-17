@@ -47,31 +47,38 @@ func (pp *Preprocessor) nextTokenExpand(in chan *Token) *Token {
 		replacementTokens := macro.tokens.copy()
 		replacementTokens.addToHideSets(t)
 		replacementTokens.setPositions(t.Pos)
-		//fmt.Println("expanding ", t.Val, "to", replacementTokens)
 		pp.ungetTokens(replacementTokens)
 		return pp.nextTokenExpand(in)
 	}
 
-	_, ok = pp.funcMacros[t.Val]
+	fmacro, ok := pp.funcMacros[t.Val]
 	if ok {
 		opening := pp.nextToken(in)
 		if opening.Kind == LPAREN {
-			_, _ = pp.readMacroInvokeArguments(in)
-			panic("args...")
-		} else {
-			panic("macro() with no opening paren")
+			args, rparen, err := pp.readMacroInvokeArguments(in)
+			if err != nil {
+				pp.cppError(err.Error(), t.Pos)
+			}
+			hs := hideSetIntersection(t.hs, rparen.hs)
+			hs.put(t)
+			pp.subst(fmacro, args, hs)
+			return pp.nextTokenExpand(in)
 		}
 	}
-
 	return t
+}
+
+func (pp *Preprocessor) subst(macro *funcMacro, args []*tokenList, hs *hideSet) {
+	pp.cppError("errr", FilePos{})
 }
 
 //Read the tokens that are part of a macro invocation, not including the first paren.
 //But including the last paren. Handles nested parens.
-//returns a slice of token lists. Each token list represents a read macro param.
-//e.g. FOO(BAR,(A,B),C)  -> { <BAR> , <(A,B)> , <C> }
-// Where FOO( has already been consumed.
-func (pp *Preprocessor) readMacroInvokeArguments(in chan *Token) ([]*tokenList, error) {
+//returns a slice of token lists and the closing paren.
+//Each token list in the returned value represents a read macro param.
+//e.g. FOO(BAR,(A,B),C)  -> { <BAR> , <(A,B)> , <C> } , )
+//Where FOO( has already been consumed.
+func (pp *Preprocessor) readMacroInvokeArguments(in chan *Token) ([]*tokenList, *Token, error) {
 	parenDepth := 1
 	argIdx := 0
 	ret := make([]*tokenList, 0, 16)
@@ -79,7 +86,7 @@ func (pp *Preprocessor) readMacroInvokeArguments(in chan *Token) ([]*tokenList, 
 	for {
 		t := pp.nextToken(in)
 		if t == nil {
-			return nil, fmt.Errorf("EOF while reading macro arguments")
+			return nil, nil, fmt.Errorf("EOF while reading macro arguments")
 		}
 		switch t.Kind {
 		case LPAREN:
@@ -90,7 +97,7 @@ func (pp *Preprocessor) readMacroInvokeArguments(in chan *Token) ([]*tokenList, 
 		case RPAREN:
 			parenDepth -= 1
 			if parenDepth == 0 {
-				break
+				return ret, t, nil
 			} else {
 				ret[argIdx].append(t)
 			}
@@ -106,7 +113,6 @@ func (pp *Preprocessor) readMacroInvokeArguments(in chan *Token) ([]*tokenList, 
 			ret[argIdx].append(t)
 		}
 	}
-	return ret, nil
 }
 
 func (pp *Preprocessor) ungetTokens(tl *tokenList) {
@@ -252,12 +258,26 @@ func (pp *Preprocessor) handleDefine(in chan *Token) {
 
 }
 
+func (pp *Preprocessor) isDefined(s string) bool {
+	_, ok1 := pp.funcMacros[s]
+	_, ok2 := pp.objMacros[s]
+	return ok1 || ok2
+}
+
 func (pp *Preprocessor) handleFuncLikeDefine(ident *Token, in chan *Token) {
 	//First read the arguments.
 	paren := pp.nextToken(in)
 	if paren.Kind != LPAREN {
 		panic("Bug, func like define without opening LPAREN")
 	}
+
+	if pp.isDefined(ident.Val) {
+		pp.cppError("macro redefinition "+ident.Val, ident.Pos)
+	}
+
+	args := newTokenList()
+	tokens := newTokenList()
+
 	for {
 		t := pp.nextToken(in)
 		if t.Kind == RPAREN {
@@ -266,12 +286,14 @@ func (pp *Preprocessor) handleFuncLikeDefine(ident *Token, in chan *Token) {
 		if t.Kind != IDENT {
 			pp.cppError("Expected macro argument", t.Pos)
 		}
+		args.append(t)
 		t2 := pp.nextToken(in)
 		if t2.Kind == COMMA {
-
+			continue
 		} else if t2.Kind == RPAREN {
 			break
 		} else {
+			pp.cppError("Error in macro definition expected , or )", t2.Pos)
 		}
 	}
 
@@ -280,10 +302,20 @@ func (pp *Preprocessor) handleFuncLikeDefine(ident *Token, in chan *Token) {
 		if t.Kind == END_DIRECTIVE {
 			break
 		}
+		tokens.append(t)
 	}
+
+	macro, err := newFuncMacro(args, tokens)
+	if err != nil {
+		pp.cppError("Error in macro definition "+err.Error(), ident.Pos)
+	}
+	pp.funcMacros[ident.Val] = macro
 }
 
 func (pp *Preprocessor) handleObjDefine(ident *Token, in chan *Token) {
+	if pp.isDefined(ident.Val) {
+		pp.cppError("macro redefinition "+ident.Val, ident.Pos)
+	}
 	tl := newTokenList()
 	for {
 		t := pp.nextToken(in)
