@@ -7,22 +7,20 @@ I'm investigating some features that aren't typically in C compilers that are ma
 
 Some examples might be:
 
-- Multiple cores in internal compiler pipeline using channels where it makes sense and simplifies design.
+- Using multiple cpu cores in internal compiler pipeline while processing a single file using channels where it makes sense and simplifies design.
 - Emphasis on simple code (helped by garbage collection), with good enough performance.
-- Emphasis on readability for people learning compiler internals, comments should assume less internal knowledge than other compilers. Not elitist, and less complicated than a C++ compiler by supporting a bunch of cruft not needed by C.
-- Pluggable #include mechanisms (like remote code or archived code)
+- Emphasis on readability for people learning compiler internals, comments should assume less internal knowledge than other compilers.
 - All crosscompilation is done with the same compiler binaries with intuitive configuration. 
-- Whole compiler will build icredibly fast, seconds not minutes or hours. (GCC has taken me over 30 minutes just for the C frontent.)
+- Whole compiler will build quickly, seconds not minutes or hours. (GCC has taken me over 30 minutes just for the C frontent.)
 - Anything else that might be fun.
 
 I also want to put emphasis on good documentation, good code coverage tooling and profiling, and avoiding code bloat by limiting the scope to C and keeping parts as importable modules so external tools can do more fancy features.
 
-The project is designed as a set of Go libraries which can all be imported individually, used in multithreaded environments, and used in servers. My original intentions are for a small well documented
-compiler for hobbyists but I don't want to limit it and thus desire high quality and modularity.
+The project is designed as a set of Go libraries which can all be imported individually, used in multithreaded environments, and also long lived processes. My original intentions are for a small compiler for hobbyists but I don't want to limit it.
 
 A lexer, a preprocessor, C parser, C semantic analysis and assembly generation are planned.
 
-A possibility is that the AST will be able to be dumped to a simple and portable serialization format so that multiple languages can be used (OCAML and Haskell excel at working with trees), This probably is useful for research and experimental backends if well designed.
+One possibility is that the AST will be able to be dumped to a simple and portable serialization format so that multiple languages can be used (OCAML and Haskell excel at working with trees), This probably is useful for research and experimental backends if well designed.
 
 Building:
 
@@ -37,7 +35,7 @@ go test cc
 go test cc/cpp
 etc...
 
-Using the builtin tools allow the standard Go code coverage, and benchmarking to work uniformly, which is extremely useful and high quality.
+Using the builtin tools allow the standard Go code coverage, and benchmarking to work uniformly, which is extremely useful.
 
 Dev environment:
 
