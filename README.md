@@ -1,4 +1,4 @@
-Status WIP.
+Status WIP. 
 
 The goal of the project is to create a small cross platform toolchain for working with C code in windows and linux.
 This includes preprocessing, code analysis and assembly generation. It should work on any platform Go supports and support trivial cross platform C compilation.
@@ -12,6 +12,7 @@ Some examples might be:
 - Emphasis on readability for people learning compiler internals, comments should assume less internal knowledge than other compilers. Not elitist, and less complicated than a C++ compiler by supporting a bunch of cruft not needed by C.
 - Pluggable #include mechanisms (like remote code or archived code)
 - All crosscompilation is done with the same compiler binaries with intuitive configuration. 
+- Whole compiler will build icredibly fast, seconds not minutes or hours. (GCC has taken me over 30 minutes just for the C frontent.)
 - Anything else that might be fun.
 
 I also want to put emphasis on good documentation, good code coverage tooling and profiling, and avoiding code bloat by limiting the scope to C and keeping parts as importable modules so external tools can do more fancy features.
@@ -23,10 +24,9 @@ A lexer, a preprocessor, C parser, C semantic analysis and assembly generation a
 
 A possibility is that the AST will be able to be dumped to a simple and portable serialization format so that multiple languages can be used (OCAML and Haskell excel at working with trees), This probably is useful for research and experimental backends if well designed.
 
-To build the main compiler binary:
+Building:
 
-set the GOPATH to the root. On linux I use
-export GOPATH=`pwd`
+set the GOPATH to the root. On linux I use export GOPATH=`pwd`
 then execute:
 go build cc
 
@@ -43,7 +43,6 @@ Dev environment:
 
 Go compilation is very standard so any Go IDE should just work with minimal work. I personally use GoSublime which
 gives me full autocompletion support with the only setup being a single environment variable.
-
 
 Notes:
 Architecture support will be limited to X86_64 and possible X86 initially, but I would love the toolchain to work for embedded C code on windows. ABI compatibility with gcc is a goal.
