@@ -36,12 +36,24 @@ func (tl *tokenList) popFront() *Token {
 func (tl *tokenList) appendList(toAdd *tokenList) {
 	l := toAdd.l
 	for e := l.Front(); e != nil; e = e.Next() {
-		tl.l.PushFront(e.Value.(*Token).copy())
+		tl.l.PushBack(e.Value.(*Token).copy())
 	}
 }
 
 func (tl *tokenList) append(toAdd *Token) {
 	tl.l.PushBack(toAdd.copy())
+}
+
+func (tl *tokenList) prepend(toAdd *Token) {
+	tl.l.PushFront(toAdd.copy())
+}
+
+//Makes a copy of all tokens.
+func (tl *tokenList) prependList(toAdd *tokenList) {
+	l := toAdd.l
+	for e := l.Back(); e != nil; e = e.Prev() {
+		tl.l.PushFront(e.Value.(*Token).copy())
+	}
 }
 
 func (tl *tokenList) front() *list.Element {
@@ -51,6 +63,12 @@ func (tl *tokenList) front() *list.Element {
 func (tl *tokenList) addToHideSets(tok *Token) {
 	for e := tl.front(); e != nil; e = e.Next() {
 		e.Value.(*Token).hs.put(tok)
+	}
+}
+
+func (tl *tokenList) setHideSets(hs *hideSet) {
+	for e := tl.front(); e != nil; e = e.Next() {
+		e.Value.(*Token).hs = hs.copy()
 	}
 }
 

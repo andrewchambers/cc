@@ -38,7 +38,6 @@ func (pp *Preprocessor) nextTokenExpand(in chan *Token) *Token {
 	if t == nil {
 		return nil
 	}
-
 	if t.hs.contains(t.Val) {
 		return t
 	}
@@ -54,7 +53,8 @@ func (pp *Preprocessor) nextTokenExpand(in chan *Token) *Token {
 	fmacro, ok := pp.funcMacros[t.Val]
 	if ok {
 		opening := pp.nextToken(in)
-		if opening.Kind == LPAREN {
+		if opening != nil && opening.Kind == LPAREN {
+			//fmt.Println("expanding func ", t.Val)
 			args, rparen, err := pp.readMacroInvokeArguments(in)
 			if err != nil {
 				pp.cppError(err.Error(), t.Pos)
@@ -69,7 +69,18 @@ func (pp *Preprocessor) nextTokenExpand(in chan *Token) *Token {
 }
 
 func (pp *Preprocessor) subst(macro *funcMacro, args []*tokenList, hs *hideSet) {
-	pp.cppError("errr", FilePos{})
+	expandedTokens := newTokenList()
+	for e := macro.tokens.front(); e != nil; e = e.Next() {
+		t := e.Value.(*Token)
+		idx, tIsArg := macro.isArg(t)
+		if tIsArg {
+			expandedTokens.appendList(args[idx])
+		} else {
+			expandedTokens.append(t.copy())
+		}
+	}
+	expandedTokens.setHideSets(hs)
+	pp.ungetTokens(expandedTokens)
 }
 
 //Read the tokens that are part of a macro invocation, not including the first paren.
@@ -116,11 +127,11 @@ func (pp *Preprocessor) readMacroInvokeArguments(in chan *Token) ([]*tokenList, 
 }
 
 func (pp *Preprocessor) ungetTokens(tl *tokenList) {
-	pp.tl.appendList(tl)
+	pp.tl.prependList(tl)
 }
 
 func (pp *Preprocessor) ungetToken(t *Token) {
-	pp.tl.append(t)
+	pp.tl.prepend(t)
 }
 
 func (pp *Preprocessor) cppError(e string, pos FilePos) {
