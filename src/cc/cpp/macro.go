@@ -15,6 +15,7 @@ func newObjMacro(tokens *tokenList) *objMacro {
 
 type funcMacro struct {
 	//Map of macro string to arg position
+	nargs int
 	//0 based index
 	args map[string]int
 	//Tokens of the macro.
@@ -32,6 +33,7 @@ func (fm *funcMacro) isArg(t *Token) (int, bool) {
 //args should be a list of ident tokens
 func newFuncMacro(args *tokenList, tokens *tokenList) (*funcMacro, error) {
 	ret := new(funcMacro)
+	ret.nargs = 0
 	ret.args = make(map[string]int)
 	idx := 0
 	for e := args.front(); e != nil; e = e.Next() {
@@ -41,6 +43,7 @@ func newFuncMacro(args *tokenList, tokens *tokenList) (*funcMacro, error) {
 			return nil, fmt.Errorf("error duplicate argument " + tok.Val)
 		}
 		ret.args[tok.Val] = idx
+		ret.nargs += 1
 		idx += 1
 	}
 	ret.tokens = tokens

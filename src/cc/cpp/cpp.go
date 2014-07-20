@@ -26,6 +26,12 @@ func New(is IncludeSearcher) *Preprocessor {
 	return ret
 }
 
+func emptyTokChan(t chan *Token) {
+	for _ = range t {
+		//PASS
+	}
+}
+
 func (pp *Preprocessor) nextToken(in chan *Token) *Token {
 	if pp.tl.isEmpty() {
 		return <-in
@@ -54,8 +60,12 @@ func (pp *Preprocessor) nextTokenExpand(in chan *Token) *Token {
 	if ok {
 		opening := pp.nextToken(in)
 		if opening != nil && opening.Kind == LPAREN {
-			//fmt.Println("expanding func ", t.Val)
 			args, rparen, err := pp.readMacroInvokeArguments(in)
+			if len(args) != fmacro.nargs {
+				pp.cppError(fmt.Sprintf(
+					"macro %s invoked with %d arguments but %d were expected",
+					t.Val, len(args), fmacro.nargs), t.Pos)
+			}
 			if err != nil {
 				pp.cppError(err.Error(), t.Pos)
 			}
@@ -181,10 +191,12 @@ func (pp *Preprocessor) preprocess2(in chan *Token) {
 	}
 }
 
-func emptyTokChan(t chan *Token) {
-	for _ = range t {
-		//PASS
-	}
+func (pp *Preprocessor) handleIfDef(in chan *Token) {
+
+}
+
+func (pp *Preprocessor) handleEndif(in chan *Token) {
+
 }
 
 func (pp *Preprocessor) handleDirective(dirTok *Token, in chan *Token) {
@@ -193,11 +205,15 @@ func (pp *Preprocessor) handleDirective(dirTok *Token, in chan *Token) {
 	}
 	switch dirTok.Val {
 	//case "if":
-	//case "ifdef":
+	case "ifdef":
+		pp.handleIfDef(in)
+	case "endif":
+		pp.handleEndif(in)
 	//case "ifndef":
 	//case "elif":
 	//case "else":
-	//case "endif":
+	case "undef":
+		pp.handleUndefine(in)
 	case "define":
 		pp.handleDefine(in)
 	case "include":
@@ -250,6 +266,22 @@ func (pp *Preprocessor) handleInclude(in chan *Token) {
 	tok = pp.nextToken(in)
 	if tok.Kind != END_DIRECTIVE {
 		pp.cppError("Expected newline after include %s", tok.Pos)
+	}
+}
+
+func (pp *Preprocessor) handleUndefine(in chan *Token) {
+	ident := pp.nextToken(in)
+	if ident.Kind != IDENT {
+		pp.cppError("#undefine expected an ident", ident.Pos)
+	}
+	if !pp.isDefined(ident.Val) {
+		pp.cppError(fmt.Sprintf("cannot undefine %s, not defined", ident.Val), ident.Pos)
+	}
+	delete(pp.objMacros, ident.Val)
+	delete(pp.funcMacros, ident.Val)
+	end := pp.nextToken(in)
+	if end.Kind != END_DIRECTIVE {
+		pp.cppError("expected end of directive", end.Pos)
 	}
 }
 
