@@ -55,7 +55,6 @@ func (pp *Preprocessor) nextTokenExpand(in chan *Token) *Token {
 		pp.ungetTokens(replacementTokens)
 		return pp.nextTokenExpand(in)
 	}
-
 	fmacro, ok := pp.funcMacros[t.Val]
 	if ok {
 		opening := pp.nextToken(in)
@@ -71,14 +70,14 @@ func (pp *Preprocessor) nextTokenExpand(in chan *Token) *Token {
 			}
 			hs := hideSetIntersection(t.hs, rparen.hs)
 			hs.put(t)
-			pp.subst(fmacro, args, hs)
+			pp.subst(fmacro, t.Pos, args, hs)
 			return pp.nextTokenExpand(in)
 		}
 	}
 	return t
 }
 
-func (pp *Preprocessor) subst(macro *funcMacro, args []*tokenList, hs *hideSet) {
+func (pp *Preprocessor) subst(macro *funcMacro, invokePos FilePos, args []*tokenList, hs *hideSet) {
 	expandedTokens := newTokenList()
 	for e := macro.tokens.front(); e != nil; e = e.Next() {
 		t := e.Value.(*Token)
@@ -86,7 +85,9 @@ func (pp *Preprocessor) subst(macro *funcMacro, args []*tokenList, hs *hideSet) 
 		if tIsArg {
 			expandedTokens.appendList(args[idx])
 		} else {
-			expandedTokens.append(t.copy())
+			tcpy := t.copy()
+			tcpy.Pos = invokePos
+			expandedTokens.append(tcpy)
 		}
 	}
 	expandedTokens.setHideSets(hs)
