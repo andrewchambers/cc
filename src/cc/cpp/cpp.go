@@ -1,6 +1,7 @@
 package cpp
 
 import (
+	"container/list"
 	"fmt"
 	"io"
 )
@@ -15,6 +16,28 @@ type Preprocessor struct {
 	funcMacros map[string]*funcMacro
 	//Where the tokens are to be sent
 	out chan *Token
+	//Stack of condContext about #ifdefs blocks
+	conditionalStack *list.List
+}
+
+type condContext struct {
+	hasSucceeded bool
+}
+
+func (pp *Preprocessor) pushCondContext() {
+
+}
+
+func (pp *Preprocessor) popCondContext() {
+
+}
+
+func (pp *Preprocessor) markCondContextSucceeded() {
+
+}
+
+func (pp *Preprocessor) condDepth() int {
+	return 0
 }
 
 func New(is IncludeSearcher) *Preprocessor {
@@ -23,6 +46,7 @@ func New(is IncludeSearcher) *Preprocessor {
 	ret.tl = newTokenList()
 	ret.objMacros = make(map[string]*objMacro)
 	ret.funcMacros = make(map[string]*funcMacro)
+	ret.conditionalStack = list.New()
 	return ret
 }
 
@@ -198,6 +222,31 @@ func (pp *Preprocessor) handleIfDef(in chan *Token) {
 
 func (pp *Preprocessor) handleEndif(in chan *Token) {
 
+}
+
+//XXX untested
+func (pp *Preprocessor) skipTillEndif(pos FilePos, in chan *Token) {
+	depth := 1
+	for {
+		//Dont care about expands since we are skipping.
+		t := pp.nextToken(in)
+		if t == nil {
+			pp.cppError("unclosed preprocessor conditional", pos)
+		}
+
+		if t.Kind == DIRECTIVE && (t.Val == "if" || t.Val == "ifdef" || t.Val == "ifndef") {
+			depth += 1
+			continue
+		}
+
+		if t.Kind == DIRECTIVE && t.Val == "endif" {
+			depth -= 1
+		}
+
+		if depth == 0 {
+			break
+		}
+	}
 }
 
 func (pp *Preprocessor) handleDirective(dirTok *Token, in chan *Token) {
