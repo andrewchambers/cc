@@ -25,19 +25,22 @@ type condContext struct {
 }
 
 func (pp *Preprocessor) pushCondContext() {
-
+	pp.conditionalStack.PushBack(&condContext{false})
 }
 
 func (pp *Preprocessor) popCondContext() {
-
+	if pp.condDepth() == 0 {
+		panic("internal bug")
+	}
+	pp.conditionalStack.Remove(pp.conditionalStack.Back())
 }
 
 func (pp *Preprocessor) markCondContextSucceeded() {
-
+	pp.conditionalStack.Back().Value.(*condContext).hasSucceeded = true
 }
 
 func (pp *Preprocessor) condDepth() int {
-	return 0
+	return pp.conditionalStack.Len()
 }
 
 func New(is IncludeSearcher) *Preprocessor {
@@ -216,12 +219,27 @@ func (pp *Preprocessor) preprocess2(in chan *Token) {
 	}
 }
 
-func (pp *Preprocessor) handleIfDef(in chan *Token) {
-
+func (pp *Preprocessor) handleIf(pos FilePos, in chan *Token) {
+	pp.pushCondContext()
+	//Pretend it fails...
+	pp.skipTillEndif(pos, in)
 }
 
-func (pp *Preprocessor) handleEndif(in chan *Token) {
+func (pp *Preprocessor) handleIfDef(pos FilePos, in chan *Token) {
+	pp.pushCondContext()
+	//Pretend it fails...
+	pp.skipTillEndif(pos, in)
+}
 
+func (pp *Preprocessor) handleEndif(pos FilePos, in chan *Token) {
+	if pp.condDepth() <= 0 {
+		pp.cppError("stray #endif", pos)
+	}
+	pp.popCondContext()
+	endTok := pp.nextToken(in)
+	if endTok.Kind != END_DIRECTIVE {
+		pp.cppError("unexpected token after #endif", endTok.Pos)
+	}
 }
 
 //XXX untested
@@ -254,11 +272,12 @@ func (pp *Preprocessor) handleDirective(dirTok *Token, in chan *Token) {
 		pp.cppError(fmt.Sprintf("internal error %s", dirTok), dirTok.Pos)
 	}
 	switch dirTok.Val {
-	//case "if":
+	case "if":
+		pp.handleIf(dirTok.Pos, in)
 	case "ifdef":
-		pp.handleIfDef(in)
+		pp.handleIfDef(dirTok.Pos, in)
 	case "endif":
-		pp.handleEndif(in)
+		pp.handleEndif(dirTok.Pos, in)
 	//case "ifndef":
 	//case "elif":
 	//case "else":
