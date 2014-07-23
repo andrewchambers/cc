@@ -73,7 +73,7 @@ func parseCPPExprAtom(isDefined func(string) bool, nextToken func() *Token) (int
 func evalIfExpr(isDefined func(string) bool, tokens *tokenList) (int64, error) {
 	e := tokens.front()
 	nextToken := func() *Token {
-		if e.Next() == nil {
+		if e == nil {
 			return nil
 		}
 		e = e.Next()
