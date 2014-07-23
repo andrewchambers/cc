@@ -8,6 +8,23 @@ type tokenList struct {
 	l *list.List
 }
 
+//Converts a token list to a closure which iterates over the list
+func tokenListToGenerator(tokens *tokenList) func() *Token {
+	if tokens == nil {
+		return func() *Token { return nil }
+	}
+	e := tokens.front()
+	nextToken := func() *Token {
+		if e == nil {
+			return nil
+		}
+		e = e.Next()
+		r := e.Value.(*Token)
+		return r
+	}
+	return nextToken
+}
+
 func newTokenList() *tokenList {
 	return &tokenList{list.New()}
 }
