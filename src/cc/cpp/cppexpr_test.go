@@ -6,22 +6,26 @@ import (
 )
 
 var exprTestCases = []struct {
-	expr     string
-	expected int64
+	expr      string
+	expected  int64
+	expectErr bool
 }{
-	{"1", 1},
-	{"2", 2},
-	{"0x1", 0x1},
-	{"0x1", 0x1},
-	{"-1", -1},
-	{"-2", -2},
-	{"0x1234", 0x1234},
-	{"foo", 1},
-	{"bang", 0},
-	{"defined foo", 1},
-	{"defined bang", 0},
-	{"defined(foo)", 1},
-	{"defined(bang)", 0},
+	{"1", 1, false},
+	{"2", 2, false},
+	{"0x1", 0x1, false},
+	{"0x1", 0x1, false},
+	{"-1", -1, false},
+	{"-2", -2, false},
+	{"0x1234", 0x1234, false},
+	{"foo", 1, false},
+	{"bang", 0, false},
+	{"defined foo", 1, false},
+	{"defined bang", 0, false},
+	{"defined(foo)", 1, false},
+	{"defined(bang)", 0, false},
+	{"defined", 0, true},
+	{"defined(bang", 0, true},
+	{"defined bang)", 0, true},
 }
 
 var testExprPredefined = map[string]struct{}{
@@ -51,7 +55,11 @@ func TestExprEval(t *testing.T) {
 
 		result := evalIfExpr(isDefined, nextTok, onErr)
 		if e != nil {
-			t.Errorf("test %s failed - got error <%s>", tc.expr, e)
+			if !tc.expectErr {
+				t.Errorf("test %s failed - got error <%s>", tc.expr, e)
+			}
+		} else if tc.expectErr {
+			t.Errorf("test %s failed - expected an error", tc.expr)
 		} else if result != tc.expected {
 			t.Errorf("test %s failed - got %s expected %s", tc.expr, result, tc.expected)
 		}
