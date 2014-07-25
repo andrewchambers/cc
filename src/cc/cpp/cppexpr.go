@@ -21,8 +21,7 @@ Integer constants.
 
 Character constants, which are interpreted as they would be in normal code.
 
-Arithmetic operators for addition, subtraction, multiplication, division,
-bitwise operations, shifts, comparisons, and logical operations (&& and ||).
+Arithmetic operators for most of C
 
 Identifiers that are not macros, which are all considered to be the number zero.
 
