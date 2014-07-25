@@ -28,72 +28,232 @@ Identifiers that are not macros, which are all considered to be the number zero.
 
 */
 
-func parseCPPExprAtom(isDefined func(string) bool, nextToken func() *Token, onError func(error)) int64 {
-	toCheck := nextToken()
+type cppExprCtx struct {
+	isDefined func(string) bool
+	nextToken func() *Token
+	onError   func(error)
+}
+
+func (ctx *cppExprCtx) peek() *Token {
+	t := ctx.nextToken()
+	oldNext := ctx.nextToken
+	ctx.nextToken = func() *Token {
+		ctx.nextToken = oldNext
+		return t
+	}
+	return t
+}
+
+func parseCPPExprAtom(ctx *cppExprCtx) int64 {
+	toCheck := ctx.nextToken()
 	if toCheck == nil {
-		onError(fmt.Errorf("expected integer, char, or defined but got nothing"))
+		ctx.onError(fmt.Errorf("expected integer, char, or defined but got nothing"))
 		return 0
 	}
 	switch toCheck.Kind {
+	case NOT:
+		v := parseCPPExprAtom(ctx)
+		if v == 0 {
+			return 1
+		}
+		return 0
+	case BNOT:
+		v := parseCPPExprAtom(ctx)
+		return ^v
+	case SUB:
+		v := parseCPPExprAtom(ctx)
+		return -v
+	case ADD:
+		v := parseCPPExprAtom(ctx)
+		return v
+	case LPAREN:
+		v := parseCPPExpr(ctx)
+		rparen := ctx.nextToken()
+		if rparen == nil || rparen.Kind != RPAREN {
+			ctx.onError(fmt.Errorf("unclosed parenthesis"))
+		}
+		return v
 	case INT_CONSTANT:
 		v, err := strconv.ParseInt(toCheck.Val, 0, 64)
 		if err != nil {
-			onError(nil)
+			ctx.onError(fmt.Errorf("internal error parsing int constant"))
 		}
 		return v
 	case CHAR_CONSTANT:
-		onError(fmt.Errorf("unimplemented char literal in cpp expression"))
+		ctx.onError(fmt.Errorf("unimplemented char literal in cpp expression"))
 		return 0
 	case IDENT:
 		if toCheck.Val == "defined" {
-			toCheck = nextToken()
+			toCheck = ctx.nextToken()
 			if toCheck == nil {
-				onError(fmt.Errorf("expected ( or an identifier but got nothing"))
+				ctx.onError(fmt.Errorf("expected ( or an identifier but got nothing"))
 				return 0
 			}
 			switch toCheck.Kind {
 			case LPAREN:
-				toCheck = nextToken()
-				rparen := nextToken()
+				toCheck = ctx.nextToken()
+				rparen := ctx.nextToken()
 				if rparen == nil || rparen.Kind != RPAREN {
-					onError(fmt.Errorf("malformed defined check, missing )"))
+					ctx.onError(fmt.Errorf("malformed defined check, missing )"))
 					return 0
 				}
 			case IDENT:
 				//calls isDefined as intended
 			default:
-				onError(fmt.Errorf("malformed defined statement at %s", toCheck.Pos))
+				ctx.onError(fmt.Errorf("malformed defined statement at %s", toCheck.Pos))
 				return 0
 			}
 		}
 	default:
-		onError(fmt.Errorf("expected integer, char, or defined but got %s", toCheck.Val))
+		ctx.onError(fmt.Errorf("expected integer, char, or defined but got %s", toCheck.Val))
 		return 0
 	}
 	if toCheck == nil {
-		onError(fmt.Errorf("expected identifier but got nothing"))
+		ctx.onError(fmt.Errorf("expected identifier but got nothing"))
 		return 0
 	}
-	if isDefined(toCheck.Val) {
+	if ctx.isDefined(toCheck.Val) {
 		return 1
 	}
 	return 0
 }
 
-//Eval the expression using precedence climbing
-func evalIfExpr(isDefined func(string) bool, nextToken func() *Token, onError func(error)) int64 {
-	return parseCPPExpr(isDefined, nextToken, onError, 0)
+func evalCPPBinop(ctx *cppExprCtx, k TokenKind, l int64, r int64) int64 {
+	switch k {
+	case LOR:
+		if l != 0 || r != 0 {
+			return 1
+		}
+		return 0
+	case LAND:
+		if l != 0 && r != 0 {
+			return 1
+		}
+		return 0
+	case OR:
+		return l | r
+	case XOR:
+		return l ^ r
+	case AND:
+		return l & r
+	case ADD:
+		return l + r
+	case SUB:
+		return l - r
+	case MUL:
+		return l * r
+	case SHR:
+		return l >> uint64(r)
+	case SHL:
+		return l << uint64(r)
+	case QUO:
+		if r == 0 {
+			ctx.onError(fmt.Errorf("divide by zero in expression"))
+			return 0
+		}
+		return l / r
+	case REM:
+		if r == 0 {
+			ctx.onError(fmt.Errorf("divide by zero in expression"))
+			return 0
+		}
+		return l % r
+	case EQL:
+		if l == r {
+			return 1
+		}
+		return 0
+	case LSS:
+		if l < r {
+			return 1
+		}
+		return 0
+	case GTR:
+		if l > r {
+			return 1
+		}
+		return 0
+	case LEQ:
+		if l <= r {
+			return 1
+		}
+		return 0
+	case GEQ:
+		if l >= r {
+			return 1
+		}
+		return 0
+	case NEQ:
+		if l != r {
+			return 1
+		}
+		return 0
+	default:
+		ctx.onError(fmt.Errorf("internal error %s", k))
+	}
+	return 0
 }
 
-func parseCPPExpr(isDefined func(string) bool, nextToken func() *Token, onError func(error), min_prec int) int64 {
-	result := parseCPPExprAtom(isDefined, nextToken, onError)
-	//while cur token is a binary operator with precedence >= min_prec:
-	//prec, assoc = precedence and associativity of current token
-	//if assoc is left:
-	//  next_min_prec = prec + 1
-	//else:
-	// next_min_prec = prec
-	//rhs = compute_expr(next_min_prec)
-	//result = compute operator(result, rhs)
+func createCPPExprParseFunc(term func(*cppExprCtx) int64, kinds []TokenKind) func(*cppExprCtx) int64 {
+	return func(ctx *cppExprCtx) int64 {
+		l := term(ctx)
+		for {
+			t := ctx.peek()
+			if t == nil {
+				break
+			}
+			match := false
+			idx := 0
+			for idx = range kinds {
+				if t.Kind == kinds[idx] {
+					match = true
+					break
+				}
+			}
+			if !match {
+				break
+			}
+			ctx.nextToken()
+			r := term(ctx)
+			l = evalCPPBinop(ctx, kinds[idx], l, r)
+		}
+		return l
+	}
+}
+
+var parseCPPBinop func(*cppExprCtx) int64
+
+var cppExprBinopPrecTable = [...][]TokenKind{
+	{MUL, REM, QUO},
+	{ADD, SUB},
+	{SHR, SHL},
+	{LSS, GTR, GEQ, LEQ},
+	{EQL, NEQ},
+	{AND},
+	{XOR},
+	{OR},
+	{LAND},
+	{LOR},
+}
+
+func init() {
+	parseCPPBinop = parseCPPExprAtom
+	for idx := range cppExprBinopPrecTable {
+		parseCPPBinop = createCPPExprParseFunc(parseCPPBinop, cppExprBinopPrecTable[idx])
+	}
+}
+
+func parseCPPExpr(ctx *cppExprCtx) int64 {
+	result := parseCPPBinop(ctx)
 	return result
+}
+
+func evalIfExpr(isDefined func(string) bool, nextToken func() *Token, onError func(error)) int64 {
+	ctx := &cppExprCtx{isDefined: isDefined, nextToken: nextToken, onError: onError}
+	ret := parseCPPExpr(ctx)
+	t := ctx.nextToken()
+	if t != nil {
+		ctx.onError(fmt.Errorf("stray token %s", t.Val))
+	}
+	return ret
 }

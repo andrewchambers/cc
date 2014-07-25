@@ -154,7 +154,14 @@ func (ls *lexerState) lex() {
 					ls.sendTok(HASH, "#")
 				}
 			case '!':
-				ls.sendTok(NOT, "!")
+				second, _ := ls.readRune()
+				switch second {
+				case '=':
+					ls.sendTok(NEQ, "!=")
+				default:
+					ls.unreadRune()
+					ls.sendTok(NOT, "!")
+				}
 			case '?':
 				ls.sendTok(QUESTION, "?")
 			case ':':
@@ -182,6 +189,8 @@ func (ls *lexerState) lex() {
 				switch second {
 				case '<':
 					ls.sendTok(SHL, "<<")
+				case '=':
+					ls.sendTok(LEQ, "<=")
 				default:
 					ls.unreadRune()
 					ls.sendTok(LSS, "<")
@@ -191,6 +200,8 @@ func (ls *lexerState) lex() {
 				switch second {
 				case '>':
 					ls.sendTok(SHR, ">>")
+				case '=':
+					ls.sendTok(GEQ, ">=")
 				default:
 					ls.unreadRune()
 					ls.sendTok(GTR, ">")
