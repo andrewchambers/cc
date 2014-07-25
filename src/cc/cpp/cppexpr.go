@@ -188,6 +188,8 @@ func evalCPPBinop(ctx *cppExprCtx, k TokenKind, l int64, r int64) int64 {
 			return 1
 		}
 		return 0
+	case COMMA:
+		return r
 	default:
 		ctx.onError(fmt.Errorf("internal error %s", k))
 	}
@@ -221,7 +223,29 @@ func createCPPExprParseFunc(term func(*cppExprCtx) int64, kinds []TokenKind) fun
 	}
 }
 
+func parseCPPTernary(ctx *cppExprCtx) int64 {
+	cond := parseCPPComma(ctx)
+	t := ctx.peek()
+	var a, b int64
+	if t != nil && t.Kind == QUESTION {
+		ctx.nextToken()
+		a = parseCPPTernary(ctx)
+		colon := ctx.nextToken()
+		if colon == nil || colon.Kind != COLON {
+			ctx.onError(fmt.Errorf("ternary without :"))
+		}
+		b = parseCPPTernary(ctx)
+
+		if cond != 0 {
+			return a
+		}
+		return b
+	}
+	return cond
+}
+
 var parseCPPBinop func(*cppExprCtx) int64
+var parseCPPComma func(*cppExprCtx) int64
 
 var cppExprBinopPrecTable = [...][]TokenKind{
 	{MUL, REM, QUO},
@@ -241,10 +265,11 @@ func init() {
 	for idx := range cppExprBinopPrecTable {
 		parseCPPBinop = createCPPExprParseFunc(parseCPPBinop, cppExprBinopPrecTable[idx])
 	}
+	parseCPPComma = createCPPExprParseFunc(parseCPPBinop, []TokenKind{COMMA})
 }
 
 func parseCPPExpr(ctx *cppExprCtx) int64 {
-	result := parseCPPBinop(ctx)
+	result := parseCPPTernary(ctx)
 	return result
 }
 
