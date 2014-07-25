@@ -74,6 +74,7 @@ var exprTestCases = []struct {
 	{"(1 ? 0 ? 1337 : 1234 : 2) == 1234", 1, false},
 	{"(0 ? 1 ? 1337 : 1234 : 2) == 2", 1, false},
 	{"(0 ? 1 ? 1337 : 1234 : 2 ? 3 : 4) == 3", 1, false},
+	{"0 , 1 ? 1 , 0 : 2  ", 0, false},
 }
 
 var testExprPredefined = map[string]struct{}{

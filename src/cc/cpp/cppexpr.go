@@ -195,6 +195,27 @@ func evalCPPBinop(ctx *cppExprCtx, k TokenKind, l int64, r int64) int64 {
 	return 0
 }
 
+func parseCPPTernary(ctx *cppExprCtx) int64 {
+	cond := parseCPPBinop(ctx)
+	t := ctx.peek()
+	var a, b int64
+	if t != nil && t.Kind == QUESTION {
+		ctx.nextToken()
+		a = parseCPPExpr(ctx)
+		colon := ctx.nextToken()
+		if colon == nil || colon.Kind != COLON {
+			ctx.onError(fmt.Errorf("ternary without :"))
+		}
+		b = parseCPPExpr(ctx)
+
+		if cond != 0 {
+			return a
+		}
+		return b
+	}
+	return cond
+}
+
 func createCPPExprParseFunc(term func(*cppExprCtx) int64, kinds []TokenKind) func(*cppExprCtx) int64 {
 	return func(ctx *cppExprCtx) int64 {
 		l := term(ctx)
@@ -222,27 +243,6 @@ func createCPPExprParseFunc(term func(*cppExprCtx) int64, kinds []TokenKind) fun
 	}
 }
 
-func parseCPPTernary(ctx *cppExprCtx) int64 {
-	cond := parseCPPComma(ctx)
-	t := ctx.peek()
-	var a, b int64
-	if t != nil && t.Kind == QUESTION {
-		ctx.nextToken()
-		a = parseCPPTernary(ctx)
-		colon := ctx.nextToken()
-		if colon == nil || colon.Kind != COLON {
-			ctx.onError(fmt.Errorf("ternary without :"))
-		}
-		b = parseCPPTernary(ctx)
-
-		if cond != 0 {
-			return a
-		}
-		return b
-	}
-	return cond
-}
-
 var parseCPPBinop func(*cppExprCtx) int64
 var parseCPPComma func(*cppExprCtx) int64
 
@@ -264,11 +264,11 @@ func init() {
 	for idx := range cppExprBinopPrecTable {
 		parseCPPBinop = createCPPExprParseFunc(parseCPPBinop, cppExprBinopPrecTable[idx])
 	}
-	parseCPPComma = createCPPExprParseFunc(parseCPPBinop, []TokenKind{COMMA})
+	parseCPPComma = createCPPExprParseFunc(parseCPPTernary, []TokenKind{COMMA})
 }
 
 func parseCPPExpr(ctx *cppExprCtx) int64 {
-	result := parseCPPTernary(ctx)
+	result := parseCPPComma(ctx)
 	return result
 }
 
