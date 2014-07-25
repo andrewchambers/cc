@@ -256,7 +256,8 @@ func getPrec(k TokenKind) int {
 }
 
 //This is the precedence climbing algorithm, simplified because
-//all the operators are left associative.
+//all the operators are left associative. The CPP doesn't
+//deal with assignment operators.
 func parseCPPBinop_1(ctx *cppExprCtx, prec int) int64 {
 	l := parseCPPExprAtom(ctx)
 	for {
