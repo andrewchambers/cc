@@ -216,55 +216,70 @@ func parseCPPTernary(ctx *cppExprCtx) int64 {
 	return cond
 }
 
-func createCPPExprParseFunc(term func(*cppExprCtx) int64, kinds []TokenKind) func(*cppExprCtx) int64 {
-	return func(ctx *cppExprCtx) int64 {
-		l := term(ctx)
-		for {
-			t := ctx.peek()
-			if t == nil {
-				break
-			}
-			match := false
-			idx := 0
-			for idx = range kinds {
-				if t.Kind == kinds[idx] {
-					match = true
-					break
-				}
-			}
-			if !match {
-				break
-			}
-			ctx.nextToken()
-			r := term(ctx)
-			l = evalCPPBinop(ctx, kinds[idx], l, r)
+func parseCPPComma(ctx *cppExprCtx) int64 {
+	v := parseCPPTernary(ctx)
+	for {
+		t := ctx.peek()
+		if t == nil || t.Kind != COMMA {
+			break
 		}
-		return l
+		ctx.nextToken()
+		v = parseCPPTernary(ctx)
 	}
+	return v
 }
 
-var parseCPPBinop func(*cppExprCtx) int64
-var parseCPPComma func(*cppExprCtx) int64
-
-var cppExprBinopPrecTable = [...][]TokenKind{
-	{MUL, REM, QUO},
-	{ADD, SUB},
-	{SHR, SHL},
-	{LSS, GTR, GEQ, LEQ},
-	{EQL, NEQ},
-	{AND},
-	{XOR},
-	{OR},
-	{LAND},
-	{LOR},
+func getPrec(k TokenKind) int {
+	switch k {
+	case MUL, REM, QUO:
+		return 10
+	case ADD, SUB:
+		return 9
+	case SHR, SHL:
+		return 8
+	case LSS, GTR, GEQ, LEQ:
+		return 7
+	case EQL, NEQ:
+		return 6
+	case AND:
+		return 5
+	case XOR:
+		return 4
+	case OR:
+		return 3
+	case LAND:
+		return 2
+	case LOR:
+		return 1
+	}
+	return -1
 }
 
-func init() {
-	parseCPPBinop = parseCPPExprAtom
-	for idx := range cppExprBinopPrecTable {
-		parseCPPBinop = createCPPExprParseFunc(parseCPPBinop, cppExprBinopPrecTable[idx])
+//This is the precedence climbing algorithm, simplified because
+//all the operators are left associative.
+func parseCPPBinop_1(ctx *cppExprCtx, prec int) int64 {
+	l := parseCPPExprAtom(ctx)
+	for {
+		t := ctx.peek()
+		if t == nil {
+			break
+		}
+		p := getPrec(t.Kind)
+		if p == -1 {
+			break
+		}
+		if p < prec {
+			break
+		}
+		ctx.nextToken()
+		r := parseCPPBinop_1(ctx, p+1)
+		l = evalCPPBinop(ctx, t.Kind, l, r)
 	}
-	parseCPPComma = createCPPExprParseFunc(parseCPPTernary, []TokenKind{COMMA})
+	return l
+}
+
+func parseCPPBinop(ctx *cppExprCtx) int64 {
+	return parseCPPBinop_1(ctx, 0)
 }
 
 func parseCPPExpr(ctx *cppExprCtx) int64 {
