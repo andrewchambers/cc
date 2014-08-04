@@ -17,43 +17,48 @@ package parse
 %start translation_unit
 
 %union {
+    astNode ASTNode
 }
+
+%type <astNode> primary_expression multiplicative_expression 
+%type <astNode> additive_expression shift_expression unary_expression
+%type <astNode> postfix_expression cast_expression expression
 
 
 %%
 
 primary_expression
-    : IDENTIFIER
-    | CONSTANT
-    | STRING_LITERAL
-    | '(' expression ')'
+    : IDENTIFIER { $$ = nil }
+    | CONSTANT { $$ = nil }
+    | STRING_LITERAL { $$ = nil }
+    | '(' expression ')' { $$ = $2 }
     ;
 
 postfix_expression
-    : primary_expression
-    | postfix_expression '[' expression ']'
-    | postfix_expression '(' ')'
-    | postfix_expression '(' argument_expression_list ')'
-    | postfix_expression '.' IDENTIFIER
-    | postfix_expression PTR_OP IDENTIFIER
-    | postfix_expression INC_OP
-    | postfix_expression DEC_OP
-    | '(' type_name ')' '{' initializer_list '}'
-    | '(' type_name ')' '{' initializer_list ',' '}'
+    : primary_expression {}
+    | postfix_expression '[' expression ']' {}
+    | postfix_expression '(' ')' {}
+    | postfix_expression '(' argument_expression_list ')' {}
+    | postfix_expression '.' IDENTIFIER {}
+    | postfix_expression PTR_OP IDENTIFIER {}
+    | postfix_expression INC_OP {}
+    | postfix_expression DEC_OP {}
+    | '(' type_name ')' '{' initializer_list '}' {}
+    | '(' type_name ')' '{' initializer_list ',' '}' {}
     ;
 
 argument_expression_list
-    : assignment_expression
-    | argument_expression_list ',' assignment_expression
+    : assignment_expression {}
+    | argument_expression_list ',' assignment_expression {}
     ;
 
 unary_expression
-    : postfix_expression
-    | INC_OP unary_expression
-    | DEC_OP unary_expression
-    | unary_operator cast_expression
-    | SIZEOF unary_expression
-    | SIZEOF '(' type_name ')'
+    : postfix_expression {}
+    | INC_OP unary_expression {}
+    | DEC_OP unary_expression {}
+    | unary_operator cast_expression {}
+    | SIZEOF unary_expression {}
+    | SIZEOF '(' type_name ')' {}
     ;
 
 unary_operator
@@ -66,21 +71,21 @@ unary_operator
     ;
 
 cast_expression
-    : unary_expression
-    | '(' type_name ')' cast_expression
+    : unary_expression {}
+    | '(' type_name ')' cast_expression {}
     ;
 
 multiplicative_expression
-    : cast_expression
-    | multiplicative_expression '*' cast_expression
-    | multiplicative_expression '/' cast_expression
-    | multiplicative_expression '%' cast_expression
+    : cast_expression { $$ = $1 }
+    | multiplicative_expression '*' cast_expression { $$ = &ASTBinop{'*',$1, $3} }
+    | multiplicative_expression '/' cast_expression { $$ = &ASTBinop{'/',$1, $3} }
+    | multiplicative_expression '%' cast_expression { $$ = &ASTBinop{'%',$1, $3} }
     ;
 
 additive_expression
-    : multiplicative_expression
-    | additive_expression '+' multiplicative_expression
-    | additive_expression '-' multiplicative_expression
+    : multiplicative_expression { $$ = $1 }
+    | additive_expression '+' multiplicative_expression { $$ = &ASTBinop{'+',$1, $3} }
+    | additive_expression '-' multiplicative_expression { $$ = &ASTBinop{'-',$1, $3} }
     ;
 
 shift_expression
@@ -153,8 +158,8 @@ assignment_operator
     ;
 
 expression
-    : assignment_expression
-    | expression ',' assignment_expression
+    : assignment_expression {}
+    | expression ',' assignment_expression {}
     ;
 
 constant_expression

@@ -24,94 +24,128 @@ func cppTok2yaccTok(t cpp.TokenKind) int {
 		return '('
 	case cpp.RPAREN:
 		return ')'
-		/*
-			operator_beg
-			// Operators and delimiters
-			ADD      // +
-			SUB      // -
-			MUL      // *
-			QUO      // /
-			REM      // %
-			QUESTION // ?
+	case cpp.LBRACE:
+		return '{'
+	case cpp.RBRACE:
+		return '}'
+	case cpp.SEMICOLON:
+		return ';'
+	case cpp.ADD:
+		return '+'
+	/*
+		operator_beg
+		// Operators and delimiters
+		ADD      // +
+		SUB      // -
+		MUL      // *
+		QUO      // /
+		REM      // %
+		QUESTION // ?
 
-			AND // &
-			OR  // |
-			XOR // ^
-			SHL // <<
-			SHR // >>
+		AND // &
+		OR  // |
+		XOR // ^
+		SHL // <<
+		SHR // >>
 
-			ADD_ASSIGN // +=
-			SUB_ASSIGN // -=
-			MUL_ASSIGN // *=
-			QUO_ASSIGN // /=
-			REM_ASSIGN // %=
+		ADD_ASSIGN // +=
+		SUB_ASSIGN // -=
+		MUL_ASSIGN // *=
+		QUO_ASSIGN // /=
+		REM_ASSIGN // %=
 
-			AND_ASSIGN // &=
-			OR_ASSIGN  // |=
-			XOR_ASSIGN // ^=
-			SHL_ASSIGN // <<=
-			SHR_ASSIGN // >>=
+		AND_ASSIGN // &=
+		OR_ASSIGN  // |=
+		XOR_ASSIGN // ^=
+		SHL_ASSIGN // <<=
+		SHR_ASSIGN // >>=
 
-			LAND  // &&
-			LOR   // ||
-			ARROW // ->
-			INC   // ++
-			DEC   // --
+		LAND  // &&
+		LOR   // ||
+		ARROW // ->
+		INC   // ++
+		DEC   // --
 
-			EQL    // ==
-			LSS    // <
-			GTR    // >
-			ASSIGN // =
-			NOT    // !
-			BNOT   // ~
+		EQL    // ==
+		LSS    // <
+		GTR    // >
+		ASSIGN // =
+		NOT    // !
+		BNOT   // ~
 
-			NEQ      // !=
-			LEQ      // <=
-			GEQ      // >=
-			ELLIPSIS // ...
+		NEQ      // !=
+		LEQ      // <=
+		GEQ      // >=
+		ELLIPSIS // ...
 
-			LPAREN // (
-			LBRACK // [
-			LBRACE // {
-			COMMA  // ,
-			PERIOD // .
+		LPAREN // (
+		LBRACK // [
+		LBRACE // {
+		COMMA  // ,
+		PERIOD // .
 
-			RPAREN    // )
-			RBRACK    // ]
-			RBRACE    // }
-			SEMICOLON // ;
-			COLON     // :
-			operator_end
+		RPAREN    // )
+		RBRACK    // ]
+		RBRACE    // }
+		SEMICOLON // ;
+		COLON     // :
+		operator_end
 
-			keyword_beg
-			// Keywords
-			BREAK
-			CASE
-			DO
-			CONST
-			CONTINUE
-			DEFAULT
-			ELSE
-			FOR
-			WHILE
-			GOTO
-			IF
-			RETURN
-			STRUCT
-			SWITCH
-			TYPEDEF
-			SIZEOF
-			VOID
-			CHAR
-			INT
-			FLOAT
-			DOUBLE
-			SIGNED
-			UNSIGNED
-			LONG
-		*/
+		keyword_beg
+		// Keywords
+	*/
+
+	case cpp.BREAK:
+		return BREAK
+	case cpp.CASE:
+		return CASE
+	case cpp.DO:
+		return DO
+	case cpp.CONST:
+		return CONST
+	case cpp.CONTINUE:
+		return CONTINUE
+	case cpp.DEFAULT:
+		return DEFAULT
+	case cpp.ELSE:
+		return ELSE
+	case cpp.FOR:
+		return FOR
+	case cpp.WHILE:
+		return WHILE
+	case cpp.GOTO:
+		return GOTO
+	case cpp.IF:
+		return IF
+	case cpp.RETURN:
+		return RETURN
+	case cpp.STRUCT:
+		return STRUCT
+	case cpp.SWITCH:
+		return SWITCH
+	case cpp.TYPEDEF:
+		return TYPEDEF
+	case cpp.SIZEOF:
+		return SIZEOF
+	case cpp.VOID:
+		return VOID
+	case cpp.CHAR:
+		return CHAR
+	case cpp.INT:
+		return INT
+	case cpp.FLOAT:
+		return FLOAT
+	case cpp.DOUBLE:
+		return DOUBLE
+	case cpp.SIGNED:
+		return SIGNED
+	case cpp.UNSIGNED:
+		return UNSIGNED
+	case cpp.LONG:
+		return LONG
+
 	}
-	panic("Internal error!")
+	panic("Internal error - unhandled case " + t.String())
 }
 
 func newAdapter(ts chan *cpp.Token) yyLexer {
@@ -121,6 +155,9 @@ func newAdapter(ts chan *cpp.Token) yyLexer {
 func (a *adapter) Lex(lval *yySymType) int {
 	t := <-a.tokenStream
 	a.lastToken = t
+	if t == nil {
+		return 0
+	}
 	return cppTok2yaccTok(t.Kind)
 }
 
