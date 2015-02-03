@@ -51,7 +51,7 @@ func Parse(<-chan *cpp.Token) (ret []Node, errRet error) {
 loop:
 	for {
 		trace()
-		
+
 		break loop
 	}
 	return ret, nil
@@ -79,7 +79,6 @@ func (p *parser) next() {
 	t := <-p.tokChan
 	p.nextt = t
 }
-
 
 func (*parser) parseTranslationUnit() {
 

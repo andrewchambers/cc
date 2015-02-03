@@ -1,7 +1,7 @@
 package cpp
 
-// This file defines hidesets. Each token has a hideset.
 // The hideset of a token is the set of identifiers whose expansion resulted in the token.
+//
 // Hidesets prevent infinite macro expansion.
 // It is implemented as an immutable singly linked list for code clarity.
 // Performance should be ok for most real world code (hidesets are small in practice).
@@ -11,10 +11,10 @@ type hideset struct {
 	val  string
 }
 
-var emptyHS *hideset = &hideset{}
+var emptyHS *hideset
 
 func (hs *hideset) contains(s string) bool {
-	for hs.next != nil {
+	for hs != nil {
 		if s == hs.val {
 			return true
 		}
@@ -34,7 +34,7 @@ func (hs *hideset) add(s string) *hideset {
 }
 
 func (hs *hideset) intersection(b *hideset) *hideset {
-	for hs.next != nil {
+	for hs != nil {
 		b = b.add(hs.val)
 		hs = hs.next
 	}
