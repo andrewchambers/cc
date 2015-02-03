@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/andrewchambers/cc/cpp"
+	"github.com/andrewchambers/cc/parse"
 	"io"
 	"os"
 	"runtime/pprof"
@@ -50,18 +51,16 @@ func preprocessFile(sourceFile string, out io.WriteCloser) {
 }
 
 func parseFile(sourceFile string, out io.WriteCloser) {
-	/*
-		defer out.Close()
-		f, err := os.Open(sourceFile)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to open source file %s for parsing: %s\n", sourceFile, err)
-			os.Exit(1)
-		}
-		lexTokChan := cpp.Lex(sourceFile, f)
-		pp := cpp.New(nil)
-		ppTokChan := pp.Preprocess(lexTokChan)
-		parse.Parse(ppTokChan)
-	*/
+	defer out.Close()
+	f, err := os.Open(sourceFile)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to open source file %s for parsing: %s\n", sourceFile, err)
+		os.Exit(1)
+	}
+	lexTokChan := cpp.Lex(sourceFile, f)
+	pp := cpp.New(nil)
+	ppTokChan := pp.Preprocess(lexTokChan)
+	parse.Parse(ppTokChan)
 }
 
 func tokenizeFile(sourceFile string, out io.WriteCloser) {
@@ -86,10 +85,10 @@ func tokenizeFile(sourceFile string, out io.WriteCloser) {
 
 func main() {
 	flag.Usage = printUsage
-	preprocessOnly := flag.Bool("E", false, "Preprocess only")
+	preprocessOnly := flag.Bool("E", false, "Preprocess only.")
 	tokenizeOnly := flag.Bool("T", false, "Tokenize only (For debugging).")
-	parseOnly := flag.Bool("A", false, "Print AST (For debugging).")
-	doProfiling := flag.Bool("P", false, "Profile the compiler (For debugging).")
+	parseOnly := flag.Bool("A", false, "Print AST (For compiler debugging).")
+	doProfiling := flag.Bool("P", false, "Profile the compiler (For compiler debugging).")
 	version := flag.Bool("version", false, "Print version info and exit.")
 	outputPath := flag.String("o", "-", "File to write output to, - for stdout.")
 	flag.Parse()

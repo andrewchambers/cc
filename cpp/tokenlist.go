@@ -79,13 +79,13 @@ func (tl *tokenList) front() *list.Element {
 
 func (tl *tokenList) addToHideSets(tok *Token) {
 	for e := tl.front(); e != nil; e = e.Next() {
-		e.Value.(*Token).hs.put(tok)
+		e.Value.(*Token).hs = e.Value.(*Token).hs.add(tok.Val)
 	}
 }
 
-func (tl *tokenList) setHideSets(hs *hideSet) {
+func (tl *tokenList) setHideSets(hs *hideset) {
 	for e := tl.front(); e != nil; e = e.Next() {
-		e.Value.(*Token).hs = hs.copy()
+		e.Value.(*Token).hs = hs
 	}
 }
 

@@ -95,8 +95,8 @@ func (pp *Preprocessor) nextTokenExpand(in chan *Token) *Token {
 			if err != nil {
 				pp.cppError(err.Error(), t.Pos)
 			}
-			hs := hideSetIntersection(t.hs, rparen.hs)
-			hs.put(t)
+			hs := t.hs.intersection(rparen.hs)
+			hs = hs.add(t.Val)
 			pp.subst(fmacro, t.Pos, args, hs)
 			return pp.nextTokenExpand(in)
 		}
@@ -104,7 +104,7 @@ func (pp *Preprocessor) nextTokenExpand(in chan *Token) *Token {
 	return t
 }
 
-func (pp *Preprocessor) subst(macro *funcMacro, invokePos FilePos, args []*tokenList, hs *hideSet) {
+func (pp *Preprocessor) subst(macro *funcMacro, invokePos FilePos, args []*tokenList, hs *hideset) {
 	expandedTokens := newTokenList()
 	for e := macro.tokens.front(); e != nil; e = e.Next() {
 		t := e.Value.(*Token)

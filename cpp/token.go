@@ -239,12 +239,11 @@ type Token struct {
 	Val              string
 	Pos              FilePos
 	WasMacroExpanded bool
-	hs               *hideSet
+	hs               *hideset
 }
 
 func (t *Token) copy() *Token {
 	ret := *t
-	ret.hs = ret.hs.copy()
 	return &ret
 }
 

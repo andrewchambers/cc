@@ -1,67 +1,53 @@
 package cpp
 
-//This file defines hidesets. Each token has a hideset.
-//The hideset of a token is the set of identifiers whose expansion resulted inthe token.
-//Hidesets prevent infinite expansion by not rexpanding if its hideset contains the macro.
-//Needs a copy method
+// This file defines hidesets. Each token has a hideset.
+// The hideset of a token is the set of identifiers whose expansion resulted in the token.
+// Hidesets prevent infinite macro expansion.
+// It is implemented as an immutable singly linked list for code clarity.
+// Performance should be ok for most real world code (hidesets are small in practice).
 
-type hideSet struct {
-	kv map[string]struct{}
+type hideset struct {
+	next *hideset
+	val  string
 }
 
-func (hs *hideSet) copy() *hideSet {
-	if hs == nil {
-		return nil
-	}
-	ret := newHideSet()
-	for k := range hs.kv {
-		ret.kv[k] = struct{}{}
-	}
-	return ret
-}
+var emptyHS *hideset = &hideset{}
 
-func (hs *hideSet) put(tok *Token) {
-	hs.kv[tok.Val] = struct{}{}
-}
-
-func (hs *hideSet) putTokList(tl *tokenList) {
-	for e := tl.front(); e != nil; e = e.Next() {
-		t := e.Value.(*Token)
-		hs.kv[t.Val] = struct{}{}
-	}
-}
-
-func (hs *hideSet) contains(val string) bool {
-	if hs == nil {
-		return false
-	}
-	_, ok := hs.kv[val]
-	return ok
-}
-
-func newHideSet() *hideSet {
-	ret := &hideSet{}
-	ret.kv = make(map[string]struct{})
-	return ret
-}
-
-func hideSetIntersection(a *hideSet, b *hideSet) *hideSet {
-	ret := newHideSet()
-	for k := range a.kv {
-		if b.contains(k) {
-			ret.kv[k] = struct{}{}
+func (hs *hideset) contains(s string) bool {
+	for hs.next != nil {
+		if s == hs.val {
+			return true
 		}
+		hs = hs.next
 	}
-	return ret
+	return false
 }
 
-func hideSetUnion(a *hideSet, b *hideSet) *hideSet {
-	ret := newHideSet()
-	for k := range a.kv {
-		ret.kv[k] = struct{}{}
+func (hs *hideset) add(s string) *hideset {
+	if hs.contains(s) {
+		return hs
 	}
-	for k := range b.kv {
-		ret.kv[k] = struct{}{}
+	return &hideset{
+		next: hs,
+		val:  s,
+	}
+}
+
+func (hs *hideset) intersection(b *hideset) *hideset {
+	for hs.next != nil {
+		b = b.add(hs.val)
+		hs = hs.next
+	}
+	return b
+}
+
+func (hs *hideset) union(b *hideset) *hideset {
+	ret := emptyHS
+	for hs.next != nil {
+		if b.contains(hs.val) {
+			ret = ret.add(hs.val)
+		}
+		hs = hs.next
 	}
 	return ret
 }
