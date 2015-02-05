@@ -8,6 +8,16 @@ import (
 	"runtime/debug"
 )
 
+// Storage Class
+type SClass int
+
+const (
+	SC_AUTO SClass = iota
+	SC_REGISTER
+	SC_STATIC
+	SC_GLOBAL
+)
+
 // Useful for debugging syntax errors.
 // Enabling this will cause parsing information to be printed to stderr.
 // Also, more information will be given for parse errors.
@@ -35,7 +45,7 @@ type parseErrorBreakOut struct {
 	err error
 }
 
-func Parse(<-chan *cpp.Token) (ret []Node, errRet error) {
+func Parse(<-chan *cpp.Token) (errRet error) {
 	p := &parser{}
 	p.types = newScope(nil)
 	p.decls = newScope(nil)
@@ -48,14 +58,8 @@ func Parse(<-chan *cpp.Token) (ret []Node, errRet error) {
 	}()
 	p.next()
 	p.next()
-loop:
-	for {
-		trace()
-
-		break loop
-	}
-	return ret, nil
-
+	p.parseTranslationUnit()
+	return nil
 }
 
 func (p *parser) error(m string, vals ...interface{}) {
@@ -75,11 +79,96 @@ func (p *parser) expect(k cpp.TokenKind) {
 
 func (p *parser) next() {
 	p.curt = p.nextt
-	// XXX error handling from previous stages?
 	t := <-p.tokChan
+	if t == nil {
+		t = &cpp.Token{}
+		t.Kind = cpp.EOF
+	}
+	if t.Kind == cpp.ERROR {
+		p.error(t.Val)
+	}
 	p.nextt = t
 }
 
-func (*parser) parseTranslationUnit() {
+func (p *parser) parseTranslationUnit() {
+	trace()
+	for p.curt.Kind != cpp.EOF {
+		p.parseDeclaration()
+	}
+}
 
+func (p *parser) parseDeclaration() {
+	trace()
+	p.parseDeclarationSpecifiers()
+	for {
+		p.parseDeclarator()
+		if p.curt.Kind == '=' {
+			p.next()
+			p.parseInitializer()
+		}
+		if p.curt.Kind != ',' {
+			break
+		}
+	}
+}
+
+func (p *parser) parseDeclarationSpecifiers() (SClass, CType) {
+	trace()
+	// These are assumed.
+	sc := SC_AUTO
+	ty := CInt
+	for {
+		switch p.curt.Kind {
+		case cpp.REGISTER:
+		case cpp.EXTERN:
+		case cpp.STATIC:
+		case cpp.TYPEDEF:
+		case cpp.CHAR:
+		case cpp.SHORT:
+		case cpp.INT:
+		case cpp.LONG:
+		case cpp.FLOAT:
+		case cpp.DOUBLE:
+		case cpp.SIGNED:
+		case cpp.UNSIGNED:
+		case cpp.TYPENAME:
+		case cpp.STRUCT:
+		case cpp.UNION:
+		default:
+			return sc, ty
+		}
+		p.next()
+	}
+	panic("unreachable")
+}
+
+func (p *parser) parseDeclarator() {
+loop:
+	for {
+		switch p.curt.Kind {
+		case '*':
+		case cpp.CONST:
+		case cpp.VOLATILE:
+		case '(':
+			p.next()
+			p.parseDeclarator()
+			p.expect(')')
+		case cpp.IDENT:
+		default:
+			break loop
+		}
+		p.next()
+	}
+	switch p.curt.Kind {
+	case '[':
+		p.expect(']')
+	case '(':
+		p.expect(')')
+	default:
+		return
+	}
+}
+
+func (p *parser) parseInitializer() {
+	p.next()
 }

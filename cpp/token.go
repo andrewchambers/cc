@@ -7,6 +7,7 @@ import (
 // The list of tokens.
 const (
 	ERROR = iota
+	EOF
 	//some cpp only tokens
 	HASH            //#
 	FUNCLIKE_DEFINE //Occurs after ident before paren #define ident(
@@ -15,6 +16,7 @@ const (
 	HEADER
 	// Identifiers and basic type literals
 	// (these tokens stand for classes of literals)
+	TYPENAME       // Same as ident, but typedefed.
 	IDENT          // main
 	INT_CONSTANT   // 12345
 	FLOAT_CONSTANT // 123.45
@@ -81,6 +83,10 @@ const (
 
 	keyword_beg
 	// Keywords
+	REGISTER
+	EXTERN
+	STATIC
+	SHORT
 	BREAK
 	CASE
 	DO
@@ -94,6 +100,8 @@ const (
 	IF
 	RETURN
 	STRUCT
+	UNION
+	VOLATILE
 	SWITCH
 	TYPEDEF
 	SIZEOF
