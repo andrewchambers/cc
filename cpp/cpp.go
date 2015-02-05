@@ -64,10 +64,10 @@ func emptyTokChan(t chan *Token) {
 
 func (pp *Preprocessor) nextToken(in chan *Token) *Token {
 	if pp.tl.isEmpty() {
-	    t := <-in
-	    if t.Kind == EOF {
-	        return nil
-	    }
+		t := <-in
+		if t.Kind == EOF {
+			return nil
+		}
 		return t
 	}
 	return pp.tl.popFront()

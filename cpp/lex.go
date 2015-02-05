@@ -127,8 +127,8 @@ func (ls *lexerState) lex() {
 
 	}()
 	for {
-    	ls.markPos()
-	    first, eof := ls.readRune()
+		ls.markPos()
+		first, eof := ls.readRune()
 		if eof {
 			if ls.inDirective {
 				ls.sendTok(END_DIRECTIVE, "")

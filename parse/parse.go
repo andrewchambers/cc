@@ -154,9 +154,9 @@ loop:
 			p.parseDeclarator(abstract)
 			p.expect(')')
 		case cpp.IDENT:
-		    if abstract {
-		        break loop
-		    }
+			if abstract {
+				break loop
+			}
 		default:
 			break loop
 		}
@@ -166,11 +166,11 @@ loop:
 	case '[':
 		p.expect(']')
 	case '(':
-	    switch p.curt.Kind {
-	    case cpp.IDENT:
-	    case ')':
-	        break
-	    }
+		switch p.curt.Kind {
+		case cpp.IDENT:
+		case ')':
+			break
+		}
 		p.expect(')')
 	default:
 		return
