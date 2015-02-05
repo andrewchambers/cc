@@ -6,6 +6,9 @@ import (
 	"io"
 )
 
+// XXX rewrite this to use a stack of lexers
+// The way it handles EOF is currently broken.
+
 type Preprocessor struct {
 	is IncludeSearcher
 	//List of all pushed back tokens
@@ -61,7 +64,11 @@ func emptyTokChan(t chan *Token) {
 
 func (pp *Preprocessor) nextToken(in chan *Token) *Token {
 	if pp.tl.isEmpty() {
-		return <-in
+	    t := <-in
+	    if t.Kind == EOF {
+	        return nil
+	    }
+		return t
 	}
 	return pp.tl.popFront()
 }

@@ -8,7 +8,7 @@ import (
 	"runtime/debug"
 )
 
-// Storage Class
+// Storage class
 type SClass int
 
 const (
@@ -101,7 +101,7 @@ func (p *parser) parseDeclaration() {
 	trace()
 	p.parseDeclarationSpecifiers()
 	for {
-		p.parseDeclarator()
+		p.parseDeclarator(false)
 		if p.curt.Kind == '=' {
 			p.next()
 			p.parseInitializer()
@@ -142,7 +142,7 @@ func (p *parser) parseDeclarationSpecifiers() (SClass, CType) {
 	panic("unreachable")
 }
 
-func (p *parser) parseDeclarator() {
+func (p *parser) parseDeclarator(abstract bool) {
 loop:
 	for {
 		switch p.curt.Kind {
@@ -151,9 +151,12 @@ loop:
 		case cpp.VOLATILE:
 		case '(':
 			p.next()
-			p.parseDeclarator()
+			p.parseDeclarator(abstract)
 			p.expect(')')
 		case cpp.IDENT:
+		    if abstract {
+		        break loop
+		    }
 		default:
 			break loop
 		}
@@ -163,6 +166,11 @@ loop:
 	case '[':
 		p.expect(']')
 	case '(':
+	    switch p.curt.Kind {
+	    case cpp.IDENT:
+	    case ')':
+	        break
+	    }
 		p.expect(')')
 	default:
 		return

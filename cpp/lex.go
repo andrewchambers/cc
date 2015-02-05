@@ -126,13 +126,14 @@ func (ls *lexerState) lex() {
 		}
 
 	}()
-	ls.markPos()
-	first, eof := ls.readRune()
 	for {
+    	ls.markPos()
+	    first, eof := ls.readRune()
 		if eof {
 			if ls.inDirective {
 				ls.sendTok(END_DIRECTIVE, "")
 			}
+			ls.sendTok(EOF, "")
 			break
 		}
 		switch {
@@ -289,8 +290,8 @@ func (ls *lexerState) lex() {
 					}
 				case '/':
 					for {
-						c, _ := ls.readRune()
-						if c == '\n' {
+						c, eof := ls.readRune()
+						if c == '\n' || eof {
 							break
 						}
 					}
@@ -346,8 +347,6 @@ func (ls *lexerState) lex() {
 				ls.lexError(fmt.Sprintf("Internal Error - bad char code '%d'", first))
 			}
 		}
-		ls.markPos()
-		first, eof = ls.readRune()
 	}
 	close(ls.stream)
 }

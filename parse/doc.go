@@ -2,6 +2,10 @@ package parse
 
 // Parser and validator for C source code.
 //
+// Misc notes:
+//
+// Typedef is actually a storage class, it just means instead of storing a value,
+// it declares a named type.
 //
 // Glossary:
 //
