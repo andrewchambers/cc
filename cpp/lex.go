@@ -7,7 +7,7 @@ import (
 	"io"
 )
 
-type lexerState struct {
+type Lexer struct {
 	pos       FilePos
 	markedPos FilePos
 	brdr      *bufio.Reader
@@ -34,26 +34,26 @@ type breakout struct {
 //source file.
 //The goroutine will not stop until all tokens are read
 func Lex(fname string, r io.Reader) chan *Token {
-	ls := new(lexerState)
-	ls.pos.File = fname
-	ls.pos.Line = 1
-	ls.pos.Col = 1
-	ls.stream = make(chan *Token, 1024)
-	ls.brdr = bufio.NewReader(r)
-	ls.bol = true
-	go ls.lex()
-	return ls.stream
+	lx := new(Lexer)
+	lx.pos.File = fname
+	lx.pos.Line = 1
+	lx.pos.Col = 1
+	lx.stream = make(chan *Token, 1024)
+	lx.brdr = bufio.NewReader(r)
+	lx.bol = true
+	go lx.lex()
+	return lx.stream
 }
 
-func (ls *lexerState) markPos() {
-	ls.markedPos = ls.pos
+func (lx *Lexer) markPos() {
+	lx.markedPos = lx.pos
 }
 
-func (ls *lexerState) sendTok(kind TokenKind, val string) {
+func (lx *Lexer) sendTok(kind TokenKind, val string) {
 	var tok Token
 	tok.Kind = kind
 	tok.Val = val
-	tok.Pos = ls.markedPos
+	tok.Pos = lx.markedPos
 	//XXX This might slow things down.
 	//Not all tokens need a hideset.
 	tok.hs = emptyHS
@@ -61,62 +61,62 @@ func (ls *lexerState) sendTok(kind TokenKind, val string) {
 	case END_DIRECTIVE:
 		//Do nothing as this is a pseudo directive.
 	default:
-		ls.bol = false
+		lx.bol = false
 	}
-	ls.stream <- &tok
+	lx.stream <- &tok
 }
 
-func (ls *lexerState) unreadRune() {
-	if ls.eof {
+func (lx *Lexer) unreadRune() {
+	if lx.eof {
 		return
 	}
-	switch ls.lastChar {
+	switch lx.lastChar {
 	case '\n':
-		ls.pos.Line -= 1
-		ls.pos.Col = ls.oldCol
-		ls.bol = false
+		lx.pos.Line -= 1
+		lx.pos.Col = lx.oldCol
+		lx.bol = false
 	case '\t':
-		ls.pos.Col -= 4 // Is this ok?
+		lx.pos.Col -= 4 // Is this ok?
 	default:
-		ls.pos.Col -= 1
+		lx.pos.Col -= 1
 	}
-	ls.brdr.UnreadRune()
+	lx.brdr.UnreadRune()
 }
 
-func (ls *lexerState) readRune() (rune, bool) {
-	r, _, err := ls.brdr.ReadRune()
+func (lx *Lexer) readRune() (rune, bool) {
+	r, _, err := lx.brdr.ReadRune()
 	if err != nil {
 		if err == io.EOF {
-			ls.eof = true
-			ls.lastChar = 0
+			lx.eof = true
+			lx.lastChar = 0
 			return 0, true
 		}
-		ls.lexError(err.Error())
+		lx.lexError(err.Error())
 	}
 	switch r {
 	case '\n':
-		ls.pos.Line += 1
-		ls.oldCol = ls.pos.Col
-		ls.pos.Col = 1
-		ls.bol = true
+		lx.pos.Line += 1
+		lx.oldCol = lx.pos.Col
+		lx.pos.Col = 1
+		lx.bol = true
 	case '\t':
-		ls.pos.Col += 4 // Is this ok?
+		lx.pos.Col += 4 // Is this ok?
 	default:
-		ls.pos.Col += 1
+		lx.pos.Col += 1
 	}
-	ls.lastChar = r
+	lx.lastChar = r
 	return r, false
 }
 
-func (ls *lexerState) lexError(e string) {
-	eWithPos := fmt.Sprintf("Error while reading %s. %s", ls.pos, e)
-	ls.sendTok(ERROR, eWithPos)
-	close(ls.stream)
+func (lx *Lexer) lexError(e string) {
+	eWithPos := fmt.Sprintf("Error while reading %s. %s", lx.pos, e)
+	lx.sendTok(ERROR, eWithPos)
+	close(lx.stream)
 	//recover exits the lexer cleanly
 	panic(&breakout{})
 }
 
-func (ls *lexerState) lex() {
+func (lx *Lexer) lex() {
 
 	//This recovery happens if lexError is called.
 	defer func() {
@@ -127,364 +127,364 @@ func (ls *lexerState) lex() {
 
 	}()
 	for {
-		ls.markPos()
-		first, eof := ls.readRune()
+		lx.markPos()
+		first, eof := lx.readRune()
 		if eof {
-			if ls.inDirective {
-				ls.sendTok(END_DIRECTIVE, "")
+			if lx.inDirective {
+				lx.sendTok(END_DIRECTIVE, "")
 			}
-			ls.sendTok(EOF, "")
+			lx.sendTok(EOF, "")
 			break
 		}
 		switch {
 		case isAlpha(first) || first == '_':
-			ls.unreadRune()
-			ls.readIdentOrKeyword()
+			lx.unreadRune()
+			lx.readIdentOrKeyword()
 		case isNumeric(first):
-			ls.unreadRune()
-			ls.readConstantIntOrFloat(false)
+			lx.unreadRune()
+			lx.readConstantIntOrFloat(false)
 		case isWhiteSpace(first):
-			ls.unreadRune()
-			ls.skipWhiteSpace()
+			lx.unreadRune()
+			lx.skipWhiteSpace()
 		default:
 			switch first {
 			case '#':
-				if ls.isAtLineStart() {
-					ls.readDirective()
+				if lx.isAtLineStart() {
+					lx.readDirective()
 				} else {
-					ls.sendTok(HASH, "#")
+					lx.sendTok(HASH, "#")
 				}
 			case '!':
-				second, _ := ls.readRune()
+				second, _ := lx.readRune()
 				switch second {
 				case '=':
-					ls.sendTok(NEQ, "!=")
+					lx.sendTok(NEQ, "!=")
 				default:
-					ls.unreadRune()
-					ls.sendTok(NOT, "!")
+					lx.unreadRune()
+					lx.sendTok(NOT, "!")
 				}
 			case '?':
-				ls.sendTok(QUESTION, "?")
+				lx.sendTok(QUESTION, "?")
 			case ':':
-				ls.sendTok(COLON, ":")
+				lx.sendTok(COLON, ":")
 			case '\'':
-				ls.unreadRune()
-				ls.readCChar()
+				lx.unreadRune()
+				lx.readCChar()
 			case '"':
-				ls.unreadRune()
-				ls.readCString()
+				lx.unreadRune()
+				lx.readCString()
 			case '(':
-				ls.sendTok(LPAREN, "(")
+				lx.sendTok(LPAREN, "(")
 			case ')':
-				ls.sendTok(RPAREN, ")")
+				lx.sendTok(RPAREN, ")")
 			case '{':
-				ls.sendTok(LBRACE, "{")
+				lx.sendTok(LBRACE, "{")
 			case '}':
-				ls.sendTok(RBRACE, "}")
+				lx.sendTok(RBRACE, "}")
 			case '[':
-				ls.sendTok(LBRACK, "[")
+				lx.sendTok(LBRACK, "[")
 			case ']':
-				ls.sendTok(RBRACE, "]")
+				lx.sendTok(RBRACE, "]")
 			case '<':
-				second, _ := ls.readRune()
+				second, _ := lx.readRune()
 				switch second {
 				case '<':
-					ls.sendTok(SHL, "<<")
+					lx.sendTok(SHL, "<<")
 				case '=':
-					ls.sendTok(LEQ, "<=")
+					lx.sendTok(LEQ, "<=")
 				default:
-					ls.unreadRune()
-					ls.sendTok(LSS, "<")
+					lx.unreadRune()
+					lx.sendTok(LSS, "<")
 				}
 			case '>':
-				second, _ := ls.readRune()
+				second, _ := lx.readRune()
 				switch second {
 				case '>':
-					ls.sendTok(SHR, ">>")
+					lx.sendTok(SHR, ">>")
 				case '=':
-					ls.sendTok(GEQ, ">=")
+					lx.sendTok(GEQ, ">=")
 				default:
-					ls.unreadRune()
-					ls.sendTok(GTR, ">")
+					lx.unreadRune()
+					lx.sendTok(GTR, ">")
 				}
 			case '+':
-				second, _ := ls.readRune()
+				second, _ := lx.readRune()
 				switch second {
 				case '+':
-					ls.sendTok(INC, "++")
+					lx.sendTok(INC, "++")
 				case '=':
-					ls.sendTok(ADD_ASSIGN, "+=")
+					lx.sendTok(ADD_ASSIGN, "+=")
 				default:
-					ls.unreadRune()
-					ls.sendTok(ADD, "+")
+					lx.unreadRune()
+					lx.sendTok(ADD, "+")
 				}
 			case '.':
-				second, _ := ls.readRune()
-				ls.unreadRune()
+				second, _ := lx.readRune()
+				lx.unreadRune()
 				if isNumeric(second) {
-					ls.readConstantIntOrFloat(true)
+					lx.readConstantIntOrFloat(true)
 				} else {
-					ls.sendTok(PERIOD, ".")
+					lx.sendTok(PERIOD, ".")
 				}
 			case '~':
-				ls.sendTok(BNOT, "~")
+				lx.sendTok(BNOT, "~")
 			case '^':
-				second, _ := ls.readRune()
+				second, _ := lx.readRune()
 				switch second {
 				case '=':
-					ls.sendTok(XOR_ASSIGN, "-=")
+					lx.sendTok(XOR_ASSIGN, "-=")
 				default:
-					ls.unreadRune()
-					ls.sendTok(XOR, "^")
+					lx.unreadRune()
+					lx.sendTok(XOR, "^")
 				}
 			case '-':
-				second, _ := ls.readRune()
+				second, _ := lx.readRune()
 				switch second {
 				case '>':
-					ls.sendTok(ARROW, "->")
+					lx.sendTok(ARROW, "->")
 				case '-':
-					ls.sendTok(DEC, "--")
+					lx.sendTok(DEC, "--")
 				case '=':
-					ls.sendTok(SUB_ASSIGN, "-=")
+					lx.sendTok(SUB_ASSIGN, "-=")
 				default:
-					ls.unreadRune()
-					ls.sendTok(SUB, "-")
+					lx.unreadRune()
+					lx.sendTok(SUB, "-")
 				}
 			case ',':
-				ls.sendTok(COMMA, ",")
+				lx.sendTok(COMMA, ",")
 			case '*':
-				second, _ := ls.readRune()
+				second, _ := lx.readRune()
 				switch second {
 				case '=':
-					ls.sendTok(MUL_ASSIGN, "*=")
+					lx.sendTok(MUL_ASSIGN, "*=")
 				default:
-					ls.unreadRune()
-					ls.sendTok(MUL, "*")
+					lx.unreadRune()
+					lx.sendTok(MUL, "*")
 				}
 			case '\\':
-				r, _ := ls.readRune()
+				r, _ := lx.readRune()
 				if r == '\n' {
 					break
 				}
-				ls.lexError("misplaced '\\'.")
+				lx.lexError("misplaced '\\'.")
 			case '/':
-				second, _ := ls.readRune()
+				second, _ := lx.readRune()
 				switch second {
 				case '*':
 					for {
-						c, eof := ls.readRune()
+						c, eof := lx.readRune()
 						if eof {
-							ls.lexError("unclosed comment.")
+							lx.lexError("unclosed comment.")
 						}
 						if c == '*' {
-							closeBar, eof := ls.readRune()
+							closeBar, eof := lx.readRune()
 							if eof {
-								ls.lexError("unclosed comment.")
+								lx.lexError("unclosed comment.")
 							}
 							if closeBar == '/' {
 								break
 							}
 							//Unread so that we dont lose newlines.
-							ls.unreadRune()
+							lx.unreadRune()
 						}
 					}
 				case '/':
 					for {
-						c, eof := ls.readRune()
+						c, eof := lx.readRune()
 						if c == '\n' || eof {
 							break
 						}
 					}
 				case '=':
-					ls.sendTok(QUO_ASSIGN, "/")
+					lx.sendTok(QUO_ASSIGN, "/")
 				default:
-					ls.unreadRune()
-					ls.sendTok(QUO, "/")
+					lx.unreadRune()
+					lx.sendTok(QUO, "/")
 				}
 			case '%':
-				second, _ := ls.readRune()
+				second, _ := lx.readRune()
 				switch second {
 				case '=':
-					ls.sendTok(REM_ASSIGN, "%=")
+					lx.sendTok(REM_ASSIGN, "%=")
 				default:
-					ls.unreadRune()
-					ls.sendTok(REM, "%")
+					lx.unreadRune()
+					lx.sendTok(REM, "%")
 				}
 			case '|':
-				second, _ := ls.readRune()
+				second, _ := lx.readRune()
 				switch second {
 				case '|':
-					ls.sendTok(LOR, "||")
+					lx.sendTok(LOR, "||")
 				case '=':
-					ls.sendTok(OR_ASSIGN, "|=")
+					lx.sendTok(OR_ASSIGN, "|=")
 				default:
-					ls.unreadRune()
-					ls.sendTok(OR, "|")
+					lx.unreadRune()
+					lx.sendTok(OR, "|")
 				}
 			case '&':
-				second, _ := ls.readRune()
+				second, _ := lx.readRune()
 				switch second {
 				case '&':
-					ls.sendTok(LAND, "&&")
+					lx.sendTok(LAND, "&&")
 				case '=':
-					ls.sendTok(AND_ASSIGN, "&=")
+					lx.sendTok(AND_ASSIGN, "&=")
 				default:
-					ls.unreadRune()
-					ls.sendTok(AND, "&")
+					lx.unreadRune()
+					lx.sendTok(AND, "&")
 				}
 			case '=':
-				second, _ := ls.readRune()
+				second, _ := lx.readRune()
 				switch second {
 				case '=':
-					ls.sendTok(EQL, "==")
+					lx.sendTok(EQL, "==")
 				default:
-					ls.unreadRune()
-					ls.sendTok(ASSIGN, "=")
+					lx.unreadRune()
+					lx.sendTok(ASSIGN, "=")
 				}
 			case ';':
-				ls.sendTok(SEMICOLON, ";")
+				lx.sendTok(SEMICOLON, ";")
 			default:
-				ls.lexError(fmt.Sprintf("Internal Error - bad char code '%d'", first))
+				lx.lexError(fmt.Sprintf("Internal Error - bad char code '%d'", first))
 			}
 		}
 	}
-	close(ls.stream)
+	close(lx.stream)
 }
 
-func (ls *lexerState) readDirective() {
-	directiveLine := ls.pos.Line
-	ls.skipWhiteSpace()
-	if ls.pos.Line != directiveLine {
+func (lx *Lexer) readDirective() {
+	directiveLine := lx.pos.Line
+	lx.skipWhiteSpace()
+	if lx.pos.Line != directiveLine {
 		return
 	}
 	var buff bytes.Buffer
-	directiveChar, eof := ls.readRune()
+	directiveChar, eof := lx.readRune()
 	if eof {
-		ls.lexError("end of file in directive.")
+		lx.lexError("end of file in directive.")
 	}
 	if isAlpha(directiveChar) {
-		ls.inDirective = true
+		lx.inDirective = true
 		for isAlpha(directiveChar) {
 			buff.WriteRune(directiveChar)
-			directiveChar, eof = ls.readRune()
+			directiveChar, eof = lx.readRune()
 		}
 		if !eof {
-			ls.unreadRune()
+			lx.unreadRune()
 		}
 		directive := buff.String()
-		ls.sendTok(DIRECTIVE, directive)
+		lx.sendTok(DIRECTIVE, directive)
 		switch directive {
 		case "include":
-			ls.readHeaderInclude()
+			lx.readHeaderInclude()
 		case "define":
-			ls.readDefine()
+			lx.readDefine()
 		default:
 		}
 	} else {
 		//wasnt a directive, error will be caught by
 		//cpp or parser.
-		ls.unreadRune()
+		lx.unreadRune()
 	}
 
 }
 
-func (ls *lexerState) readDefine() {
-	line := ls.pos.Line
-	ls.skipWhiteSpace()
-	if ls.pos.Line != line {
-		ls.lexError("No identifier after define")
+func (lx *Lexer) readDefine() {
+	line := lx.pos.Line
+	lx.skipWhiteSpace()
+	if lx.pos.Line != line {
+		lx.lexError("No identifier after define")
 	}
-	ls.readIdentOrKeyword()
-	r, eof := ls.readRune()
+	lx.readIdentOrKeyword()
+	r, eof := lx.readRune()
 	if eof {
-		ls.lexError("End of File in #efine")
+		lx.lexError("End of File in #efine")
 	}
 	//Distinguish between a funclike macro
 	//and a regular macro.
 	if r == '(' {
-		ls.sendTok(FUNCLIKE_DEFINE, "")
-		ls.unreadRune()
+		lx.sendTok(FUNCLIKE_DEFINE, "")
+		lx.unreadRune()
 	}
 
 }
 
-func (ls *lexerState) readHeaderInclude() {
+func (lx *Lexer) readHeaderInclude() {
 	var buff bytes.Buffer
-	line := ls.pos.Line
-	ls.skipWhiteSpace()
-	if ls.pos.Line != line {
-		ls.lexError("No header after include.")
+	line := lx.pos.Line
+	lx.skipWhiteSpace()
+	if lx.pos.Line != line {
+		lx.lexError("No header after include.")
 	}
-	ls.markPos()
-	opening, _ := ls.readRune()
+	lx.markPos()
+	opening, _ := lx.readRune()
 	var terminator rune
 	if opening == '"' {
 		terminator = '"'
 	} else if opening == '<' {
 		terminator = '>'
 	} else {
-		ls.lexError("bad start to header include.")
+		lx.lexError("bad start to header include.")
 	}
 	buff.WriteRune(opening)
 	for {
-		c, eof := ls.readRune()
+		c, eof := lx.readRune()
 		if eof {
-			ls.lexError("EOF encountered in header include.")
+			lx.lexError("EOF encountered in header include.")
 		}
 		if c == '\n' {
-			ls.lexError("new line in header include.")
+			lx.lexError("new line in header include.")
 		}
 		buff.WriteRune(c)
 		if c == terminator {
 			break
 		}
 	}
-	ls.sendTok(HEADER, buff.String())
+	lx.sendTok(HEADER, buff.String())
 }
 
-func (ls *lexerState) readIdentOrKeyword() {
+func (lx *Lexer) readIdentOrKeyword() {
 	var buff bytes.Buffer
-	ls.markPos()
-	first, _ := ls.readRune()
+	lx.markPos()
+	first, _ := lx.readRune()
 	if !isValidIdentStart(first) {
 		panic("internal error")
 	}
 	buff.WriteRune(first)
 	for {
-		b, _ := ls.readRune()
+		b, _ := lx.readRune()
 		if isValidIdentTail(b) {
 			buff.WriteRune(b)
 		} else {
-			ls.unreadRune()
+			lx.unreadRune()
 			str := buff.String()
 			tokType, ok := keywordLUT[str]
 			if !ok {
 				tokType = IDENT
 			}
-			ls.sendTok(tokType, str)
+			lx.sendTok(tokType, str)
 			break
 		}
 	}
 }
 
-func (ls *lexerState) skipWhiteSpace() {
+func (lx *Lexer) skipWhiteSpace() {
 	for {
-		r, _ := ls.readRune()
+		r, _ := lx.readRune()
 		if !isWhiteSpace(r) {
-			ls.unreadRune()
+			lx.unreadRune()
 			break
 		}
 		if r == '\n' {
-			if ls.inDirective {
-				ls.sendTok(END_DIRECTIVE, "")
-				ls.inDirective = false
+			if lx.inDirective {
+				lx.sendTok(END_DIRECTIVE, "")
+				lx.inDirective = false
 			}
 		}
 	}
 }
 
 // Due to the 1 character lookahead we need this bool
-func (ls *lexerState) readConstantIntOrFloat(startedWithPeriod bool) {
+func (lx *Lexer) readConstantIntOrFloat(startedWithPeriod bool) {
 	var buff bytes.Buffer
 	const (
 		START = iota
@@ -509,7 +509,7 @@ func (ls *lexerState) readConstantIntOrFloat(startedWithPeriod bool) {
 		tokType = INT_CONSTANT
 	}
 	for state != END {
-		r, eof := ls.readRune()
+		r, eof := lx.readRune()
 		if eof {
 			state = END
 			break
@@ -522,7 +522,7 @@ func (ls *lexerState) readConstantIntOrFloat(startedWithPeriod bool) {
 				break
 			}
 			if !isNumeric(r) {
-				ls.lexError("internal error")
+				lx.lexError("internal error")
 			}
 			buff.WriteRune(r)
 			state = SECOND
@@ -560,7 +560,7 @@ func (ls *lexerState) readConstantIntOrFloat(startedWithPeriod bool) {
 					buff.WriteRune(r)
 				default:
 					if isValidIdentStart(r) {
-						ls.lexError("invalid constant int")
+						lx.lexError("invalid constant int")
 					}
 					state = END
 				}
@@ -575,7 +575,7 @@ func (ls *lexerState) readConstantIntOrFloat(startedWithPeriod bool) {
 					buff.WriteRune(r)
 				default:
 					if isValidIdentStart(r) {
-						ls.lexError("invalid constant int")
+						lx.lexError("invalid constant int")
 					}
 					state = END
 				}
@@ -597,7 +597,7 @@ func (ls *lexerState) readConstantIntOrFloat(startedWithPeriod bool) {
 					buff.WriteRune(r)
 				default:
 					if isValidIdentStart(r) {
-						ls.lexError("invalid floating point constant.")
+						lx.lexError("invalid floating point constant.")
 					}
 					state = END
 				}
@@ -612,7 +612,7 @@ func (ls *lexerState) readConstantIntOrFloat(startedWithPeriod bool) {
 				state = FLOAT_AFTER_E_SIGN
 				buff.WriteRune(r)
 			} else {
-				ls.lexError("invalid float constant - expected number or signed after e")
+				lx.lexError("invalid float constant - expected number or signed after e")
 			}
 		case FLOAT_AFTER_E_SIGN:
 			if isNumeric(r) {
@@ -624,7 +624,7 @@ func (ls *lexerState) readConstantIntOrFloat(startedWithPeriod bool) {
 					state = FLOAT_TAIL
 				default:
 					if isValidIdentStart(r) {
-						ls.lexError("invalid float constant")
+						lx.lexError("invalid float constant")
 					} else {
 						state = END
 					}
@@ -636,19 +636,19 @@ func (ls *lexerState) readConstantIntOrFloat(startedWithPeriod bool) {
 				buff.WriteRune(r)
 			default:
 				if isValidIdentStart(r) {
-					ls.lexError("invalid float constant")
+					lx.lexError("invalid float constant")
 				}
 				state = END
 			}
 		default:
-			ls.lexError("internal error.")
+			lx.lexError("internal error.")
 		}
 	}
-	ls.unreadRune()
-	ls.sendTok(tokType, buff.String())
+	lx.unreadRune()
+	lx.sendTok(tokType, buff.String())
 }
 
-func (ls *lexerState) readCString() {
+func (lx *Lexer) readCString() {
 	const (
 		START = iota
 		MID
@@ -657,16 +657,16 @@ func (ls *lexerState) readCString() {
 	)
 	var buff bytes.Buffer
 	var state int
-	ls.markPos()
+	lx.markPos()
 	for state != END {
-		r, eof := ls.readRune()
+		r, eof := lx.readRune()
 		if eof {
-			ls.lexError("eof in string literal")
+			lx.lexError("eof in string literal")
 		}
 		switch state {
 		case START:
 			if r != '"' {
-				ls.lexError("internal error")
+				lx.lexError("internal error")
 			}
 			buff.WriteRune(r)
 			state = MID
@@ -693,10 +693,10 @@ func (ls *lexerState) readCString() {
 			}
 		}
 	}
-	ls.sendTok(STRING, buff.String())
+	lx.sendTok(STRING, buff.String())
 }
 
-func (ls *lexerState) readCChar() {
+func (lx *Lexer) readCChar() {
 	const (
 		START = iota
 		MID
@@ -705,16 +705,16 @@ func (ls *lexerState) readCChar() {
 	)
 	var buff bytes.Buffer
 	var state int
-	ls.markPos()
+	lx.markPos()
 	for state != END {
-		r, eof := ls.readRune()
+		r, eof := lx.readRune()
 		if eof {
-			ls.lexError("eof in char literal")
+			lx.lexError("eof in char literal")
 		}
 		switch state {
 		case START:
 			if r != '\'' {
-				ls.lexError("internal error")
+				lx.lexError("internal error")
 			}
 			buff.WriteRune(r)
 			state = MID
@@ -741,12 +741,12 @@ func (ls *lexerState) readCChar() {
 			}
 		}
 	}
-	ls.sendTok(CHAR_CONSTANT, buff.String())
+	lx.sendTok(CHAR_CONSTANT, buff.String())
 
 }
 
-func (ls *lexerState) isAtLineStart() bool {
-	return ls.bol
+func (lx *Lexer) isAtLineStart() bool {
+	return lx.bol
 }
 
 func isValidIdentTail(b rune) bool {
