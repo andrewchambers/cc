@@ -7,25 +7,23 @@ import (
 	"io"
 )
 
-
-
 type Lexer struct {
-    brdr      *bufio.Reader
+	brdr      *bufio.Reader
 	pos       FilePos
 	lastPos   FilePos
 	markedPos FilePos
-	lastChar rune
+	lastChar  rune
 	// At the beginning on line not including whitespace.
 	bol bool
 	// Set to true if we have hit the end of file.
 	eof bool
 	// Set to true if we are currently reading a # directive line
 	inDirective bool
-	stream chan *Token
-	err error
+	stream      chan *Token
+	err         error
 }
 
-type breakout struct {}
+type breakout struct{}
 
 // Lex starts a goroutine which lexes the contents of the reader.
 // fname is used for error messages when showing the source location.
@@ -71,7 +69,7 @@ func (lx *Lexer) unreadRune() {
 	}
 	lx.pos = lx.lastPos
 	if lx.lastChar == '\n' {
-	    lx.bol = false
+		lx.bol = false
 	}
 	lx.brdr.UnreadRune()
 }
