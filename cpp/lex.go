@@ -7,37 +7,38 @@ import (
 	"io"
 )
 
+
+
 type Lexer struct {
+    brdr      *bufio.Reader
 	pos       FilePos
+	lastPos   FilePos
 	markedPos FilePos
-	brdr      *bufio.Reader
-	lastChar  rune
-	oldCol    int
-	//At the beginning on line not including whitespace
+	lastChar rune
+	// At the beginning on line not including whitespace.
 	bol bool
-	// Set to true if we have hit the end of file
+	// Set to true if we have hit the end of file.
 	eof bool
-	//Set to true if we are currently reading a # directive line
+	// Set to true if we are currently reading a # directive line
 	inDirective bool
-	//If this channel recieves a value, the lexing goroutines should close
-	//its output channel and its error channel and terminate.
-	cancel chan struct{}
 	stream chan *Token
+	err error
 }
 
-type breakout struct {
-}
+type breakout struct {}
 
-//Lex starts a goroutine which lexes the contents of the reader.
-//fname is used for error messages when showing the source location.
-//No preprocessing is done, this is just pure reading of the unprocessed
-//source file.
-//The goroutine will not stop until all tokens are read
+// Lex starts a goroutine which lexes the contents of the reader.
+// fname is used for error messages when showing the source location.
+// No preprocessing is done, this is just pure reading of the unprocessed
+// source file.
+// The goroutine will not stop until all tokens are read
 func Lex(fname string, r io.Reader) chan *Token {
 	lx := new(Lexer)
 	lx.pos.File = fname
 	lx.pos.Line = 1
 	lx.pos.Col = 1
+	lx.markedPos = lx.pos
+	lx.lastPos = lx.pos
 	lx.stream = make(chan *Token, 1024)
 	lx.brdr = bufio.NewReader(r)
 	lx.bol = true
@@ -54,8 +55,6 @@ func (lx *Lexer) sendTok(kind TokenKind, val string) {
 	tok.Kind = kind
 	tok.Val = val
 	tok.Pos = lx.markedPos
-	//XXX This might slow things down.
-	//Not all tokens need a hideset.
 	tok.hs = emptyHS
 	switch kind {
 	case END_DIRECTIVE:
@@ -70,15 +69,9 @@ func (lx *Lexer) unreadRune() {
 	if lx.eof {
 		return
 	}
-	switch lx.lastChar {
-	case '\n':
-		lx.pos.Line -= 1
-		lx.pos.Col = lx.oldCol
-		lx.bol = false
-	case '\t':
-		lx.pos.Col -= 4 // Is this ok?
-	default:
-		lx.pos.Col -= 1
+	lx.pos = lx.lastPos
+	if lx.lastChar == '\n' {
+	    lx.bol = false
 	}
 	lx.brdr.UnreadRune()
 }
@@ -93,14 +86,14 @@ func (lx *Lexer) readRune() (rune, bool) {
 		}
 		lx.lexError(err.Error())
 	}
+	lx.lastPos = lx.pos
 	switch r {
 	case '\n':
 		lx.pos.Line += 1
-		lx.oldCol = lx.pos.Col
 		lx.pos.Col = 1
 		lx.bol = true
 	case '\t':
-		lx.pos.Col += 4 // Is this ok?
+		lx.pos.Col += 4
 	default:
 		lx.pos.Col += 1
 	}
