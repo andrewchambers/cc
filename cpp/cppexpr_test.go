@@ -92,7 +92,6 @@ func TestExprEval(t *testing.T) {
 			_, ok := testExprPredefined[s]
 			return ok
 		}
-
 		tl := newTokenList()
 		for {
 			tok, err := lexer.Next()
@@ -104,7 +103,6 @@ func TestExprEval(t *testing.T) {
 			}
 			tl.append(tok)
 		}
-
 		result, err := evalIfExpr(isDefined, tl)
 		if err != nil {
 			if !tc.expectErr {

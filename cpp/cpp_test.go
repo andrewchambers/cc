@@ -99,7 +99,7 @@ func performCPPTestCase(t *testing.T, cfile string, expectfile string) {
 	}
 }
 
-func _TestPreprocessor(t *testing.T) {
+func TestPreprocessor(t *testing.T) {
 	info, err := ioutil.ReadDir("cpptestdata")
 	if err != nil {
 		t.Fatal(err)
