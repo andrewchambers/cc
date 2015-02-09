@@ -88,22 +88,27 @@ func TestExprEval(t *testing.T) {
 		tc := &exprTestCases[idx]
 		r := bytes.NewBufferString(tc.expr)
 		lexer := Lex("testcase.c", r)
-
-		var e error = nil
-		onErr := func(evalErr error) {
-			e = evalErr
-		}
-		nextTok := func() (*Token, error) {
-			return lexer.Next()
-		}
 		isDefined := func(s string) bool {
 			_, ok := testExprPredefined[s]
 			return ok
 		}
-		result := evalIfExpr(isDefined, nextTok, onErr)
-		if e != nil {
+
+		tl := newTokenList()
+		for {
+			tok, err := lexer.Next()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tok.Kind == EOF {
+				break
+			}
+			tl.append(tok)
+		}
+
+		result, err := evalIfExpr(isDefined, tl)
+		if err != nil {
 			if !tc.expectErr {
-				t.Errorf("test %s failed - got error <%s>", tc.expr, e)
+				t.Errorf("test %s failed - got error <%s>", tc.expr, err)
 			}
 		} else if tc.expectErr {
 			t.Errorf("test %s failed - expected an error", tc.expr)
