@@ -38,14 +38,14 @@ func preprocessFile(sourceFile string, out io.WriteCloser) {
 	lexer := cpp.Lex(sourceFile, f)
 	pp := cpp.New(lexer, nil)
 	for {
-	    tok, err := pp.Next()
+		tok, err := pp.Next()
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 		fmt.Fprintf(out, "%s:%s:%d:%d\n", tok.Kind, tok.Val, tok.Pos.Line, tok.Pos.Col)
 		if tok.Kind == cpp.EOF {
-		    return
+			return
 		}
 	}
 }
@@ -71,14 +71,14 @@ func tokenizeFile(sourceFile string, out io.WriteCloser) {
 	}
 	lexer := cpp.Lex(sourceFile, f)
 	for {
-	    tok, err := lexer.Next()
+		tok, err := lexer.Next()
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 		fmt.Fprintf(out, "%s:%s:%d:%d\n", tok.Kind, tok.Val, tok.Pos.Line, tok.Pos.Col)
 		if tok.Kind == cpp.EOF {
-		    return
+			return
 		}
 	}
 }

@@ -7,10 +7,9 @@ import (
 )
 
 type Preprocessor struct {
-    
-    lxidx int 
-    lexers [1024]*Lexer
-	
+	lxidx  int
+	lexers [1024]*Lexer
+
 	is IncludeSearcher
 	//List of all pushed back tokens
 	tl *tokenList
@@ -18,7 +17,7 @@ type Preprocessor struct {
 	objMacros map[string]*objMacro
 	//Map of defined FUNC macros
 	funcMacros map[string]*funcMacro
-	
+
 	//Stack of condContext about #ifdefs blocks
 	conditionalStack *list.List
 }
@@ -46,7 +45,7 @@ func (pp *Preprocessor) condDepth() int {
 	return pp.conditionalStack.Len()
 }
 
-func New(l *Lexer ,is IncludeSearcher) *Preprocessor {
+func New(l *Lexer, is IncludeSearcher) *Preprocessor {
 	ret := new(Preprocessor)
 	ret.lexers[0] = l
 	ret.is = is
@@ -58,38 +57,38 @@ func New(l *Lexer ,is IncludeSearcher) *Preprocessor {
 }
 
 type cppbreakout struct {
-    t *Token
-    err error
+	t   *Token
+	err error
 }
 
-func (pp *Preprocessor) nextNoExpand() (*Token) {
+func (pp *Preprocessor) nextNoExpand() *Token {
 	if pp.tl.isEmpty() {
-	    for {
-		    t, err := pp.lexers[pp.lxidx].Next()
-		    if err != nil {
-		        panic(&cppbreakout{t, err})
-		    }
-		    if t.Kind == EOF {
-		        if pp.lxidx == 0 {
-		            return t
-		        }
-			    pp.lxidx -= 1
-		    }
+		for {
+			t, err := pp.lexers[pp.lxidx].Next()
+			if err != nil {
+				panic(&cppbreakout{t, err})
+			}
+			if t.Kind == EOF {
+				if pp.lxidx == 0 {
+					return t
+				}
+				pp.lxidx -= 1
+			}
 		}
 	}
 	return pp.tl.popFront()
 }
 
 func (pp *Preprocessor) cppError(e string, pos FilePos) {
-    err := fmt.Errorf("%s at %s", e, pos)
-    panic(&cppbreakout{
-        t: &Token{},
-        err: err,
-    })
+	err := fmt.Errorf("%s at %s", e, pos)
+	panic(&cppbreakout{
+		t:   &Token{},
+		err: err,
+	})
 }
 
-func (pp *Preprocessor) Next() (t *Token,err error) {
-	
+func (pp *Preprocessor) Next() (t *Token, err error) {
+
 	defer func() {
 		if e := recover(); e != nil {
 			var b *cppbreakout
@@ -98,7 +97,7 @@ func (pp *Preprocessor) Next() (t *Token,err error) {
 			err = b.err
 		}
 	}()
-	
+
 	t = pp.nextNoExpand()
 	if t.hs.contains(t.Val) {
 		return t, nil
@@ -117,7 +116,7 @@ func (pp *Preprocessor) Next() (t *Token,err error) {
 		if opening.Kind == LPAREN {
 			args, rparen, err := pp.readMacroInvokeArguments()
 			if len(args) != fmacro.nargs {
-				return &Token{},fmt.Errorf( "macro %s invoked with %d arguments but %d were expected at %s", t.Val, len(args), fmacro.nargs, t.Pos)
+				return &Token{}, fmt.Errorf("macro %s invoked with %d arguments but %d were expected at %s", t.Val, len(args), fmacro.nargs, t.Pos)
 			}
 			if err != nil {
 				return &Token{}, err
@@ -315,7 +314,7 @@ func (pp *Preprocessor) handleInclude() {
 		pp.cppError(fmt.Sprintf("error during include %s", err), tok.Pos)
 	}
 	pp.lxidx += 1
-	pp.lexers[pp.lxidx] = Lex(headerName, rdr) 
+	pp.lexers[pp.lxidx] = Lex(headerName, rdr)
 }
 
 func (pp *Preprocessor) handleUndefine() {
@@ -406,7 +405,7 @@ func (pp *Preprocessor) handleFuncLikeDefine(ident *Token) {
 
 func (pp *Preprocessor) handleObjDefine(ident *Token) {
 	if pp.isDefined(ident.Val) {
-		pp.cppError("macro redefinition "+ ident.Val, ident.Pos)
+		pp.cppError("macro redefinition "+ident.Val, ident.Pos)
 	}
 	tl := newTokenList()
 	for {

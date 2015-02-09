@@ -1,9 +1,9 @@
 package cpp
 
 import (
-    "errors"
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 )
@@ -21,13 +21,11 @@ type Lexer struct {
 	// Set to true if we are currently reading a # directive line
 	inDirective bool
 	stream      chan *Token
-	
+
 	err error
-	
 }
 
 type breakout struct{}
-
 
 // Lex starts a goroutine which lexes the contents of the reader.
 // fname is used for error messages when showing the source location.
@@ -48,15 +46,15 @@ func Lex(fname string, r io.Reader) *Lexer {
 	return lx
 }
 
-func (lx *Lexer) Next() (*Token ,error) {
-    tok := <- lx.stream
-    if tok == nil {
-        return nil, errors.New("read from closed lexer")
-    }
-    if tok.Kind == ERROR {
-        return tok, lx.err
-    }
-    return tok, nil
+func (lx *Lexer) Next() (*Token, error) {
+	tok := <-lx.stream
+	if tok == nil {
+		return nil, errors.New("read from closed lexer")
+	}
+	if tok.Kind == ERROR {
+		return tok, lx.err
+	}
+	return tok, nil
 }
 
 func (lx *Lexer) markPos() {
