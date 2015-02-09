@@ -45,7 +45,7 @@ type parseErrorBreakOut struct {
 	err error
 }
 
-func Parse(<-chan *cpp.Token) (errRet error) {
+func Parse(pp *cpp.Preprocessor) (errRet error) {
 	p := &parser{}
 	p.types = newScope(nil)
 	p.decls = newScope(nil)

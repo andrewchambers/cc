@@ -35,18 +35,18 @@ func preprocessFile(sourceFile string, out io.WriteCloser) {
 		fmt.Fprintf(os.Stderr, "Failed to open source file %s for preprocessing: %s\n", sourceFile, err)
 		os.Exit(1)
 	}
-	lexTokChan := cpp.Lex(sourceFile, f)
-	pp := cpp.New(nil)
-	ppTokChan := pp.Preprocess(lexTokChan)
-	for tok := range ppTokChan {
-		if tok == nil {
-			return
-		}
-		if tok.Kind == cpp.ERROR {
-			fmt.Fprintln(os.Stderr, tok.Val)
+	lexer := cpp.Lex(sourceFile, f)
+	pp := cpp.New(lexer, nil)
+	for {
+	    tok, err := pp.Next()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 		fmt.Fprintf(out, "%s:%s:%d:%d\n", tok.Kind, tok.Val, tok.Pos.Line, tok.Pos.Col)
+		if tok.Kind == cpp.EOF {
+		    return
+		}
 	}
 }
 
@@ -57,10 +57,9 @@ func parseFile(sourceFile string, out io.WriteCloser) {
 		fmt.Fprintf(os.Stderr, "Failed to open source file %s for parsing: %s\n", sourceFile, err)
 		os.Exit(1)
 	}
-	lexTokChan := cpp.Lex(sourceFile, f)
-	pp := cpp.New(nil)
-	ppTokChan := pp.Preprocess(lexTokChan)
-	parse.Parse(ppTokChan)
+	lexer := cpp.Lex(sourceFile, f)
+	pp := cpp.New(lexer, nil)
+	parse.Parse(pp)
 }
 
 func tokenizeFile(sourceFile string, out io.WriteCloser) {
@@ -70,16 +69,17 @@ func tokenizeFile(sourceFile string, out io.WriteCloser) {
 		fmt.Fprintf(os.Stderr, "Failed to open source file %s for preprocessing: %s\n", sourceFile, err)
 		os.Exit(1)
 	}
-	tokChan := cpp.Lex(sourceFile, f)
-	for tok := range tokChan {
-		if tok == nil {
-			return
-		}
-		if tok.Kind == cpp.ERROR {
-			fmt.Fprintln(os.Stderr, tok.Val)
+	lexer := cpp.Lex(sourceFile, f)
+	for {
+	    tok, err := lexer.Next()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 		fmt.Fprintf(out, "%s:%s:%d:%d\n", tok.Kind, tok.Val, tok.Pos.Line, tok.Pos.Col)
+		if tok.Kind == cpp.EOF {
+		    return
+		}
 	}
 }
 

@@ -1,6 +1,7 @@
 package cpp
 
 import (
+    "errors"
 	"bufio"
 	"bytes"
 	"fmt"
@@ -20,17 +21,20 @@ type Lexer struct {
 	// Set to true if we are currently reading a # directive line
 	inDirective bool
 	stream      chan *Token
-	err         error
+	
+	err error
+	
 }
 
 type breakout struct{}
+
 
 // Lex starts a goroutine which lexes the contents of the reader.
 // fname is used for error messages when showing the source location.
 // No preprocessing is done, this is just pure reading of the unprocessed
 // source file.
 // The goroutine will not stop until all tokens are read
-func Lex(fname string, r io.Reader) chan *Token {
+func Lex(fname string, r io.Reader) *Lexer {
 	lx := new(Lexer)
 	lx.pos.File = fname
 	lx.pos.Line = 1
@@ -41,7 +45,18 @@ func Lex(fname string, r io.Reader) chan *Token {
 	lx.brdr = bufio.NewReader(r)
 	lx.bol = true
 	go lx.lex()
-	return lx.stream
+	return lx
+}
+
+func (lx *Lexer) Next() (*Token ,error) {
+    tok := <- lx.stream
+    if tok == nil {
+        return nil, errors.New("read from closed lexer")
+    }
+    if tok.Kind == ERROR {
+        return tok, lx.err
+    }
+    return tok, nil
 }
 
 func (lx *Lexer) markPos() {
@@ -82,7 +97,7 @@ func (lx *Lexer) readRune() (rune, bool) {
 			lx.lastChar = 0
 			return 0, true
 		}
-		lx.lexError(err.Error())
+		lx.Error(err.Error())
 	}
 	lx.lastPos = lx.pos
 	switch r {
@@ -99,9 +114,10 @@ func (lx *Lexer) readRune() (rune, bool) {
 	return r, false
 }
 
-func (lx *Lexer) lexError(e string) {
-	eWithPos := fmt.Sprintf("Error while reading %s. %s", lx.pos, e)
-	lx.sendTok(ERROR, eWithPos)
+func (lx *Lexer) Error(e string) {
+	eWithPos := fmt.Errorf("Error %s at %s", lx.pos, e)
+	lx.err = eWithPos
+	lx.sendTok(ERROR, eWithPos.Error())
 	close(lx.stream)
 	//recover exits the lexer cleanly
 	panic(&breakout{})
@@ -109,11 +125,9 @@ func (lx *Lexer) lexError(e string) {
 
 func (lx *Lexer) lex() {
 
-	//This recovery happens if lexError is called.
 	defer func() {
-		//XXX is this correct way to retrigger non breakout?
 		if e := recover(); e != nil {
-			_ = e.(*breakout) // Will re-panic if not a parse error.
+			_ = e.(*breakout) // Will re-panic if not a breakout.
 		}
 
 	}()
@@ -257,7 +271,7 @@ func (lx *Lexer) lex() {
 				if r == '\n' {
 					break
 				}
-				lx.lexError("misplaced '\\'.")
+				lx.Error("misplaced '\\'.")
 			case '/':
 				second, _ := lx.readRune()
 				switch second {
@@ -265,12 +279,12 @@ func (lx *Lexer) lex() {
 					for {
 						c, eof := lx.readRune()
 						if eof {
-							lx.lexError("unclosed comment.")
+							lx.Error("unclosed comment.")
 						}
 						if c == '*' {
 							closeBar, eof := lx.readRune()
 							if eof {
-								lx.lexError("unclosed comment.")
+								lx.Error("unclosed comment.")
 							}
 							if closeBar == '/' {
 								break
@@ -335,7 +349,7 @@ func (lx *Lexer) lex() {
 			case ';':
 				lx.sendTok(SEMICOLON, ";")
 			default:
-				lx.lexError(fmt.Sprintf("Internal Error - bad char code '%d'", first))
+				lx.Error(fmt.Sprintf("Internal Error - bad char code '%d'", first))
 			}
 		}
 	}
@@ -351,7 +365,7 @@ func (lx *Lexer) readDirective() {
 	var buff bytes.Buffer
 	directiveChar, eof := lx.readRune()
 	if eof {
-		lx.lexError("end of file in directive.")
+		lx.Error("end of file in directive.")
 	}
 	if isAlpha(directiveChar) {
 		lx.inDirective = true
@@ -383,12 +397,12 @@ func (lx *Lexer) readDefine() {
 	line := lx.pos.Line
 	lx.skipWhiteSpace()
 	if lx.pos.Line != line {
-		lx.lexError("No identifier after define")
+		lx.Error("No identifier after define")
 	}
 	lx.readIdentOrKeyword()
 	r, eof := lx.readRune()
 	if eof {
-		lx.lexError("End of File in #efine")
+		lx.Error("End of File in #efine")
 	}
 	//Distinguish between a funclike macro
 	//and a regular macro.
@@ -404,7 +418,7 @@ func (lx *Lexer) readHeaderInclude() {
 	line := lx.pos.Line
 	lx.skipWhiteSpace()
 	if lx.pos.Line != line {
-		lx.lexError("No header after include.")
+		lx.Error("No header after include.")
 	}
 	lx.markPos()
 	opening, _ := lx.readRune()
@@ -414,16 +428,16 @@ func (lx *Lexer) readHeaderInclude() {
 	} else if opening == '<' {
 		terminator = '>'
 	} else {
-		lx.lexError("bad start to header include.")
+		lx.Error("bad start to header include.")
 	}
 	buff.WriteRune(opening)
 	for {
 		c, eof := lx.readRune()
 		if eof {
-			lx.lexError("EOF encountered in header include.")
+			lx.Error("EOF encountered in header include.")
 		}
 		if c == '\n' {
-			lx.lexError("new line in header include.")
+			lx.Error("new line in header include.")
 		}
 		buff.WriteRune(c)
 		if c == terminator {
@@ -513,7 +527,7 @@ func (lx *Lexer) readConstantIntOrFloat(startedWithPeriod bool) {
 				break
 			}
 			if !isNumeric(r) {
-				lx.lexError("internal error")
+				lx.Error("internal error")
 			}
 			buff.WriteRune(r)
 			state = SECOND
@@ -551,7 +565,7 @@ func (lx *Lexer) readConstantIntOrFloat(startedWithPeriod bool) {
 					buff.WriteRune(r)
 				default:
 					if isValidIdentStart(r) {
-						lx.lexError("invalid constant int")
+						lx.Error("invalid constant int")
 					}
 					state = END
 				}
@@ -566,7 +580,7 @@ func (lx *Lexer) readConstantIntOrFloat(startedWithPeriod bool) {
 					buff.WriteRune(r)
 				default:
 					if isValidIdentStart(r) {
-						lx.lexError("invalid constant int")
+						lx.Error("invalid constant int")
 					}
 					state = END
 				}
@@ -588,7 +602,7 @@ func (lx *Lexer) readConstantIntOrFloat(startedWithPeriod bool) {
 					buff.WriteRune(r)
 				default:
 					if isValidIdentStart(r) {
-						lx.lexError("invalid floating point constant.")
+						lx.Error("invalid floating point constant.")
 					}
 					state = END
 				}
@@ -603,7 +617,7 @@ func (lx *Lexer) readConstantIntOrFloat(startedWithPeriod bool) {
 				state = FLOAT_AFTER_E_SIGN
 				buff.WriteRune(r)
 			} else {
-				lx.lexError("invalid float constant - expected number or signed after e")
+				lx.Error("invalid float constant - expected number or signed after e")
 			}
 		case FLOAT_AFTER_E_SIGN:
 			if isNumeric(r) {
@@ -615,7 +629,7 @@ func (lx *Lexer) readConstantIntOrFloat(startedWithPeriod bool) {
 					state = FLOAT_TAIL
 				default:
 					if isValidIdentStart(r) {
-						lx.lexError("invalid float constant")
+						lx.Error("invalid float constant")
 					} else {
 						state = END
 					}
@@ -627,12 +641,12 @@ func (lx *Lexer) readConstantIntOrFloat(startedWithPeriod bool) {
 				buff.WriteRune(r)
 			default:
 				if isValidIdentStart(r) {
-					lx.lexError("invalid float constant")
+					lx.Error("invalid float constant")
 				}
 				state = END
 			}
 		default:
-			lx.lexError("internal error.")
+			lx.Error("internal error.")
 		}
 	}
 	lx.unreadRune()
@@ -652,12 +666,12 @@ func (lx *Lexer) readCString() {
 	for state != END {
 		r, eof := lx.readRune()
 		if eof {
-			lx.lexError("eof in string literal")
+			lx.Error("eof in string literal")
 		}
 		switch state {
 		case START:
 			if r != '"' {
-				lx.lexError("internal error")
+				lx.Error("internal error")
 			}
 			buff.WriteRune(r)
 			state = MID
@@ -700,12 +714,12 @@ func (lx *Lexer) readCChar() {
 	for state != END {
 		r, eof := lx.readRune()
 		if eof {
-			lx.lexError("eof in char literal")
+			lx.Error("eof in char literal")
 		}
 		switch state {
 		case START:
 			if r != '\'' {
-				lx.lexError("internal error")
+				lx.Error("internal error")
 			}
 			buff.WriteRune(r)
 			state = MID

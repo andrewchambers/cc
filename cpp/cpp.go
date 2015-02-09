@@ -6,10 +6,11 @@ import (
 	"io"
 )
 
-// XXX rewrite this to use a stack of lexers
-// The way it handles EOF is currently broken.
-
 type Preprocessor struct {
+    
+    lxidx int 
+    lexers [1024]*Lexer
+	
 	is IncludeSearcher
 	//List of all pushed back tokens
 	tl *tokenList
@@ -17,8 +18,7 @@ type Preprocessor struct {
 	objMacros map[string]*objMacro
 	//Map of defined FUNC macros
 	funcMacros map[string]*funcMacro
-	//Where the tokens are to be sent
-	out chan *Token
+	
 	//Stack of condContext about #ifdefs blocks
 	conditionalStack *list.List
 }
@@ -46,8 +46,9 @@ func (pp *Preprocessor) condDepth() int {
 	return pp.conditionalStack.Len()
 }
 
-func New(is IncludeSearcher) *Preprocessor {
+func New(l *Lexer ,is IncludeSearcher) *Preprocessor {
 	ret := new(Preprocessor)
+	ret.lexers[0] = l
 	ret.is = is
 	ret.tl = newTokenList()
 	ret.objMacros = make(map[string]*objMacro)
@@ -56,30 +57,51 @@ func New(is IncludeSearcher) *Preprocessor {
 	return ret
 }
 
-func emptyTokChan(t chan *Token) {
-	for _ = range t {
-		//PASS
-	}
+type cppbreakout struct {
+    t *Token
+    err error
 }
 
-func (pp *Preprocessor) nextToken(in chan *Token) *Token {
+func (pp *Preprocessor) nextNoExpand() (*Token) {
 	if pp.tl.isEmpty() {
-		t := <-in
-		if t.Kind == EOF {
-			return nil
+	    for {
+		    t, err := pp.lexers[pp.lxidx].Next()
+		    if err != nil {
+		        panic(&cppbreakout{t, err})
+		    }
+		    if t.Kind == EOF {
+		        if pp.lxidx == 0 {
+		            return t
+		        }
+			    pp.lxidx -= 1
+		    }
 		}
-		return t
 	}
 	return pp.tl.popFront()
 }
 
-func (pp *Preprocessor) nextTokenExpand(in chan *Token) *Token {
-	t := pp.nextToken(in)
-	if t == nil {
-		return nil
-	}
+func (pp *Preprocessor) cppError(e string, pos FilePos) {
+    err := fmt.Errorf("%s at %s", e, pos)
+    panic(&cppbreakout{
+        t: &Token{},
+        err: err,
+    })
+}
+
+func (pp *Preprocessor) Next() (t *Token,err error) {
+	
+	defer func() {
+		if e := recover(); e != nil {
+			var b *cppbreakout
+			b = e.(*cppbreakout)
+			t = b.t
+			err = b.err
+		}
+	}()
+	
+	t = pp.nextNoExpand()
 	if t.hs.contains(t.Val) {
-		return t
+		return t, nil
 	}
 	macro, ok := pp.objMacros[t.Val]
 	if ok {
@@ -87,28 +109,26 @@ func (pp *Preprocessor) nextTokenExpand(in chan *Token) *Token {
 		replacementTokens.addToHideSets(t)
 		replacementTokens.setPositions(t.Pos)
 		pp.ungetTokens(replacementTokens)
-		return pp.nextTokenExpand(in)
+		return pp.Next()
 	}
 	fmacro, ok := pp.funcMacros[t.Val]
 	if ok {
-		opening := pp.nextToken(in)
-		if opening != nil && opening.Kind == LPAREN {
-			args, rparen, err := pp.readMacroInvokeArguments(in)
+		opening := pp.nextNoExpand()
+		if opening.Kind == LPAREN {
+			args, rparen, err := pp.readMacroInvokeArguments()
 			if len(args) != fmacro.nargs {
-				pp.cppError(fmt.Sprintf(
-					"macro %s invoked with %d arguments but %d were expected",
-					t.Val, len(args), fmacro.nargs), t.Pos)
+				return &Token{},fmt.Errorf( "macro %s invoked with %d arguments but %d were expected at %s", t.Val, len(args), fmacro.nargs, t.Pos)
 			}
 			if err != nil {
-				pp.cppError(err.Error(), t.Pos)
+				return &Token{}, err
 			}
 			hs := t.hs.intersection(rparen.hs)
 			hs = hs.add(t.Val)
 			pp.subst(fmacro, t.Pos, args, hs)
-			return pp.nextTokenExpand(in)
+			return pp.Next()
 		}
 	}
-	return t
+	return t, nil
 }
 
 func (pp *Preprocessor) subst(macro *funcMacro, invokePos FilePos, args []*tokenList, hs *hideset) {
@@ -134,14 +154,14 @@ func (pp *Preprocessor) subst(macro *funcMacro, invokePos FilePos, args []*token
 //Each token list in the returned value represents a read macro param.
 //e.g. FOO(BAR,(A,B),C)  -> { <BAR> , <(A,B)> , <C> } , )
 //Where FOO( has already been consumed.
-func (pp *Preprocessor) readMacroInvokeArguments(in chan *Token) ([]*tokenList, *Token, error) {
+func (pp *Preprocessor) readMacroInvokeArguments() ([]*tokenList, *Token, error) {
 	parenDepth := 1
 	argIdx := 0
 	ret := make([]*tokenList, 0, 16)
 	ret = append(ret, newTokenList())
 	for {
-		t := pp.nextToken(in)
-		if t == nil {
+		t := pp.nextNoExpand()
+		if t.Kind == EOF {
 			return nil, nil, fmt.Errorf("EOF while reading macro arguments")
 		}
 		switch t.Kind {
@@ -179,82 +199,35 @@ func (pp *Preprocessor) ungetToken(t *Token) {
 	pp.tl.prepend(t)
 }
 
-func (pp *Preprocessor) cppError(e string, pos FilePos) {
-	emsg := fmt.Sprintf("Preprocessor error %s at %s", e, pos)
-	pp.out <- &Token{Kind: ERROR, Val: emsg, Pos: pos}
-	//recover exits cleanly
-	panic(&breakout{})
-}
-
-//The preprocessor can only be run once. Create a new one to reuse.
-func (pp *Preprocessor) Preprocess(in chan *Token) chan *Token {
-	out := make(chan *Token)
-	pp.out = out
-	go pp.preprocess(in)
-	return out
-}
-
-func (pp *Preprocessor) preprocess(in chan *Token) {
-	defer func() {
-		//XXX is this correct way to retrigger non breakout?
-		if e := recover(); e != nil {
-			_ = e.(*breakout) // Will re-panic if not a parse error.
-			close(pp.out)
-		}
-	}()
-	pp.preprocess2(in)
-	close(pp.out)
-}
-
-func (pp *Preprocessor) preprocess2(in chan *Token) {
-	//We have to run the lexer dry or it is a leak.
-	defer emptyTokChan(in)
-	for {
-		tok := pp.nextTokenExpand(in)
-		if tok == nil {
-			break
-		}
-		switch tok.Kind {
-		case ERROR:
-			pp.out <- tok
-			panic(&breakout{})
-		case DIRECTIVE:
-			pp.handleDirective(tok, in)
-		default:
-			pp.out <- tok
-		}
-	}
-}
-
-func (pp *Preprocessor) handleIf(pos FilePos, in chan *Token) {
+func (pp *Preprocessor) handleIf(pos FilePos) {
 	pp.pushCondContext()
 	//Pretend it fails...
-	pp.skipTillEndif(pos, in)
+	pp.skipTillEndif(pos)
 }
 
-func (pp *Preprocessor) handleIfDef(pos FilePos, in chan *Token) {
+func (pp *Preprocessor) handleIfDef(pos FilePos) {
 	pp.pushCondContext()
 	//Pretend it fails...
-	pp.skipTillEndif(pos, in)
+	pp.skipTillEndif(pos)
 }
 
-func (pp *Preprocessor) handleEndif(pos FilePos, in chan *Token) {
+func (pp *Preprocessor) handleEndif(pos FilePos) {
 	if pp.condDepth() <= 0 {
 		pp.cppError("stray #endif", pos)
 	}
 	pp.popCondContext()
-	endTok := pp.nextToken(in)
+	endTok := pp.nextNoExpand()
 	if endTok.Kind != END_DIRECTIVE {
 		pp.cppError("unexpected token after #endif", endTok.Pos)
 	}
 }
 
 //XXX untested
-func (pp *Preprocessor) skipTillEndif(pos FilePos, in chan *Token) {
+func (pp *Preprocessor) skipTillEndif(pos FilePos) {
 	depth := 1
 	for {
 		//Dont care about expands since we are skipping.
-		t := pp.nextToken(in)
+		t := pp.nextNoExpand()
 		if t == nil {
 			pp.cppError("unclosed preprocessor conditional", pos)
 		}
@@ -274,56 +247,55 @@ func (pp *Preprocessor) skipTillEndif(pos FilePos, in chan *Token) {
 	}
 }
 
-func (pp *Preprocessor) handleDirective(dirTok *Token, in chan *Token) {
+func (pp *Preprocessor) handleDirective(dirTok *Token) {
 	if dirTok.Kind != DIRECTIVE {
 		pp.cppError(fmt.Sprintf("internal error %s", dirTok), dirTok.Pos)
 	}
 	switch dirTok.Val {
 	case "if":
-		pp.handleIf(dirTok.Pos, in)
+		pp.handleIf(dirTok.Pos)
 	case "ifdef":
-		pp.handleIfDef(dirTok.Pos, in)
+		pp.handleIfDef(dirTok.Pos)
 	case "endif":
-		pp.handleEndif(dirTok.Pos, in)
+		pp.handleEndif(dirTok.Pos)
 	//case "ifndef":
 	//case "elif":
 	//case "else":
 	case "undef":
-		pp.handleUndefine(in)
+		pp.handleUndefine()
 	case "define":
-		pp.handleDefine(in)
+		pp.handleDefine()
 	case "include":
-		pp.handleInclude(in)
+		pp.handleInclude()
 	case "error":
-		pp.handleError(in)
+		pp.handleError()
 	case "warning":
-		pp.handleWarning(in)
+		pp.handleWarning()
 	default:
 		pp.cppError(fmt.Sprintf("unknown directive error %s", dirTok), dirTok.Pos)
 	}
 }
 
-func (pp *Preprocessor) handleError(in chan *Token) {
-	tok := pp.nextToken(in)
+func (pp *Preprocessor) handleError() {
+	tok := pp.nextNoExpand()
 	if tok.Kind != STRING {
 		pp.cppError("error string %s", tok.Pos)
 	}
 	pp.cppError(tok.String(), tok.Pos)
 }
 
-func (pp *Preprocessor) handleWarning(in chan *Token) {
+func (pp *Preprocessor) handleWarning() {
 	//XXX
-	pp.handleError(in)
+	pp.handleError()
 }
 
-func (pp *Preprocessor) handleInclude(in chan *Token) {
-	tok := pp.nextToken(in)
+func (pp *Preprocessor) handleInclude() {
+	tok := pp.nextNoExpand()
 	if tok.Kind != HEADER {
 		pp.cppError("expected a header at %s", tok.Pos)
 	}
 	headerStr := tok.Val
 	path := headerStr[1 : len(headerStr)-1]
-
 	var headerName string
 	var rdr io.Reader
 	var err error
@@ -335,18 +307,19 @@ func (pp *Preprocessor) handleInclude(in chan *Token) {
 	default:
 		pp.cppError("internal error %s", tok.Pos)
 	}
+	tok = pp.nextNoExpand()
+	if tok.Kind != END_DIRECTIVE {
+		pp.cppError("Expected newline after include", tok.Pos)
+	}
 	if err != nil {
 		pp.cppError(fmt.Sprintf("error during include %s", err), tok.Pos)
 	}
-	pp.preprocess2(Lex(headerName, rdr))
-	tok = pp.nextToken(in)
-	if tok.Kind != END_DIRECTIVE {
-		pp.cppError("Expected newline after include %s", tok.Pos)
-	}
+	pp.lxidx += 1
+	pp.lexers[pp.lxidx] = Lex(headerName, rdr) 
 }
 
-func (pp *Preprocessor) handleUndefine(in chan *Token) {
-	ident := pp.nextToken(in)
+func (pp *Preprocessor) handleUndefine() {
+	ident := pp.nextNoExpand()
 	if ident.Kind != IDENT {
 		pp.cppError("#undefine expected an ident", ident.Pos)
 	}
@@ -355,24 +328,24 @@ func (pp *Preprocessor) handleUndefine(in chan *Token) {
 	}
 	delete(pp.objMacros, ident.Val)
 	delete(pp.funcMacros, ident.Val)
-	end := pp.nextToken(in)
+	end := pp.nextNoExpand()
 	if end.Kind != END_DIRECTIVE {
 		pp.cppError("expected end of directive", end.Pos)
 	}
 }
 
-func (pp *Preprocessor) handleDefine(in chan *Token) {
-	ident := pp.nextToken(in)
+func (pp *Preprocessor) handleDefine() {
+	ident := pp.nextNoExpand()
 	//XXX should also support keywords and maybe other things
 	if ident.Kind != IDENT {
 		pp.cppError("#define expected an ident", ident.Pos)
 	}
-	t := pp.nextToken(in)
+	t := pp.nextNoExpand()
 	if t.Kind == FUNCLIKE_DEFINE {
-		pp.handleFuncLikeDefine(ident, in)
+		pp.handleFuncLikeDefine(ident)
 	} else {
 		pp.ungetToken(t)
-		pp.handleObjDefine(ident, in)
+		pp.handleObjDefine(ident)
 	}
 
 }
@@ -383,9 +356,9 @@ func (pp *Preprocessor) isDefined(s string) bool {
 	return ok1 || ok2
 }
 
-func (pp *Preprocessor) handleFuncLikeDefine(ident *Token, in chan *Token) {
+func (pp *Preprocessor) handleFuncLikeDefine(ident *Token) {
 	//First read the arguments.
-	paren := pp.nextToken(in)
+	paren := pp.nextNoExpand()
 	if paren.Kind != LPAREN {
 		panic("Bug, func like define without opening LPAREN")
 	}
@@ -398,7 +371,7 @@ func (pp *Preprocessor) handleFuncLikeDefine(ident *Token, in chan *Token) {
 	tokens := newTokenList()
 
 	for {
-		t := pp.nextToken(in)
+		t := pp.nextNoExpand()
 		if t.Kind == RPAREN {
 			break
 		}
@@ -406,7 +379,7 @@ func (pp *Preprocessor) handleFuncLikeDefine(ident *Token, in chan *Token) {
 			pp.cppError("Expected macro argument", t.Pos)
 		}
 		args.append(t)
-		t2 := pp.nextToken(in)
+		t2 := pp.nextNoExpand()
 		if t2.Kind == COMMA {
 			continue
 		} else if t2.Kind == RPAREN {
@@ -417,7 +390,7 @@ func (pp *Preprocessor) handleFuncLikeDefine(ident *Token, in chan *Token) {
 	}
 
 	for {
-		t := pp.nextToken(in)
+		t := pp.nextNoExpand()
 		if t.Kind == END_DIRECTIVE {
 			break
 		}
@@ -431,13 +404,13 @@ func (pp *Preprocessor) handleFuncLikeDefine(ident *Token, in chan *Token) {
 	pp.funcMacros[ident.Val] = macro
 }
 
-func (pp *Preprocessor) handleObjDefine(ident *Token, in chan *Token) {
+func (pp *Preprocessor) handleObjDefine(ident *Token) {
 	if pp.isDefined(ident.Val) {
-		pp.cppError("macro redefinition "+ident.Val, ident.Pos)
+		pp.cppError("macro redefinition "+ ident.Val, ident.Pos)
 	}
 	tl := newTokenList()
 	for {
-		t := pp.nextToken(in)
+		t := pp.nextNoExpand()
 		if t == nil {
 			panic("Bug, EOF before END_DIRECTIVE in define at" + t.String())
 		}
