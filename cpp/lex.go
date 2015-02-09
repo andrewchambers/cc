@@ -39,7 +39,7 @@ func Lex(fname string, r io.Reader) *Lexer {
 	lx.pos.Col = 1
 	lx.markedPos = lx.pos
 	lx.lastPos = lx.pos
-	lx.stream = make(chan *Token, 1024)
+	lx.stream = make(chan *Token, 4096)
 	lx.brdr = bufio.NewReader(r)
 	lx.bol = true
 	go lx.lex()
@@ -77,18 +77,19 @@ func (lx *Lexer) sendTok(kind TokenKind, val string) {
 }
 
 func (lx *Lexer) unreadRune() {
-	if lx.eof {
-		return
-	}
 	lx.pos = lx.lastPos
 	if lx.lastChar == '\n' {
 		lx.bol = false
+	}
+	if lx.eof {
+		return
 	}
 	lx.brdr.UnreadRune()
 }
 
 func (lx *Lexer) readRune() (rune, bool) {
 	r, _, err := lx.brdr.ReadRune()
+	lx.lastPos = lx.pos
 	if err != nil {
 		if err == io.EOF {
 			lx.eof = true
@@ -97,7 +98,6 @@ func (lx *Lexer) readRune() (rune, bool) {
 		}
 		lx.Error(err.Error())
 	}
-	lx.lastPos = lx.pos
 	switch r {
 	case '\n':
 		lx.pos.Line += 1

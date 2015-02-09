@@ -87,21 +87,19 @@ func TestExprEval(t *testing.T) {
 	for idx := range exprTestCases {
 		tc := &exprTestCases[idx]
 		r := bytes.NewBufferString(tc.expr)
-		tokChan := Lex("testcase.c", r)
+		lexer := Lex("testcase.c", r)
 
 		var e error = nil
 		onErr := func(evalErr error) {
 			e = evalErr
 		}
-		nextTok := func() *Token {
-			t := <-tokChan
-			return t
+		nextTok := func() (*Token, error) {
+			return lexer.Next()
 		}
 		isDefined := func(s string) bool {
 			_, ok := testExprPredefined[s]
 			return ok
 		}
-
 		result := evalIfExpr(isDefined, nextTok, onErr)
 		if e != nil {
 			if !tc.expectErr {
@@ -111,31 +109,6 @@ func TestExprEval(t *testing.T) {
 			t.Errorf("test %s failed - expected an error", tc.expr)
 		} else if result != tc.expected {
 			t.Errorf("test %s failed - got %d expected %d", tc.expr, result, tc.expected)
-		}
-	}
-}
-
-func BenchmarkCPPExprParsing(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		expr := "1 + 2 * 3 /2 + 4 ^ 3 - -2 * (3 % 2) * 2 + 3 + 0x1234 - 0x1234"
-		r := bytes.NewBufferString(expr)
-		tokChan := Lex("testcase.c", r)
-		var e error = nil
-		onErr := func(evalErr error) {
-			e = evalErr
-		}
-		nextTok := func() *Token {
-			t := <-tokChan
-			return t
-		}
-		isDefined := func(s string) bool {
-			_, ok := testExprPredefined[s]
-			return ok
-		}
-		//b.ResetTimer()
-		result := evalIfExpr(isDefined, nextTok, onErr)
-		if e != nil || result != 2 {
-			b.FailNow()
 		}
 	}
 }

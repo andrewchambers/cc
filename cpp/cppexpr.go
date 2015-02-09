@@ -6,25 +6,23 @@ import (
 )
 
 /*
-Implements the expression parsing and evaluation for #if statements
+   Implements the expression parsing and evaluation for #if statements
 
+   Note that "defined name" and "define(name)" are handled before this part of code.
 
-Note that "defined name" and "define(name)" are handled before this part of code.
+   #if expression
+       controlled text
+   #endif
 
-#if expression
-    controlled text
-#endif
+   expression may be:
 
-expression may be:
+   Integer constants.
 
-Integer constants.
+   Character constants, which are interpreted as they would be in normal code.
 
-Character constants, which are interpreted as they would be in normal code.
+   Arithmetic operators for most of C
 
-Arithmetic operators for most of C
-
-Identifiers that are not macros, which are all considered to be the number zero.
-
+   Identifiers that are not macros, which are all considered to be the number zero.
 */
 
 type cppExprCtx struct {
@@ -255,9 +253,9 @@ func getPrec(k TokenKind) int {
 	return -1
 }
 
-//This is the precedence climbing algorithm, simplified because
-//all the operators are left associative. The CPP doesn't
-//deal with assignment operators.
+// This is the precedence climbing algorithm, simplified because
+// all the operators are left associative. The CPP doesn't
+// deal with assignment operators.
 func parseCPPBinop_1(ctx *cppExprCtx, prec int) int64 {
 	l := parseCPPExprAtom(ctx)
 	for {
@@ -288,8 +286,19 @@ func parseCPPExpr(ctx *cppExprCtx) int64 {
 	return result
 }
 
-func evalIfExpr(isDefined func(string) bool, nextToken func() *Token, onError func(error)) int64 {
-	ctx := &cppExprCtx{isDefined: isDefined, nextToken: nextToken, onError: onError}
+func evalIfExpr(isDefined func(string) bool, nextToken func() (*Token, error), onError func(error)) int64 {
+	next := func() *Token {
+		t, err := nextToken()
+		if err != nil {
+			onError(err)
+			return nil
+		}
+		if t.Kind == EOF {
+			return nil
+		}
+		return t
+	}
+	ctx := &cppExprCtx{isDefined: isDefined, nextToken: next, onError: onError}
 	ret := parseCPPExpr(ctx)
 	t := ctx.nextToken()
 	if t != nil {
