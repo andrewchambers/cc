@@ -73,7 +73,9 @@ func (pp *Preprocessor) nextNoExpand() *Token {
 					return t
 				}
 				pp.lxidx -= 1
+				continue
 			}
+			return t
 		}
 	}
 	return pp.tl.popFront()
@@ -99,6 +101,12 @@ func (pp *Preprocessor) Next() (t *Token, err error) {
 	}()
 
 	t = pp.nextNoExpand()
+
+	for t.Kind == DIRECTIVE {
+		pp.handleDirective(t)
+		t = pp.nextNoExpand()
+	}
+
 	if t.hs.contains(t.Val) {
 		return t, nil
 	}
