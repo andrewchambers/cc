@@ -6,10 +6,38 @@ import (
 
 // The list of tokens.
 const (
-	ERROR = iota
+
+	// Single char tokens are themselves.
+	ADD       = '+'
+	SUB       = '-'
+	MUL       = '*'
+	QUO       = '/'
+	REM       = '%'
+	AND       = '&'
+	OR        = '|'
+	XOR       = '^'
+	QUESTION  = '?'
+	HASH      = '#'
+	LSS       = '<'
+	GTR       = '>'
+	ASSIGN    = '='
+	NOT       = '!'
+	BNOT      = '~'
+	LPAREN    = '('
+	LBRACK    = '['
+	LBRACE    = '{'
+	COMMA     = ','
+	PERIOD    = '.'
+	RPAREN    = ')'
+	RBRACK    = ']'
+	RBRACE    = '}'
+	SEMICOLON = ';'
+	COLON     = ':'
+
+
+	ERROR = 10000 + iota
 	EOF
 	//some cpp only tokens
-	HASH            //#
 	FUNCLIKE_DEFINE //Occurs after ident before paren #define ident(
 	DIRECTIVE       //#if #include etc
 	END_DIRECTIVE   //New line at the end of a directive
@@ -23,65 +51,29 @@ const (
 	CHAR_CONSTANT  // 'a'
 	STRING         // "abc"
 
-	operator_beg
-	// Operators and delimiters
-	ADD      // +
-	SUB      // -
-	MUL      // *
-	QUO      // /
-	REM      // %
-	QUESTION // ?
-
-	AND // &
-	OR  // |
-	XOR // ^
 	SHL // <<
 	SHR // >>
-
 	ADD_ASSIGN // +=
 	SUB_ASSIGN // -=
 	MUL_ASSIGN // *=
 	QUO_ASSIGN // /=
 	REM_ASSIGN // %=
-
 	AND_ASSIGN // &=
 	OR_ASSIGN  // |=
 	XOR_ASSIGN // ^=
 	SHL_ASSIGN // <<=
 	SHR_ASSIGN // >>=
-
 	LAND  // &&
 	LOR   // ||
 	ARROW // ->
 	INC   // ++
 	DEC   // --
-
 	EQL    // ==
-	LSS    // <
-	GTR    // >
-	ASSIGN // =
-	NOT    // !
-	BNOT   // ~
-
 	NEQ      // !=
 	LEQ      // <=
 	GEQ      // >=
 	ELLIPSIS // ...
-
-	LPAREN // (
-	LBRACK // [
-	LBRACE // {
-	COMMA  // ,
-	PERIOD // .
-
-	RPAREN    // )
-	RBRACK    // ]
-	RBRACE    // }
-	SEMICOLON // ;
-	COLON     // :
-	operator_end
-
-	keyword_beg
+	
 	// Keywords
 	REGISTER
 	EXTERN
@@ -113,8 +105,6 @@ const (
 	SIGNED
 	UNSIGNED
 	LONG
-
-	keyword_end
 )
 
 var tokenKindToStr = [...]string{

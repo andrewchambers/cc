@@ -21,7 +21,7 @@ const (
 // Useful for debugging syntax errors.
 // Enabling this will cause parsing information to be printed to stderr.
 // Also, more information will be given for parse errors.
-var ParseTrace bool = false
+var ParseTrace bool = true
 
 func trace() {
 	if !ParseTrace {
@@ -37,7 +37,7 @@ func trace() {
 type parser struct {
 	types       *scope
 	decls       *scope
-	tokChan     <-chan *cpp.Token
+	pp     *cpp.Preprocessor
 	curt, nextt *cpp.Token
 }
 
@@ -47,6 +47,7 @@ type parseErrorBreakOut struct {
 
 func Parse(pp *cpp.Preprocessor) (errRet error) {
 	p := &parser{}
+	p.pp = pp
 	p.types = newScope(nil)
 	p.decls = newScope(nil)
 
@@ -72,20 +73,16 @@ func (p *parser) error(m string, vals ...interface{}) {
 
 func (p *parser) expect(k cpp.TokenKind) {
 	if p.curt.Kind != k {
-		p.error("expected %s got %s at %s", k, p.curt.Val, p.curt.Pos)
+		p.error("expected %s got %s at %s", k, p.curt.Kind, p.curt.Pos)
 	}
 	p.next()
 }
 
 func (p *parser) next() {
 	p.curt = p.nextt
-	t := <-p.tokChan
-	if t == nil {
-		t = &cpp.Token{}
-		t.Kind = cpp.EOF
-	}
-	if t.Kind == cpp.ERROR {
-		p.error(t.Val)
+	t, err := p.pp.Next()
+	if err != nil {
+		p.error(err.Error())
 	}
 	p.nextt = t
 }
@@ -95,6 +92,7 @@ func (p *parser) parseTranslationUnit() {
 	for p.curt.Kind != cpp.EOF {
 		p.parseDeclaration()
 	}
+	trace()
 }
 
 func (p *parser) parseDeclaration() {
@@ -110,6 +108,7 @@ func (p *parser) parseDeclaration() {
 			break
 		}
 	}
+	p.expect(';')
 }
 
 func (p *parser) parseDeclarationSpecifiers() (SClass, CType) {
@@ -143,6 +142,7 @@ func (p *parser) parseDeclarationSpecifiers() (SClass, CType) {
 }
 
 func (p *parser) parseDeclarator(abstract bool) {
+    trace()
 loop:
 	for {
 		switch p.curt.Kind {
@@ -153,6 +153,7 @@ loop:
 			p.next()
 			p.parseDeclarator(abstract)
 			p.expect(')')
+			break loop
 		case cpp.IDENT:
 			if abstract {
 				break loop

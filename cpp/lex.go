@@ -3,7 +3,6 @@ package cpp
 import (
 	"bufio"
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 )
@@ -49,7 +48,7 @@ func Lex(fname string, r io.Reader) *Lexer {
 func (lx *Lexer) Next() (*Token, error) {
 	tok := <-lx.stream
 	if tok == nil {
-		return nil, errors.New("read from closed lexer")
+		return &Token{Kind: EOF, Pos: lx.pos}, nil
 	}
 	if tok.Kind == ERROR {
 		return tok, lx.err
