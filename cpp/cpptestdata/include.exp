@@ -7,3 +7,4 @@ ident:test:4:6
 int:int:8:1
 ident:foo:8:5
 ;:;:8:8
+EOF::8:9

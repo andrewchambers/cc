@@ -96,6 +96,9 @@ func performCPPTestCase(t *testing.T, cfile string, expectfile string) {
 			}
 			errorReported = true
 		}
+		if tok.Kind == EOF {
+			break
+		}
 	}
 }
 
