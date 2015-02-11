@@ -21,7 +21,7 @@ const (
 // Useful for debugging syntax errors.
 // Enabling this will cause parsing information to be printed to stderr.
 // Also, more information will be given for parse errors.
-var ParseTrace bool = false
+const ParseTrace bool = true
 
 func trace() {
 	if !ParseTrace {
@@ -108,7 +108,7 @@ func (p *parser) parseDeclaration() {
 	trace()
 	p.parseDeclarationSpecifiers()
 	for {
-		p.parseDeclarator(false)
+		p.parseDeclarator()
 		if p.curt.Kind == '=' {
 			p.next()
 			p.parseInitializer()
@@ -121,6 +121,12 @@ func (p *parser) parseDeclaration() {
 		p.errorPos("expected '=', ',' or ';'", p.curt.Pos)
 	}
 	p.expect(';')
+}
+
+func (p *parser) parseParameterDeclaration() {
+	trace()
+	p.parseDeclarationSpecifiers()
+	p.parseDeclarator()
 }
 
 func (p *parser) parseDeclarationSpecifiers() (SClass, CType) {
@@ -153,7 +159,7 @@ func (p *parser) parseDeclarationSpecifiers() (SClass, CType) {
 	panic("unreachable")
 }
 
-func (p *parser) parseDeclarator(abstract bool) {
+func (p *parser) parseDeclarator() {
 	trace()
 loop:
 	for {
@@ -163,13 +169,11 @@ loop:
 		case cpp.VOLATILE:
 		case '(':
 			p.next()
-			p.parseDeclarator(abstract)
+			p.parseDeclarator()
 			p.expect(')')
 			break loop
 		case cpp.IDENT:
-			if abstract {
-				break loop
-			}
+
 		default:
 			break loop
 		}
@@ -177,12 +181,22 @@ loop:
 	}
 	switch p.curt.Kind {
 	case '[':
+		p.next()
+		if p.curt.Kind != ']' {
+			p.parseAssignmentExpression()
+		}
 		p.expect(']')
 	case '(':
-		switch p.curt.Kind {
-		case cpp.IDENT:
-		case ')':
-			break
+		p.next()
+		if p.curt.Kind != ')' {
+			for {
+				p.parseParameterDeclaration()
+				if p.curt.Kind == ',' {
+					p.next()
+					continue
+				}
+				break
+			}
 		}
 		p.expect(')')
 	default:
@@ -191,5 +205,153 @@ loop:
 }
 
 func (p *parser) parseInitializer() {
+	trace()
+	p.next()
+}
+
+func isAssignmentOperator(k cpp.TokenKind) bool {
+	switch k {
+	case '=', cpp.ADD_ASSIGN, cpp.SUB_ASSIGN, cpp.MUL_ASSIGN, cpp.QUO_ASSIGN, cpp.REM_ASSIGN,
+		cpp.AND_ASSIGN, cpp.OR_ASSIGN, cpp.XOR_ASSIGN, cpp.SHL_ASSIGN, cpp.SHR_ASSIGN:
+		return true
+	}
+	return false
+}
+
+func (p *parser) parseExpression() {
+	trace()
+	for {
+		p.parseAssignmentExpression()
+		if p.curt.Kind != ',' {
+			break
+		}
+		p.next()
+	}
+}
+
+func (p *parser) parseAssignmentExpression() {
+	trace()
+	p.parseConditionalExpression()
+	if isAssignmentOperator(p.curt.Kind) {
+		p.next()
+		p.parseAssignmentExpression()
+	}
+}
+
+// Aka Ternary operator.
+func (p *parser) parseConditionalExpression() {
+	trace()
+	p.parseLogicalOrExpression()
+}
+
+func (p *parser) parseLogicalOrExpression() {
+	trace()
+	p.parseLogicalAndExpression()
+	for p.curt.Kind == cpp.LOR {
+		p.next()
+		p.parseLogicalAndExpression()
+	}
+}
+
+func (p *parser) parseLogicalAndExpression() {
+	trace()
+	p.parseInclusiveOrExpression()
+	for p.curt.Kind == cpp.LAND {
+		p.next()
+		p.parseInclusiveOrExpression()
+	}
+}
+
+func (p *parser) parseInclusiveOrExpression() {
+	trace()
+	p.parseExclusiveOrExpression()
+	for p.curt.Kind == '|' {
+		p.next()
+		p.parseExclusiveOrExpression()
+	}
+}
+
+func (p *parser) parseExclusiveOrExpression() {
+	trace()
+	p.parseAndExpression()
+	for p.curt.Kind == '^' {
+		p.next()
+		p.parseAndExpression()
+	}
+}
+
+func (p *parser) parseAndExpression() {
+	trace()
+	p.parseEqualityExpression()
+	for p.curt.Kind == '&' {
+		p.next()
+		p.parseEqualityExpression()
+	}
+}
+
+func (p *parser) parseEqualityExpression() {
+	trace()
+	p.parseRelationalExpression()
+	for p.curt.Kind == cpp.EQL || p.curt.Kind == cpp.NEQ {
+		p.next()
+		p.parseRelationalExpression()
+	}
+}
+
+func (p *parser) parseRelationalExpression() {
+	trace()
+	p.parseShiftExpression()
+	for p.curt.Kind == '>' || p.curt.Kind == '<' || p.curt.Kind == cpp.LEQ || p.curt.Kind == cpp.GEQ {
+		p.next()
+		p.parseShiftExpression()
+	}
+}
+
+func (p *parser) parseShiftExpression() {
+	trace()
+	p.parseAdditiveExpression()
+	for p.curt.Kind == cpp.SHL || p.curt.Kind == cpp.SHR {
+		p.next()
+		p.parseAdditiveExpression()
+	}
+}
+
+func (p *parser) parseAdditiveExpression() {
+	trace()
+	p.parseMultiplicativeExpression()
+	for p.curt.Kind == '+' || p.curt.Kind == '-' {
+		p.next()
+		p.parseMultiplicativeExpression()
+	}
+}
+
+func (p *parser) parseMultiplicativeExpression() {
+	trace()
+	p.parseCastExpression()
+	for p.curt.Kind == '*' || p.curt.Kind == '/' || p.curt.Kind == '%' {
+		p.next()
+		p.parseCastExpression()
+	}
+}
+
+func (p *parser) parseCastExpression() {
+	trace()
+	// Cast
+	p.parseUnaryExpression()
+}
+
+func (p *parser) parseUnaryExpression() {
+	trace()
+	switch p.curt.Kind {
+	case cpp.INC, cpp.DEC:
+		p.parseUnaryExpression()
+	case '*', '+', '-', '!', '~', '&':
+		p.parseCastExpression()
+	default:
+		p.parsePostfixExpression()
+	}
+}
+
+func (p *parser) parsePostfixExpression() {
 	p.next()
 }

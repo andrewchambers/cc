@@ -187,7 +187,7 @@ func (lx *Lexer) lex() {
 			case '[':
 				lx.sendTok(LBRACK, "[")
 			case ']':
-				lx.sendTok(RBRACE, "]")
+				lx.sendTok(RBRACK, "]")
 			case '<':
 				second, _ := lx.readRune()
 				switch second {

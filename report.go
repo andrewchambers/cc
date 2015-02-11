@@ -48,7 +48,7 @@ func reportError(err error) {
 				if i+1 == pos.Col {
 					fmt.Fprintf(os.Stderr, "%c", '^')
 				} else {
-					fmt.Fprintf(os.Stderr, "%c", '~')
+					fmt.Fprintf(os.Stderr, "%c", ' ')
 				}
 			}
 			fmt.Fprintln(os.Stderr, "")
