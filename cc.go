@@ -52,15 +52,14 @@ func preprocessFile(sourceFile string, out io.WriteCloser) {
 func parseFile(sourceFile string, out io.WriteCloser) {
 	f, err := os.Open(sourceFile)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to open source file %s for parsing: %s\n", sourceFile, err)
-		os.Exit(1)
+		err = fmt.Errorf("Failed to open source file %s for parsing: %s\n", sourceFile, err)
+		reportError(err)
 	}
 	lexer := cpp.Lex(sourceFile, f)
 	pp := cpp.New(lexer, nil)
 	err = parse.Parse(pp)
 	if err != nil {
-	    fmt.Fprintln(os.Stderr, err)
-	    os.Exit(1)
+	    reportError(err)
 	}
 }
 

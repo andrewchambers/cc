@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"errors"
 	"io"
 )
 
@@ -112,7 +113,7 @@ func (lx *Lexer) readRune() (rune, bool) {
 }
 
 func (lx *Lexer) Error(e string) {
-	eWithPos := fmt.Errorf("Error %s at %s", lx.pos, e)
+	eWithPos := ErrWithLoc(errors.New(e), lx.pos)
 	lx.err = eWithPos
 	lx.sendTok(ERROR, eWithPos.Error())
 	close(lx.stream)

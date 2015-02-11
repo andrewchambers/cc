@@ -21,7 +21,7 @@ const (
 // Useful for debugging syntax errors.
 // Enabling this will cause parsing information to be printed to stderr.
 // Also, more information will be given for parse errors.
-var ParseTrace bool = true
+var ParseTrace bool = false
 
 func trace() {
 	if !ParseTrace {
@@ -63,6 +63,16 @@ func Parse(pp *cpp.Preprocessor) (errRet error) {
 	return nil
 }
 
+func (p *parser) errorPos(m string,pos cpp.FilePos, vals ...interface{}) {
+	err := fmt.Errorf("syntax error: " + m, vals...)
+	if ParseTrace {
+		err = fmt.Errorf("%s\n%s", err, debug.Stack())
+	}
+	err = cpp.ErrWithLoc(err, pos)
+	panic(parseErrorBreakOut{err})
+}
+
+
 func (p *parser) error(m string, vals ...interface{}) {
 	err := fmt.Errorf("syntax error: "+m, vals...)
 	if ParseTrace {
@@ -71,9 +81,10 @@ func (p *parser) error(m string, vals ...interface{}) {
 	panic(parseErrorBreakOut{err})
 }
 
+
 func (p *parser) expect(k cpp.TokenKind) {
 	if p.curt.Kind != k {
-		p.error("expected %s got %s at %s", k, p.curt.Kind, p.curt.Pos)
+		p.errorPos("expected %s got %s", p.curt.Pos, k, p.curt.Kind)
 	}
 	p.next()
 }
@@ -107,6 +118,9 @@ func (p *parser) parseDeclaration() {
 		if p.curt.Kind != ',' {
 			break
 		}
+	}
+	if p.curt.Kind != ';' {
+	    p.errorPos("expected '=', ',' or ';'", p.curt.Pos);
 	}
 	p.expect(';')
 }

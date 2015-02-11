@@ -3,6 +3,7 @@ package cpp
 import (
 	"container/list"
 	"fmt"
+	"errors"
 	"io"
 )
 
@@ -82,7 +83,7 @@ func (pp *Preprocessor) nextNoExpand() *Token {
 }
 
 func (pp *Preprocessor) cppError(e string, pos FilePos) {
-	err := fmt.Errorf("%s at %s", e, pos)
+	err := ErrWithLoc(errors.New(e), pos)
 	panic(&cppbreakout{
 		t:   &Token{},
 		err: err,
