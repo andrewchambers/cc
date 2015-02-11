@@ -59,7 +59,7 @@ func parseFile(sourceFile string, out io.WriteCloser) {
 	pp := cpp.New(lexer, nil)
 	err = parse.Parse(pp)
 	if err != nil {
-	    reportError(err)
+		reportError(err)
 	}
 }
 

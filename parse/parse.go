@@ -37,7 +37,7 @@ func trace() {
 type parser struct {
 	types       *scope
 	decls       *scope
-	pp     *cpp.Preprocessor
+	pp          *cpp.Preprocessor
 	curt, nextt *cpp.Token
 }
 
@@ -63,15 +63,14 @@ func Parse(pp *cpp.Preprocessor) (errRet error) {
 	return nil
 }
 
-func (p *parser) errorPos(m string,pos cpp.FilePos, vals ...interface{}) {
-	err := fmt.Errorf("syntax error: " + m, vals...)
+func (p *parser) errorPos(m string, pos cpp.FilePos, vals ...interface{}) {
+	err := fmt.Errorf("syntax error: "+m, vals...)
 	if ParseTrace {
 		err = fmt.Errorf("%s\n%s", err, debug.Stack())
 	}
 	err = cpp.ErrWithLoc(err, pos)
 	panic(parseErrorBreakOut{err})
 }
-
 
 func (p *parser) error(m string, vals ...interface{}) {
 	err := fmt.Errorf("syntax error: "+m, vals...)
@@ -80,7 +79,6 @@ func (p *parser) error(m string, vals ...interface{}) {
 	}
 	panic(parseErrorBreakOut{err})
 }
-
 
 func (p *parser) expect(k cpp.TokenKind) {
 	if p.curt.Kind != k {
@@ -120,7 +118,7 @@ func (p *parser) parseDeclaration() {
 		}
 	}
 	if p.curt.Kind != ';' {
-	    p.errorPos("expected '=', ',' or ';'", p.curt.Pos);
+		p.errorPos("expected '=', ',' or ';'", p.curt.Pos)
 	}
 	p.expect(';')
 }
@@ -156,7 +154,7 @@ func (p *parser) parseDeclarationSpecifiers() (SClass, CType) {
 }
 
 func (p *parser) parseDeclarator(abstract bool) {
-    trace()
+	trace()
 loop:
 	for {
 		switch p.curt.Kind {

@@ -34,7 +34,6 @@ const (
 	SEMICOLON = ';'
 	COLON     = ':'
 
-
 	ERROR = 10000 + iota
 	EOF
 	//some cpp only tokens
@@ -51,8 +50,8 @@ const (
 	CHAR_CONSTANT  // 'a'
 	STRING         // "abc"
 
-	SHL // <<
-	SHR // >>
+	SHL        // <<
+	SHR        // >>
 	ADD_ASSIGN // +=
 	SUB_ASSIGN // -=
 	MUL_ASSIGN // *=
@@ -63,17 +62,17 @@ const (
 	XOR_ASSIGN // ^=
 	SHL_ASSIGN // <<=
 	SHR_ASSIGN // >>=
-	LAND  // &&
-	LOR   // ||
-	ARROW // ->
-	INC   // ++
-	DEC   // --
-	EQL    // ==
-	NEQ      // !=
-	LEQ      // <=
-	GEQ      // >=
-	ELLIPSIS // ...
-	
+	LAND       // &&
+	LOR        // ||
+	ARROW      // ->
+	INC        // ++
+	DEC        // --
+	EQL        // ==
+	NEQ        // !=
+	LEQ        // <=
+	GEQ        // >=
+	ELLIPSIS   // ...
+
 	// Keywords
 	REGISTER
 	EXTERN

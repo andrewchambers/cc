@@ -2,8 +2,8 @@ package cpp
 
 import (
 	"container/list"
-	"fmt"
 	"errors"
+	"fmt"
 	"io"
 )
 
