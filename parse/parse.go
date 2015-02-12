@@ -106,9 +106,9 @@ func (p *parser) parseTranslationUnit() {
 
 func (p *parser) parseDeclaration() {
 	trace()
-	p.parseDeclarationSpecifiers()
+	_,ty := p.parseDeclarationSpecifiers()
 	for {
-		p.parseDeclarator()
+		_,_ = p.parseDeclarator(ty)
 		if p.curt.Kind == '=' {
 			p.next()
 			p.parseInitializer()
@@ -125,8 +125,8 @@ func (p *parser) parseDeclaration() {
 
 func (p *parser) parseParameterDeclaration() {
 	trace()
-	p.parseDeclarationSpecifiers()
-	p.parseDeclarator()
+	_, ty := p.parseDeclarationSpecifiers()
+	p.parseDeclarator(ty)
 }
 
 func (p *parser) parseDeclarationSpecifiers() (SClass, CType) {
@@ -159,48 +159,58 @@ func (p *parser) parseDeclarationSpecifiers() (SClass, CType) {
 	panic("unreachable")
 }
 
-func (p *parser) parseDeclarator() {
+func (p *parser) parseDeclarator(basety CType) (string, CType) {
 	trace()
-loop:
-	for {
-		switch p.curt.Kind {
-		case '*':
-		case cpp.CONST:
-		case cpp.VOLATILE:
-		case '(':
-			p.next()
-			p.parseDeclarator()
-			p.expect(')')
-			break loop
-		case cpp.IDENT:
-
-		default:
-			break loop
-		}
-		p.next()
+	for p.curt.Kind == cpp.CONST || p.curt.Kind == cpp.VOLATILE {
+	    p.next()
 	}
 	switch p.curt.Kind {
-	case '[':
-		p.next()
-		if p.curt.Kind != ']' {
-			p.parseAssignmentExpression()
-		}
-		p.expect(']')
+	case '*':
+	    p.next()
+	    name, ty := p.parseDeclarator(basety)
+	    return name,&Ptr{ty}
 	case '(':
 		p.next()
-		if p.curt.Kind != ')' {
-			for {
-				p.parseParameterDeclaration()
-				if p.curt.Kind == ',' {
-					p.next()
-					continue
-				}
-				break
-			}
-		}
+		name,ty := p.parseDeclarator(basety)
 		p.expect(')')
+		return name, p.parseDeclaratorTail(ty)
+	case cpp.IDENT:
+	    name := p.curt.Val
+	    p.next()
+	    return name, p.parseDeclaratorTail(basety)
 	default:
-		return
+	    panic(p.curt.Kind)
+	}
+}
+
+func (p *parser) parseDeclaratorTail(basety CType) CType {
+    trace()
+    ret := basety
+    for {
+        switch p.curt.Kind {
+	    case '[':
+		    p.next()
+		    if p.curt.Kind != ']' {
+			    p.parseAssignmentExpression()
+		    }
+		    p.expect(']')
+		    ret = &Array{MemberType: ret}
+	    case '(':
+		    p.next()
+		    if p.curt.Kind != ')' {
+			    for {
+				    p.parseParameterDeclaration()
+				    if p.curt.Kind == ',' {
+					    p.next()
+					    continue
+				    }
+				    break
+			    }
+		    }
+		    p.expect(')')
+	    default:
+	        return ret
+	    }
 	}
 }
 
