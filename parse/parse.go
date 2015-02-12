@@ -106,9 +106,9 @@ func (p *parser) parseTranslationUnit() {
 
 func (p *parser) parseDeclaration() {
 	trace()
-	_,ty := p.parseDeclarationSpecifiers()
+	_, ty := p.parseDeclarationSpecifiers()
 	for {
-		_,_ = p.parseDeclarator(ty)
+		_, _ = p.parseDeclarator(ty)
 		if p.curt.Kind == '=' {
 			p.next()
 			p.parseInitializer()
@@ -162,55 +162,55 @@ func (p *parser) parseDeclarationSpecifiers() (SClass, CType) {
 func (p *parser) parseDeclarator(basety CType) (string, CType) {
 	trace()
 	for p.curt.Kind == cpp.CONST || p.curt.Kind == cpp.VOLATILE {
-	    p.next()
+		p.next()
 	}
 	switch p.curt.Kind {
 	case '*':
-	    p.next()
-	    name, ty := p.parseDeclarator(basety)
-	    return name,&Ptr{ty}
+		p.next()
+		name, ty := p.parseDeclarator(basety)
+		return name, &Ptr{ty}
 	case '(':
 		p.next()
-		name,ty := p.parseDeclarator(basety)
+		name, ty := p.parseDeclarator(basety)
 		p.expect(')')
 		return name, p.parseDeclaratorTail(ty)
 	case cpp.IDENT:
-	    name := p.curt.Val
-	    p.next()
-	    return name, p.parseDeclaratorTail(basety)
+		name := p.curt.Val
+		p.next()
+		return name, p.parseDeclaratorTail(basety)
 	default:
-	    panic(p.curt.Kind)
+		panic(p.curt.Kind)
 	}
 }
 
 func (p *parser) parseDeclaratorTail(basety CType) CType {
-    trace()
-    ret := basety
-    for {
-        switch p.curt.Kind {
-	    case '[':
-		    p.next()
-		    if p.curt.Kind != ']' {
-			    p.parseAssignmentExpression()
-		    }
-		    p.expect(']')
-		    ret = &Array{MemberType: ret}
-	    case '(':
-		    p.next()
-		    if p.curt.Kind != ')' {
-			    for {
-				    p.parseParameterDeclaration()
-				    if p.curt.Kind == ',' {
-					    p.next()
-					    continue
-				    }
-				    break
-			    }
-		    }
-		    p.expect(')')
-	    default:
-	        return ret
-	    }
+	trace()
+	ret := basety
+	for {
+		switch p.curt.Kind {
+		case '[':
+			p.next()
+			if p.curt.Kind != ']' {
+				p.parseAssignmentExpression()
+			}
+			p.expect(']')
+			ret = &Array{MemberType: ret}
+		case '(':
+			p.next()
+			if p.curt.Kind != ')' {
+				for {
+					p.parseParameterDeclaration()
+					if p.curt.Kind == ',' {
+						p.next()
+						continue
+					}
+					break
+				}
+			}
+			p.expect(')')
+		default:
+			return ret
+		}
 	}
 }
 
