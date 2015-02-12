@@ -363,5 +363,51 @@ func (p *parser) parseUnaryExpression() {
 }
 
 func (p *parser) parsePostfixExpression() {
-	p.next()
+	p.parsePostfixExpression()
+	for {
+		switch p.curt.Kind {
+		case '[':
+			p.next()
+			p.parseExpression()
+			p.expect(']')
+		case '.', cpp.ARROW:
+			// XXX is a typename valid here too?
+			p.expect(cpp.IDENT)
+		case '(':
+			if p.curt.Kind != ')' {
+				for {
+					p.parseExpression()
+					if p.curt.Kind == ',' {
+						p.next()
+						continue
+					}
+					break
+				}
+			}
+			p.expect(')')
+		case cpp.INC:
+			p.next()
+		case cpp.DEC:
+			p.next()
+		}
+	}
+}
+
+func (p *parser) parsePrimaryExpression() {
+	switch p.curt.Kind {
+	case cpp.IDENT:
+		p.next()
+	case cpp.INT_CONSTANT:
+		p.next()
+	case cpp.CHAR_CONSTANT:
+		p.next()
+	case cpp.STRING:
+		p.next()
+	case '(':
+		p.next()
+		p.parseExpression()
+		p.expect(')')
+	default:
+		p.errorPos("expected an identifier, constant, string or expression", p.curt.Pos)
+	}
 }
