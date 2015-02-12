@@ -139,7 +139,7 @@ func (p *parser) parseDeclarationSpecifiers() (SClass, CType) {
 		case cpp.REGISTER:
 		case cpp.EXTERN:
 		case cpp.STATIC:
-		case cpp.TYPEDEF:
+		case cpp.TYPEDEF: // Typedef is actually a storage class like static.
 		case cpp.CHAR:
 		case cpp.SHORT:
 		case cpp.INT:
@@ -158,6 +158,30 @@ func (p *parser) parseDeclarationSpecifiers() (SClass, CType) {
 	}
 	panic("unreachable")
 }
+
+// Declarator
+// ----------
+//
+// A declarator is the part of a declaration that specifies
+// the name that is to be introduced into the program.
+//
+// e.g.
+// unsigned int a, *b, **c, *const*d *volatile*e ;
+//              ^  ^^  ^^^  ^^^^^^^^ ^^^^^^^^^^^
+//
+// Direct Declarator
+// -----------------
+//
+// A direct declarator is missing the pointer prefix.
+//
+// e.g.
+// unsigned int *a[32], b[];
+//               ^^^^^  ^^^
+//
+// Abstract Declarator
+// -------------------
+//
+// A delcarator missing an identifier.
 
 func (p *parser) parseDeclarator(basety CType) (string, CType) {
 	trace()
