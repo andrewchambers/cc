@@ -127,6 +127,7 @@ func (p *parser) parseDeclaration(isGlobal bool) {
 		if p.curt.Kind != ',' {
 			break
 		}
+		p.next()
 		firstDecl = false
 	}
 	if p.curt.Kind != ';' {
@@ -152,6 +153,7 @@ func (p *parser) parseDeclarationSpecifiers() (SClass, CType) {
 		case cpp.EXTERN:
 		case cpp.STATIC:
 		case cpp.TYPEDEF: // Typedef is actually a storage class like static.
+		case cpp.VOID:
 		case cpp.CHAR:
 		case cpp.SHORT:
 		case cpp.INT:
@@ -216,8 +218,9 @@ func (p *parser) parseDeclarator(basety CType) (string, CType) {
 		p.next()
 		return name, p.parseDeclaratorTail(basety)
 	default:
-		panic(p.curt.Kind)
+		p.errorPos(fmt.Sprintf("expected ident, '(' or '*' but got %s", p.curt.Kind), p.curt.Pos)
 	}
+	panic("unreachable")
 }
 
 func (p *parser) parseDeclaratorTail(basety CType) CType {
