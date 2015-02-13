@@ -99,16 +99,27 @@ func (p *parser) next() {
 func (p *parser) parseTranslationUnit() {
 	trace()
 	for p.curt.Kind != cpp.EOF {
-		p.parseDeclaration()
+		p.parseDeclaration(true)
 	}
 	trace()
 }
 
-func (p *parser) parseDeclaration() {
+func (p *parser) parseDeclaration(isGlobal bool) {
 	trace()
+	firstDecl := true
 	_, ty := p.parseDeclarationSpecifiers()
 	for {
 		_, _ = p.parseDeclarator(ty)
+
+		if firstDecl && isGlobal {
+			// if declaring a function
+			if p.curt.Kind == '{' {
+				p.expect('{')
+				p.expect('}')
+				return
+			}
+		}
+
 		if p.curt.Kind == '=' {
 			p.next()
 			p.parseInitializer()
@@ -116,6 +127,7 @@ func (p *parser) parseDeclaration() {
 		if p.curt.Kind != ',' {
 			break
 		}
+		firstDecl = false
 	}
 	if p.curt.Kind != ';' {
 		p.errorPos("expected '=', ',' or ';'", p.curt.Pos)
@@ -150,6 +162,8 @@ func (p *parser) parseDeclarationSpecifiers() (SClass, CType) {
 		case cpp.UNSIGNED:
 		case cpp.TYPENAME:
 		case cpp.STRUCT:
+			p.parseStruct()
+			return sc, ty
 		case cpp.UNION:
 		default:
 			return sc, ty
@@ -165,7 +179,6 @@ func (p *parser) parseDeclarationSpecifiers() (SClass, CType) {
 // A declarator is the part of a declaration that specifies
 // the name that is to be introduced into the program.
 //
-// e.g.
 // unsigned int a, *b, **c, *const*d *volatile*e ;
 //              ^  ^^  ^^^  ^^^^^^^^ ^^^^^^^^^^^
 //
@@ -388,4 +401,32 @@ func (p *parser) parseUnaryExpression() {
 
 func (p *parser) parsePostfixExpression() {
 	p.next()
+}
+
+func (p *parser) parseStruct() CType {
+	trace()
+	p.expect(cpp.STRUCT)
+	if p.curt.Kind == cpp.IDENT {
+		p.next()
+	}
+	if p.curt.Kind == '{' {
+		p.next()
+		for {
+			if p.curt.Kind == '}' {
+				break
+			}
+			_, basety := p.parseDeclarationSpecifiers()
+			for {
+				p.parseDeclarator(basety)
+				if p.curt.Kind == ',' {
+					p.next()
+					continue
+				}
+				break
+			}
+			p.expect(';')
+		}
+		p.expect('}')
+	}
+	return nil
 }
