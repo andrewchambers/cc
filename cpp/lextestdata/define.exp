@@ -5,9 +5,9 @@ enddirective::2:17
 cppdirective:define:3:1
 ident:foo:3:11
 funclikedefine::3:11
-(:(:3:14
+'(':(:3:14
 ident:X:3:15
-):):3:16
+')':):3:16
 ident:X:3:18
 enddirective::3:19
 EOF::3:19
