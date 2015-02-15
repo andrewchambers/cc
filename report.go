@@ -28,9 +28,14 @@ func reportError(err error) {
 			done = true
 		}
 		if lineno == pos.Line /* || lineno == pos.Line - 1 || lineno == pos.Line + 1 */ {
-			// Do we want to mod tabs to spaces?
-			// so the width is always 4
-			fmt.Fprintf(os.Stderr, "%s", line)
+			for _, v := range line {
+				switch v {
+				case '\t':
+					fmt.Fprintf(os.Stderr, "    ")
+				default:
+					fmt.Fprintf(os.Stderr, "%c", v)
+				}
+			}
 		}
 		if lineno == pos.Line {
 			linelen := 0

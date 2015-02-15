@@ -196,6 +196,7 @@ var keywordLUT = map[string]TokenKind{
 	"while":    WHILE,
 	"do":       DO,
 	"if":       IF,
+	"else":     ELSE,
 	"goto":     GOTO,
 	"struct":   STRUCT,
 	"signed":   SIGNED,

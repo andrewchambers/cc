@@ -105,10 +105,10 @@ func (p *parser) parseTranslationUnit() {
 }
 
 func (p *parser) parseStatement() {
-
+	trace()
 	if p.nextt.Kind == ':' {
-		p.next()
 		p.expect(cpp.IDENT)
+		p.expect(':')
 		p.parseStatement()
 		return
 	}
@@ -141,6 +141,7 @@ func (p *parser) parseStatement() {
 }
 
 func (p *parser) parseIf() {
+	trace()
 	p.expect(cpp.IF)
 	p.expect('(')
 	p.parseExpression()
@@ -153,6 +154,7 @@ func (p *parser) parseIf() {
 }
 
 func (p *parser) parseFor() {
+	trace()
 	p.expect(cpp.FOR)
 	p.expect('(')
 	if p.curt.Kind != ';' {
@@ -163,12 +165,15 @@ func (p *parser) parseFor() {
 		p.parseExpression()
 	}
 	p.expect(';')
-	p.parseExpression()
+	if p.curt.Kind != ')' {
+		p.parseExpression()
+	}
 	p.expect(')')
 	p.parseStatement()
 }
 
 func (p *parser) parseWhile() {
+	trace()
 	p.expect(cpp.WHILE)
 	p.expect('(')
 	p.parseExpression()
@@ -177,6 +182,7 @@ func (p *parser) parseWhile() {
 }
 
 func (p *parser) parseDoWhile() {
+	trace()
 	p.expect(cpp.DO)
 	p.parseStatement()
 	p.expect(cpp.WHILE)
@@ -187,6 +193,7 @@ func (p *parser) parseDoWhile() {
 }
 
 func (p *parser) parseBlock() {
+	trace()
 	p.expect('{')
 	for p.curt.Kind != '}' {
 		p.parseStatement()
@@ -195,6 +202,7 @@ func (p *parser) parseBlock() {
 }
 
 func (p *parser) parseFuncBody() {
+	trace()
 	for p.curt.Kind != '}' {
 		p.parseStatement()
 	}
@@ -376,7 +384,6 @@ func (p *parser) parseExpression() {
 }
 
 func (p *parser) parseAssignmentExpression() {
-	trace()
 	p.parseConditionalExpression()
 	if isAssignmentOperator(p.curt.Kind) {
 		p.next()
@@ -386,12 +393,10 @@ func (p *parser) parseAssignmentExpression() {
 
 // Aka Ternary operator.
 func (p *parser) parseConditionalExpression() {
-	trace()
 	p.parseLogicalOrExpression()
 }
 
 func (p *parser) parseLogicalOrExpression() {
-	trace()
 	p.parseLogicalAndExpression()
 	for p.curt.Kind == cpp.LOR {
 		p.next()
@@ -400,7 +405,6 @@ func (p *parser) parseLogicalOrExpression() {
 }
 
 func (p *parser) parseLogicalAndExpression() {
-	trace()
 	p.parseInclusiveOrExpression()
 	for p.curt.Kind == cpp.LAND {
 		p.next()
@@ -409,7 +413,6 @@ func (p *parser) parseLogicalAndExpression() {
 }
 
 func (p *parser) parseInclusiveOrExpression() {
-	trace()
 	p.parseExclusiveOrExpression()
 	for p.curt.Kind == '|' {
 		p.next()
@@ -418,7 +421,6 @@ func (p *parser) parseInclusiveOrExpression() {
 }
 
 func (p *parser) parseExclusiveOrExpression() {
-	trace()
 	p.parseAndExpression()
 	for p.curt.Kind == '^' {
 		p.next()
@@ -427,7 +429,6 @@ func (p *parser) parseExclusiveOrExpression() {
 }
 
 func (p *parser) parseAndExpression() {
-	trace()
 	p.parseEqualityExpression()
 	for p.curt.Kind == '&' {
 		p.next()
@@ -436,7 +437,6 @@ func (p *parser) parseAndExpression() {
 }
 
 func (p *parser) parseEqualityExpression() {
-	trace()
 	p.parseRelationalExpression()
 	for p.curt.Kind == cpp.EQL || p.curt.Kind == cpp.NEQ {
 		p.next()
@@ -445,7 +445,6 @@ func (p *parser) parseEqualityExpression() {
 }
 
 func (p *parser) parseRelationalExpression() {
-	trace()
 	p.parseShiftExpression()
 	for p.curt.Kind == '>' || p.curt.Kind == '<' || p.curt.Kind == cpp.LEQ || p.curt.Kind == cpp.GEQ {
 		p.next()
@@ -454,7 +453,6 @@ func (p *parser) parseRelationalExpression() {
 }
 
 func (p *parser) parseShiftExpression() {
-	trace()
 	p.parseAdditiveExpression()
 	for p.curt.Kind == cpp.SHL || p.curt.Kind == cpp.SHR {
 		p.next()
@@ -463,7 +461,6 @@ func (p *parser) parseShiftExpression() {
 }
 
 func (p *parser) parseAdditiveExpression() {
-	trace()
 	p.parseMultiplicativeExpression()
 	for p.curt.Kind == '+' || p.curt.Kind == '-' {
 		p.next()
@@ -472,7 +469,6 @@ func (p *parser) parseAdditiveExpression() {
 }
 
 func (p *parser) parseMultiplicativeExpression() {
-	trace()
 	p.parseCastExpression()
 	for p.curt.Kind == '*' || p.curt.Kind == '/' || p.curt.Kind == '%' {
 		p.next()
@@ -481,13 +477,11 @@ func (p *parser) parseMultiplicativeExpression() {
 }
 
 func (p *parser) parseCastExpression() {
-	trace()
 	// Cast
 	p.parseUnaryExpression()
 }
 
 func (p *parser) parseUnaryExpression() {
-	trace()
 	switch p.curt.Kind {
 	case cpp.INC, cpp.DEC:
 		p.next()
@@ -501,7 +495,6 @@ func (p *parser) parseUnaryExpression() {
 }
 
 func (p *parser) parsePostfixExpression() {
-	trace()
 	p.parsePrimaryExpression()
 loop:
 	for {
@@ -538,7 +531,6 @@ loop:
 }
 
 func (p *parser) parsePrimaryExpression() {
-	trace()
 	switch p.curt.Kind {
 	case cpp.IDENT:
 		p.next()
