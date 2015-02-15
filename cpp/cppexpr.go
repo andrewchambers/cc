@@ -200,7 +200,6 @@ func evalCPPBinop(ctx *cppExprCtx, k TokenKind, l int64, r int64) (int64, error)
 	default:
 		return 0, fmt.Errorf("internal error %s", k)
 	}
-	return 0, nil
 }
 
 func parseCPPTernary(ctx *cppExprCtx) (int64, error) {

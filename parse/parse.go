@@ -104,6 +104,26 @@ func (p *parser) parseTranslationUnit() {
 	trace()
 }
 
+func (p *parser) parseStatement() {
+	switch p.curt.Kind {
+	case ';':
+		p.next()
+	case cpp.RETURN:
+		p.next()
+		p.parseExpression()
+		p.expect(';')
+	default:
+		p.parseExpression()
+		p.expect(';')
+	}
+}
+
+func (p *parser) parseFuncBody() {
+	for p.curt.Kind != '}' {
+		p.parseStatement()
+	}
+}
+
 func (p *parser) parseDeclaration(isGlobal bool) {
 	trace()
 	firstDecl := true
@@ -115,6 +135,7 @@ func (p *parser) parseDeclaration(isGlobal bool) {
 			// if declaring a function
 			if p.curt.Kind == '{' {
 				p.expect('{')
+				p.parseFuncBody()
 				p.expect('}')
 				return
 			}
@@ -172,7 +193,6 @@ func (p *parser) parseDeclarationSpecifiers() (SClass, CType) {
 		}
 		p.next()
 	}
-	panic("unreachable")
 }
 
 // Declarator
@@ -394,8 +414,10 @@ func (p *parser) parseUnaryExpression() {
 	trace()
 	switch p.curt.Kind {
 	case cpp.INC, cpp.DEC:
+		p.next()
 		p.parseUnaryExpression()
 	case '*', '+', '-', '!', '~', '&':
+		p.next()
 		p.parseCastExpression()
 	default:
 		p.parsePostfixExpression()
@@ -403,7 +425,9 @@ func (p *parser) parseUnaryExpression() {
 }
 
 func (p *parser) parsePostfixExpression() {
-	p.parsePostfixExpression()
+	trace()
+	p.parsePrimaryExpression()
+loop:
 	for {
 		switch p.curt.Kind {
 		case '[':
@@ -411,9 +435,11 @@ func (p *parser) parsePostfixExpression() {
 			p.parseExpression()
 			p.expect(']')
 		case '.', cpp.ARROW:
+			p.next()
 			// XXX is a typename valid here too?
 			p.expect(cpp.IDENT)
 		case '(':
+			p.next()
 			if p.curt.Kind != ')' {
 				for {
 					p.parseExpression()
@@ -429,11 +455,14 @@ func (p *parser) parsePostfixExpression() {
 			p.next()
 		case cpp.DEC:
 			p.next()
+		default:
+			break loop
 		}
 	}
 }
 
 func (p *parser) parsePrimaryExpression() {
+	trace()
 	switch p.curt.Kind {
 	case cpp.IDENT:
 		p.next()

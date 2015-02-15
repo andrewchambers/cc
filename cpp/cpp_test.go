@@ -13,7 +13,7 @@ func sourceToExpectFile(s string) string {
 	return s[0:len(s)-2] + ".exp"
 }
 
-func performLexTestCase(t *testing.T, cfile string, expectfile string) {
+func lexTestCase(t *testing.T, cfile string, expectfile string) {
 	f, err := os.Open(cfile)
 	if err != nil {
 		t.Fatal(err)
@@ -51,7 +51,7 @@ func performLexTestCase(t *testing.T, cfile string, expectfile string) {
 }
 
 func TestLexer(t *testing.T) {
-	info, err := ioutil.ReadDir("lextestdata")
+	info, err := ioutil.ReadDir("lextests")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,11 +61,11 @@ func TestLexer(t *testing.T) {
 			continue
 		}
 		expectPath := sourceToExpectFile(filename)
-		performLexTestCase(t, "lextestdata/"+filename, "lextestdata/"+expectPath)
+		lexTestCase(t, "lextests/"+filename, "lextests/"+expectPath)
 	}
 }
 
-func performCPPTestCase(t *testing.T, cfile string, expectfile string) {
+func cppTestCase(t *testing.T, cfile string, expectfile string) {
 	f, err := os.Open(cfile)
 	if err != nil {
 		t.Fatal(err)
@@ -76,7 +76,7 @@ func performCPPTestCase(t *testing.T, cfile string, expectfile string) {
 	}
 	scanner := bufio.NewScanner(ef)
 	errorReported := false
-	pp := New(Lex(cfile, f), NewStandardIncludeSearcher("./lextestdata/"))
+	pp := New(Lex(cfile, f), NewStandardIncludeSearcher("./cpptests/"))
 	for {
 		expectedTokS := ""
 		if scanner.Scan() {
@@ -103,7 +103,7 @@ func performCPPTestCase(t *testing.T, cfile string, expectfile string) {
 }
 
 func TestPreprocessor(t *testing.T) {
-	info, err := ioutil.ReadDir("cpptestdata")
+	info, err := ioutil.ReadDir("cpptests")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,6 +113,6 @@ func TestPreprocessor(t *testing.T) {
 			continue
 		}
 		expectPath := sourceToExpectFile(filename)
-		performCPPTestCase(t, "cpptestdata/"+filename, "cpptestdata/"+expectPath)
+		cppTestCase(t, "cpptests/"+filename, "cpptests/"+expectPath)
 	}
 }
