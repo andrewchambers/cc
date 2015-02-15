@@ -105,17 +105,93 @@ func (p *parser) parseTranslationUnit() {
 }
 
 func (p *parser) parseStatement() {
+
+	if p.nextt.Kind == ':' {
+		p.next()
+		p.expect(cpp.IDENT)
+		p.parseStatement()
+		return
+	}
+
 	switch p.curt.Kind {
+	case cpp.GOTO:
+		p.next()
+		p.expect(cpp.IDENT)
+		p.expect(';')
 	case ';':
 		p.next()
 	case cpp.RETURN:
 		p.next()
 		p.parseExpression()
 		p.expect(';')
+	case cpp.WHILE:
+		p.parseWhile()
+	case cpp.DO:
+		p.parseDoWhile()
+	case cpp.FOR:
+		p.parseFor()
+	case cpp.IF:
+		p.parseIf()
+	case '{':
+		p.parseBlock()
 	default:
 		p.parseExpression()
 		p.expect(';')
 	}
+}
+
+func (p *parser) parseIf() {
+	p.expect(cpp.IF)
+	p.expect('(')
+	p.parseExpression()
+	p.expect(')')
+	p.parseStatement()
+	if p.curt.Kind == cpp.ELSE {
+		p.next()
+		p.parseStatement()
+	}
+}
+
+func (p *parser) parseFor() {
+	p.expect(cpp.FOR)
+	p.expect('(')
+	if p.curt.Kind != ';' {
+		p.parseExpression()
+	}
+	p.expect(';')
+	if p.curt.Kind != ';' {
+		p.parseExpression()
+	}
+	p.expect(';')
+	p.parseExpression()
+	p.expect(')')
+	p.parseStatement()
+}
+
+func (p *parser) parseWhile() {
+	p.expect(cpp.WHILE)
+	p.expect('(')
+	p.parseExpression()
+	p.expect(')')
+	p.parseStatement()
+}
+
+func (p *parser) parseDoWhile() {
+	p.expect(cpp.DO)
+	p.parseStatement()
+	p.expect(cpp.WHILE)
+	p.expect('(')
+	p.parseExpression()
+	p.expect(')')
+	p.expect(';')
+}
+
+func (p *parser) parseBlock() {
+	p.expect('{')
+	for p.curt.Kind != '}' {
+		p.parseStatement()
+	}
+	p.expect('}')
 }
 
 func (p *parser) parseFuncBody() {
