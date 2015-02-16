@@ -8,6 +8,9 @@ import (
 )
 
 func reportError(err error) {
+	if err == nil {
+		return
+	}
 	fmt.Fprintln(os.Stderr, err)
 	fmt.Fprintln(os.Stderr, "")
 	errLoc, ok := err.(cpp.ErrorLoc)

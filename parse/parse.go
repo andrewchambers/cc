@@ -2,9 +2,9 @@ package parse
 
 import (
 	"fmt"
+	"strconv"
 	"github.com/andrewchambers/cc/cpp"
 	"os"
-	"runtime"
 	"runtime/debug"
 )
 
@@ -17,22 +17,6 @@ const (
 	SC_STATIC
 	SC_GLOBAL
 )
-
-// Useful for debugging syntax errors.
-// Enabling this will cause parsing information to be printed to stderr.
-// Also, more information will be given for parse errors.
-const ParseTrace bool = true
-
-func trace() {
-	if !ParseTrace {
-		return
-	}
-	pc, _, line, ok := runtime.Caller(1)
-	if !ok {
-		return
-	}
-	fmt.Fprintf(os.Stderr, "%s:%d\n", runtime.FuncForPC(pc).Name(), line)
-}
 
 type parser struct {
 	types       *scope
@@ -65,7 +49,7 @@ func Parse(pp *cpp.Preprocessor) (errRet error) {
 
 func (p *parser) errorPos(m string, pos cpp.FilePos, vals ...interface{}) {
 	err := fmt.Errorf("syntax error: "+m, vals...)
-	if ParseTrace {
+	if os.Getenv("CCDEBUG") == "true" {
 		err = fmt.Errorf("%s\n%s", err, debug.Stack())
 	}
 	err = cpp.ErrWithLoc(err, pos)
@@ -74,7 +58,7 @@ func (p *parser) errorPos(m string, pos cpp.FilePos, vals ...interface{}) {
 
 func (p *parser) error(m string, vals ...interface{}) {
 	err := fmt.Errorf("syntax error: "+m, vals...)
-	if ParseTrace {
+	if os.Getenv("CCDEBUG") == "true" {
 		err = fmt.Errorf("%s\n%s", err, debug.Stack())
 	}
 	panic(parseErrorBreakOut{err})
@@ -97,15 +81,15 @@ func (p *parser) next() {
 }
 
 func (p *parser) parseTranslationUnit() {
-	trace()
+
 	for p.curt.Kind != cpp.EOF {
 		p.parseDeclaration(true)
 	}
-	trace()
+
 }
 
 func (p *parser) parseStatement() {
-	trace()
+
 	if p.nextt.Kind == ':' {
 		p.expect(cpp.IDENT)
 		p.expect(':')
@@ -141,7 +125,7 @@ func (p *parser) parseStatement() {
 }
 
 func (p *parser) parseIf() {
-	trace()
+
 	p.expect(cpp.IF)
 	p.expect('(')
 	p.parseExpression()
@@ -154,7 +138,7 @@ func (p *parser) parseIf() {
 }
 
 func (p *parser) parseFor() {
-	trace()
+
 	p.expect(cpp.FOR)
 	p.expect('(')
 	if p.curt.Kind != ';' {
@@ -173,7 +157,7 @@ func (p *parser) parseFor() {
 }
 
 func (p *parser) parseWhile() {
-	trace()
+
 	p.expect(cpp.WHILE)
 	p.expect('(')
 	p.parseExpression()
@@ -182,7 +166,7 @@ func (p *parser) parseWhile() {
 }
 
 func (p *parser) parseDoWhile() {
-	trace()
+
 	p.expect(cpp.DO)
 	p.parseStatement()
 	p.expect(cpp.WHILE)
@@ -193,7 +177,7 @@ func (p *parser) parseDoWhile() {
 }
 
 func (p *parser) parseBlock() {
-	trace()
+
 	p.expect('{')
 	for p.curt.Kind != '}' {
 		p.parseStatement()
@@ -202,14 +186,14 @@ func (p *parser) parseBlock() {
 }
 
 func (p *parser) parseFuncBody() {
-	trace()
+
 	for p.curt.Kind != '}' {
 		p.parseStatement()
 	}
 }
 
 func (p *parser) parseDeclaration(isGlobal bool) {
-	trace()
+
 	firstDecl := true
 	_, ty := p.parseDeclarationSpecifiers()
 	for {
@@ -242,13 +226,13 @@ func (p *parser) parseDeclaration(isGlobal bool) {
 }
 
 func (p *parser) parseParameterDeclaration() {
-	trace()
+
 	_, ty := p.parseDeclarationSpecifiers()
 	p.parseDeclarator(ty)
 }
 
 func (p *parser) parseDeclarationSpecifiers() (SClass, CType) {
-	trace()
+
 	// These are assumed.
 	sc := SC_AUTO
 	ty := CInt
@@ -303,7 +287,7 @@ func (p *parser) parseDeclarationSpecifiers() (SClass, CType) {
 // A delcarator missing an identifier.
 
 func (p *parser) parseDeclarator(basety CType) (string, CType) {
-	trace()
+
 	for p.curt.Kind == cpp.CONST || p.curt.Kind == cpp.VOLATILE {
 		p.next()
 	}
@@ -328,7 +312,7 @@ func (p *parser) parseDeclarator(basety CType) (string, CType) {
 }
 
 func (p *parser) parseDeclaratorTail(basety CType) CType {
-	trace()
+
 	ret := basety
 	for {
 		switch p.curt.Kind {
@@ -359,7 +343,7 @@ func (p *parser) parseDeclaratorTail(basety CType) CType {
 }
 
 func (p *parser) parseInitializer() {
-	trace()
+
 	p.next()
 }
 
@@ -372,116 +356,129 @@ func isAssignmentOperator(k cpp.TokenKind) bool {
 	return false
 }
 
-func (p *parser) parseExpression() {
-	trace()
+func (p *parser) parseExpression() Node {
+	var ret Node
 	for {
-		p.parseAssignmentExpression()
+		ret = p.parseAssignmentExpression()
 		if p.curt.Kind != ',' {
 			break
 		}
 		p.next()
 	}
+	return ret
 }
 
-func (p *parser) parseAssignmentExpression() {
-	p.parseConditionalExpression()
+func (p *parser) parseAssignmentExpression() Node {
+	l := p.parseConditionalExpression()
 	if isAssignmentOperator(p.curt.Kind) {
 		p.next()
 		p.parseAssignmentExpression()
 	}
+	return l
 }
 
 // Aka Ternary operator.
-func (p *parser) parseConditionalExpression() {
-	p.parseLogicalOrExpression()
+func (p *parser) parseConditionalExpression() Node {
+	return p.parseLogicalOrExpression()
 }
 
-func (p *parser) parseLogicalOrExpression() {
-	p.parseLogicalAndExpression()
+func (p *parser) parseLogicalOrExpression() Node {
+	l := p.parseLogicalAndExpression()
 	for p.curt.Kind == cpp.LOR {
 		p.next()
 		p.parseLogicalAndExpression()
 	}
+	return l
 }
 
-func (p *parser) parseLogicalAndExpression() {
-	p.parseInclusiveOrExpression()
+func (p *parser) parseLogicalAndExpression() Node {
+	l := p.parseInclusiveOrExpression()
 	for p.curt.Kind == cpp.LAND {
 		p.next()
 		p.parseInclusiveOrExpression()
 	}
+	return l
 }
 
-func (p *parser) parseInclusiveOrExpression() {
-	p.parseExclusiveOrExpression()
+func (p *parser) parseInclusiveOrExpression() Node {
+	l := p.parseExclusiveOrExpression()
 	for p.curt.Kind == '|' {
 		p.next()
 		p.parseExclusiveOrExpression()
 	}
+	return l
 }
 
-func (p *parser) parseExclusiveOrExpression() {
-	p.parseAndExpression()
+func (p *parser) parseExclusiveOrExpression() Node {
+	l := p.parseAndExpression() 
 	for p.curt.Kind == '^' {
 		p.next()
 		p.parseAndExpression()
 	}
+	return l
 }
 
-func (p *parser) parseAndExpression() {
-	p.parseEqualityExpression()
+func (p *parser) parseAndExpression() Node {
+	l := p.parseEqualityExpression()
 	for p.curt.Kind == '&' {
 		p.next()
 		p.parseEqualityExpression()
 	}
+	return l
 }
 
-func (p *parser) parseEqualityExpression() {
-	p.parseRelationalExpression()
+func (p *parser) parseEqualityExpression() Node {
+	l := p.parseRelationalExpression()
 	for p.curt.Kind == cpp.EQL || p.curt.Kind == cpp.NEQ {
 		p.next()
 		p.parseRelationalExpression()
 	}
+	return l
 }
 
-func (p *parser) parseRelationalExpression() {
-	p.parseShiftExpression()
+func (p *parser) parseRelationalExpression() Node {
+	l := p.parseShiftExpression()
 	for p.curt.Kind == '>' || p.curt.Kind == '<' || p.curt.Kind == cpp.LEQ || p.curt.Kind == cpp.GEQ {
 		p.next()
 		p.parseShiftExpression()
 	}
+	return l
 }
 
-func (p *parser) parseShiftExpression() {
-	p.parseAdditiveExpression()
+func (p *parser) parseShiftExpression() Node {
+	l := p.parseAdditiveExpression()
 	for p.curt.Kind == cpp.SHL || p.curt.Kind == cpp.SHR {
 		p.next()
 		p.parseAdditiveExpression()
 	}
+	return l
 }
 
-func (p *parser) parseAdditiveExpression() {
-	p.parseMultiplicativeExpression()
+func (p *parser) parseAdditiveExpression() Node {
+	l := p.parseMultiplicativeExpression()
 	for p.curt.Kind == '+' || p.curt.Kind == '-' {
 		p.next()
 		p.parseMultiplicativeExpression()
 	}
+	return l
 }
 
-func (p *parser) parseMultiplicativeExpression() {
-	p.parseCastExpression()
+func (p *parser) parseMultiplicativeExpression() Node {
+	l := p.parseCastExpression()
 	for p.curt.Kind == '*' || p.curt.Kind == '/' || p.curt.Kind == '%' {
 		p.next()
 		p.parseCastExpression()
 	}
+	return l
 }
 
-func (p *parser) parseCastExpression() {
+func (p *parser) parseCastExpression() Node {
 	// Cast
-	p.parseUnaryExpression()
+	return p.parseUnaryExpression()
+	panic("unreachable")
 }
 
-func (p *parser) parseUnaryExpression() {
+func (p *parser) parseUnaryExpression() Node {
 	switch p.curt.Kind {
 	case cpp.INC, cpp.DEC:
 		p.next()
@@ -490,12 +487,13 @@ func (p *parser) parseUnaryExpression() {
 		p.next()
 		p.parseCastExpression()
 	default:
-		p.parsePostfixExpression()
+		return p.parsePostfixExpression()
 	}
+	panic("unreachable")
 }
 
-func (p *parser) parsePostfixExpression() {
-	p.parsePrimaryExpression()
+func (p *parser) parsePostfixExpression() Node {
+	l := p.parsePrimaryExpression()
 loop:
 	for {
 		switch p.curt.Kind {
@@ -528,14 +526,35 @@ loop:
 			break loop
 		}
 	}
+	return l
 }
 
-func (p *parser) parsePrimaryExpression() {
+func constantToNode(t *cpp.Token) (Node,error) {
+    switch t.Kind {
+        case cpp.INT_CONSTANT:
+            v,err := strconv.ParseInt(t.Val, 0, 64)
+            return &Constant{
+                Val: v,
+                Pos: t.Pos,
+                Type: CInt,
+            }, err
+        default:
+            return nil,fmt.Errorf("internal error - %s", t.Kind)
+    }
+}
+
+func (p *parser) parsePrimaryExpression() Node {
 	switch p.curt.Kind {
 	case cpp.IDENT:
 		p.next()
 	case cpp.INT_CONSTANT:
+		t := p.curt
 		p.next()
+		n,err := constantToNode(t)
+		if err != nil {
+		    p.errorPos(err.Error(), t.Pos)
+		}
+		return n
 	case cpp.CHAR_CONSTANT:
 		p.next()
 	case cpp.STRING:
@@ -547,10 +566,10 @@ func (p *parser) parsePrimaryExpression() {
 	default:
 		p.errorPos("expected an identifier, constant, string or expression", p.curt.Pos)
 	}
+	panic("unreachable")
 }
 
 func (p *parser) parseStruct() CType {
-	trace()
 	p.expect(cpp.STRUCT)
 	if p.curt.Kind == cpp.IDENT {
 		p.next()
