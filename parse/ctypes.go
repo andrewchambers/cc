@@ -51,6 +51,10 @@ type FunctionType struct {
 	IsVarArg bool
 }
 
+type ForwardedType struct {
+	Type CType
+}
+
 // All the primitive C types.
 
 // Misc

@@ -298,10 +298,12 @@ func (p *parser) parseDeclarator(basety CType) (*cpp.Token, CType) {
 		name, ty := p.parseDeclarator(basety)
 		return name, &Ptr{ty}
 	case '(':
+		forward := &ForwardedType{}
 		p.next()
-		name, ty := p.parseDeclarator(basety)
+		name, ty := p.parseDeclarator(forward)
 		p.expect(')')
-		return name, p.parseDeclaratorTail(ty)
+		forward.Type = p.parseDeclaratorTail(basety)
+		return name, ty
 	case cpp.IDENT:
 		name := p.curt
 		p.next()
@@ -324,8 +326,8 @@ func (p *parser) parseDeclaratorTail(basety CType) CType {
 			p.expect(']')
 			ret = &Array{MemberType: ret}
 		case '(':
-			ret := &FunctionType{}
-			ret.RetType = basety
+			fret := &FunctionType{}
+			fret.RetType = basety
 			p.next()
 			if p.curt.Kind != ')' {
 				for {
@@ -334,8 +336,8 @@ func (p *parser) parseDeclaratorTail(basety CType) CType {
 					if pnametok != nil {
 						pname = pnametok.Val
 					}
-					ret.ArgTypes = append(ret.ArgTypes, pty)
-					ret.ArgNames = append(ret.ArgNames, pname)
+					fret.ArgTypes = append(fret.ArgTypes, pty)
+					fret.ArgNames = append(fret.ArgNames, pname)
 					if p.curt.Kind == ',' {
 						p.next()
 						continue
@@ -344,6 +346,7 @@ func (p *parser) parseDeclaratorTail(basety CType) CType {
 				}
 			}
 			p.expect(')')
+			ret = fret
 		default:
 			return ret
 		}
