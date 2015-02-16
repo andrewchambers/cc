@@ -86,12 +86,11 @@ func (p *parser) parseTranslationUnit() {
 	}
 }
 
-func (p *parser) parseStatement() {
+func (p *parser) parseStatement() Node {
 	if p.nextt.Kind == ':' {
 		p.expect(cpp.IDENT)
 		p.expect(':')
-		p.parseStatement()
-		return
+		return p.parseStatement()
 	}
 
 	switch p.curt.Kind {
@@ -102,9 +101,7 @@ func (p *parser) parseStatement() {
 	case ';':
 		p.next()
 	case cpp.RETURN:
-		p.next()
-		p.parseExpression()
-		p.expect(';')
+		return p.parseReturn()
 	case cpp.WHILE:
 		p.parseWhile()
 	case cpp.DO:
@@ -118,6 +115,18 @@ func (p *parser) parseStatement() {
 	default:
 		p.parseExpression()
 		p.expect(';')
+	}
+	panic("unreachable.")
+}
+
+func (p *parser) parseReturn() Node {
+	pos := p.curt.Pos
+	p.expect(cpp.RETURN)
+	expr := p.parseExpression()
+	p.expect(';')
+	return &Return{
+		Pos:  pos,
+		Expr: expr,
 	}
 }
 

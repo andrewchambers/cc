@@ -10,6 +10,11 @@ type Constant struct {
 	Type CType
 }
 
+type Return struct {
+	Pos  cpp.FilePos
+	Expr Node
+}
+
 type Binop struct {
 	Op  cpp.TokenKind
 	Pos cpp.FilePos
