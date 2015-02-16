@@ -29,7 +29,7 @@ type parseErrorBreakOut struct {
 	err error
 }
 
-func Parse(pp *cpp.Preprocessor) (errRet error) {
+func Parse(pp *cpp.Preprocessor) (toplevels []Node, errRet error) {
 	p := &parser{}
 	p.pp = pp
 	p.types = newScope(nil)
@@ -43,8 +43,8 @@ func Parse(pp *cpp.Preprocessor) (errRet error) {
 	}()
 	p.next()
 	p.next()
-	p.parseTranslationUnit()
-	return nil
+	toplevels = p.parseTranslationUnit()
+	return toplevels, nil
 }
 
 func (p *parser) errorPos(pos cpp.FilePos, m string, vals ...interface{}) {
@@ -80,10 +80,13 @@ func (p *parser) next() {
 	p.nextt = t
 }
 
-func (p *parser) parseTranslationUnit() {
+func (p *parser) parseTranslationUnit() []Node {
+	var topLevels []Node
 	for p.curt.Kind != cpp.EOF {
-		p.parseDeclaration(true)
+		toplevel := p.parseDeclaration(true)
+		topLevels = append(topLevels, toplevel)
 	}
+	return topLevels
 }
 
 func (p *parser) parseStatement() Node {
@@ -187,9 +190,10 @@ func (p *parser) parseBlock() {
 	p.expect('}')
 }
 
-func (p *parser) parseFuncBody() {
+func (p *parser) parseFuncBody(f *Function) {
 	for p.curt.Kind != '}' {
-		p.parseStatement()
+		stmt := p.parseStatement()
+		f.Body = append(f.Body, stmt)
 	}
 }
 
@@ -209,12 +213,13 @@ func (p *parser) parseDeclaration(isGlobal bool) Node {
 				if !ok {
 					p.errorPos(name.Pos, "expected a function")
 				}
-				f := Function{
+				f := &Function{
+					Name:     name.Val,
 					FuncType: fty,
 					Pos:      declPos,
 				}
 				p.expect('{')
-				p.parseFuncBody()
+				p.parseFuncBody(f)
 				p.expect('}')
 				return f
 			}

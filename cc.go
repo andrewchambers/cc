@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/andrewchambers/cc/cpp"
+	"github.com/andrewchambers/cc/emit"
 	"github.com/andrewchambers/cc/parse"
 	"io"
 	"os"
@@ -36,14 +37,14 @@ func compileFile(path string, out io.Writer) error {
 	}
 	lexer := cpp.Lex(path, f)
 	pp := cpp.New(lexer, nil)
-	err = parse.Parse(pp)
+	toplevels, err := parse.Parse(pp)
 	if err != nil {
 		return err
 	}
-	return nil
+	return emit.Emit(toplevels, out)
 }
 
-func preprocessFile(sourceFile string, out io.WriteCloser) error {
+func preprocessFile(sourceFile string, out io.Writer) error {
 	f, err := os.Open(sourceFile)
 	if err != nil {
 		return fmt.Errorf("Failed to open source file %s for preprocessing: %s\n", sourceFile, err)
@@ -62,7 +63,7 @@ func preprocessFile(sourceFile string, out io.WriteCloser) error {
 	}
 }
 
-func tokenizeFile(sourceFile string, out io.WriteCloser) error {
+func tokenizeFile(sourceFile string, out io.Writer) error {
 	f, err := os.Open(sourceFile)
 	if err != nil {
 		return fmt.Errorf("Failed to open source file %s for preprocessing: %s\n", sourceFile, err)

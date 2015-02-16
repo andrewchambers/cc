@@ -3,6 +3,7 @@ package main
 import (
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 )
@@ -19,12 +20,24 @@ func TestCC(t *testing.T) {
 		if !strings.HasSuffix(finf.Name(), ".c") {
 			continue
 		}
-		sfile, err := os.Create("test/" + finf.Name() + ".s")
+		spath := "test/" + finf.Name() + ".s"
+		bpath := "test/" + finf.Name() + ".bin"
+		sfile, err := os.Create(spath)
 		if err != nil {
 			t.Fatal(err)
 		}
 		err = compileFile("test/"+finf.Name(), sfile)
 		if err != nil {
+			t.Fatal(err)
+		}
+		gccout, err := exec.Command("gcc", spath, "-o", bpath).CombinedOutput()
+		if err != nil {
+			t.Log(gccout)
+			t.Fatal(err)
+		}
+		bout, err := exec.Command(bpath).CombinedOutput()
+		if err != nil {
+			t.Log(bout)
 			t.Fatal(err)
 		}
 	}

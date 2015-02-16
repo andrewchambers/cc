@@ -1,2 +1,3 @@
 cc
 test/*.s
+test/*.bin

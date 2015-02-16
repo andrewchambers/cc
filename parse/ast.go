@@ -23,6 +23,7 @@ type Binop struct {
 }
 
 type Function struct {
+	Name     string
 	Pos      cpp.FilePos
 	FuncType *FunctionType
 	Body     []Node
