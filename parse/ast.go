@@ -16,3 +16,9 @@ type Binop struct {
 	L   Node
 	R   Node
 }
+
+type Function struct {
+	Pos      cpp.FilePos
+	FuncType *FunctionType
+	Body     []Node
+}

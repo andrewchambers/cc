@@ -47,8 +47,8 @@ func Parse(pp *cpp.Preprocessor) (errRet error) {
 	return nil
 }
 
-func (p *parser) errorPos(m string, pos cpp.FilePos, vals ...interface{}) {
-	err := fmt.Errorf("syntax error: "+m, vals...)
+func (p *parser) errorPos(pos cpp.FilePos, m string, vals ...interface{}) {
+	err := fmt.Errorf(m, vals...)
 	if os.Getenv("CCDEBUG") == "true" {
 		err = fmt.Errorf("%s\n%s", err, debug.Stack())
 	}
@@ -57,7 +57,7 @@ func (p *parser) errorPos(m string, pos cpp.FilePos, vals ...interface{}) {
 }
 
 func (p *parser) error(m string, vals ...interface{}) {
-	err := fmt.Errorf("syntax error: "+m, vals...)
+	err := fmt.Errorf(m, vals...)
 	if os.Getenv("CCDEBUG") == "true" {
 		err = fmt.Errorf("%s\n%s", err, debug.Stack())
 	}
@@ -66,7 +66,7 @@ func (p *parser) error(m string, vals ...interface{}) {
 
 func (p *parser) expect(k cpp.TokenKind) {
 	if p.curt.Kind != k {
-		p.errorPos("expected %s got %s", p.curt.Pos, k, p.curt.Kind)
+		p.errorPos(p.curt.Pos, "expected %s got %s", k, p.curt.Kind)
 	}
 	p.next()
 }
@@ -81,15 +81,12 @@ func (p *parser) next() {
 }
 
 func (p *parser) parseTranslationUnit() {
-
 	for p.curt.Kind != cpp.EOF {
 		p.parseDeclaration(true)
 	}
-
 }
 
 func (p *parser) parseStatement() {
-
 	if p.nextt.Kind == ':' {
 		p.expect(cpp.IDENT)
 		p.expect(':')
@@ -125,7 +122,6 @@ func (p *parser) parseStatement() {
 }
 
 func (p *parser) parseIf() {
-
 	p.expect(cpp.IF)
 	p.expect('(')
 	p.parseExpression()
@@ -138,7 +134,6 @@ func (p *parser) parseIf() {
 }
 
 func (p *parser) parseFor() {
-
 	p.expect(cpp.FOR)
 	p.expect('(')
 	if p.curt.Kind != ';' {
@@ -166,7 +161,6 @@ func (p *parser) parseWhile() {
 }
 
 func (p *parser) parseDoWhile() {
-
 	p.expect(cpp.DO)
 	p.parseStatement()
 	p.expect(cpp.WHILE)
@@ -177,7 +171,6 @@ func (p *parser) parseDoWhile() {
 }
 
 func (p *parser) parseBlock() {
-
 	p.expect('{')
 	for p.curt.Kind != '}' {
 		p.parseStatement()
@@ -186,29 +179,37 @@ func (p *parser) parseBlock() {
 }
 
 func (p *parser) parseFuncBody() {
-
 	for p.curt.Kind != '}' {
 		p.parseStatement()
 	}
 }
 
-func (p *parser) parseDeclaration(isGlobal bool) {
-
+func (p *parser) parseDeclaration(isGlobal bool) Node {
 	firstDecl := true
+	declPos := p.curt.Pos
 	_, ty := p.parseDeclarationSpecifiers()
 	for {
-		_, _ = p.parseDeclarator(ty)
-
+		name, ty := p.parseDeclarator(ty)
+		if name == nil {
+			p.errorPos(declPos, "declarator requires a name")
+		}
 		if firstDecl && isGlobal {
 			// if declaring a function
 			if p.curt.Kind == '{' {
+				fty, ok := ty.(*FunctionType)
+				if !ok {
+					p.errorPos(name.Pos, "expected a function")
+				}
+				f := Function{
+					FuncType: fty,
+					Pos:      declPos,
+				}
 				p.expect('{')
 				p.parseFuncBody()
 				p.expect('}')
-				return
+				return f
 			}
 		}
-
 		if p.curt.Kind == '=' {
 			p.next()
 			p.parseInitializer()
@@ -220,15 +221,16 @@ func (p *parser) parseDeclaration(isGlobal bool) {
 		firstDecl = false
 	}
 	if p.curt.Kind != ';' {
-		p.errorPos("expected '=', ',' or ';'", p.curt.Pos)
+		p.errorPos(p.curt.Pos, "expected '=', ',' or ';'")
 	}
 	p.expect(';')
+	return nil
 }
 
-func (p *parser) parseParameterDeclaration() {
+func (p *parser) parseParameterDeclaration() (*cpp.Token, CType) {
 
 	_, ty := p.parseDeclarationSpecifiers()
-	p.parseDeclarator(ty)
+	return p.parseDeclarator(ty)
 }
 
 func (p *parser) parseDeclarationSpecifiers() (SClass, CType) {
@@ -286,8 +288,7 @@ func (p *parser) parseDeclarationSpecifiers() (SClass, CType) {
 //
 // A delcarator missing an identifier.
 
-func (p *parser) parseDeclarator(basety CType) (string, CType) {
-
+func (p *parser) parseDeclarator(basety CType) (*cpp.Token, CType) {
 	for p.curt.Kind == cpp.CONST || p.curt.Kind == cpp.VOLATILE {
 		p.next()
 	}
@@ -302,17 +303,16 @@ func (p *parser) parseDeclarator(basety CType) (string, CType) {
 		p.expect(')')
 		return name, p.parseDeclaratorTail(ty)
 	case cpp.IDENT:
-		name := p.curt.Val
+		name := p.curt
 		p.next()
 		return name, p.parseDeclaratorTail(basety)
 	default:
-		p.errorPos(fmt.Sprintf("expected ident, '(' or '*' but got %s", p.curt.Kind), p.curt.Pos)
+		p.errorPos(p.curt.Pos, "expected ident, '(' or '*' but got %s", p.curt.Kind)
 	}
 	panic("unreachable")
 }
 
 func (p *parser) parseDeclaratorTail(basety CType) CType {
-
 	ret := basety
 	for {
 		switch p.curt.Kind {
@@ -324,10 +324,18 @@ func (p *parser) parseDeclaratorTail(basety CType) CType {
 			p.expect(']')
 			ret = &Array{MemberType: ret}
 		case '(':
+			ret := &FunctionType{}
+			ret.RetType = basety
 			p.next()
 			if p.curt.Kind != ')' {
 				for {
-					p.parseParameterDeclaration()
+					pnametok, pty := p.parseParameterDeclaration()
+					pname := ""
+					if pnametok != nil {
+						pname = pnametok.Val
+					}
+					ret.ArgTypes = append(ret.ArgTypes, pty)
+					ret.ArgNames = append(ret.ArgNames, pname)
 					if p.curt.Kind == ',' {
 						p.next()
 						continue
@@ -552,7 +560,7 @@ func (p *parser) parsePrimaryExpression() Node {
 		p.next()
 		n, err := constantToNode(t)
 		if err != nil {
-			p.errorPos(err.Error(), t.Pos)
+			p.errorPos(t.Pos, err.Error())
 		}
 		return n
 	case cpp.CHAR_CONSTANT:
@@ -564,7 +572,7 @@ func (p *parser) parsePrimaryExpression() Node {
 		p.parseExpression()
 		p.expect(')')
 	default:
-		p.errorPos("expected an identifier, constant, string or expression", p.curt.Pos)
+		p.errorPos(p.curt.Pos, "expected an identifier, constant, string or expression")
 	}
 	panic("unreachable")
 }
