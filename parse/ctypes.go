@@ -44,6 +44,13 @@ type Struct struct {
 	IsUnion bool
 }
 
+type FunctionType struct {
+	RetType  CType
+	ArgTypes []CType
+	ArgNames []string
+	IsVarArg bool
+}
+
 // All the primitive C types.
 
 // Misc
