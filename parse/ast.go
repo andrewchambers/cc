@@ -5,9 +5,9 @@ import "github.com/andrewchambers/cc/cpp"
 type Node interface{}
 
 type Constant struct {
-    Val  int64
-    Pos cpp.FilePos
-    Type CType
+	Val  int64
+	Pos  cpp.FilePos
+	Type CType
 }
 
 type Binop struct {

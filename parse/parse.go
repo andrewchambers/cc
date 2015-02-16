@@ -2,10 +2,10 @@ package parse
 
 import (
 	"fmt"
-	"strconv"
 	"github.com/andrewchambers/cc/cpp"
 	"os"
 	"runtime/debug"
+	"strconv"
 )
 
 // Storage class
@@ -410,7 +410,7 @@ func (p *parser) parseInclusiveOrExpression() Node {
 }
 
 func (p *parser) parseExclusiveOrExpression() Node {
-	l := p.parseAndExpression() 
+	l := p.parseAndExpression()
 	for p.curt.Kind == '^' {
 		p.next()
 		p.parseAndExpression()
@@ -529,18 +529,18 @@ loop:
 	return l
 }
 
-func constantToNode(t *cpp.Token) (Node,error) {
-    switch t.Kind {
-        case cpp.INT_CONSTANT:
-            v,err := strconv.ParseInt(t.Val, 0, 64)
-            return &Constant{
-                Val: v,
-                Pos: t.Pos,
-                Type: CInt,
-            }, err
-        default:
-            return nil,fmt.Errorf("internal error - %s", t.Kind)
-    }
+func constantToNode(t *cpp.Token) (Node, error) {
+	switch t.Kind {
+	case cpp.INT_CONSTANT:
+		v, err := strconv.ParseInt(t.Val, 0, 64)
+		return &Constant{
+			Val:  v,
+			Pos:  t.Pos,
+			Type: CInt,
+		}, err
+	default:
+		return nil, fmt.Errorf("internal error - %s", t.Kind)
+	}
 }
 
 func (p *parser) parsePrimaryExpression() Node {
@@ -550,9 +550,9 @@ func (p *parser) parsePrimaryExpression() Node {
 	case cpp.INT_CONSTANT:
 		t := p.curt
 		p.next()
-		n,err := constantToNode(t)
+		n, err := constantToNode(t)
 		if err != nil {
-		    p.errorPos(err.Error(), t.Pos)
+			p.errorPos(err.Error(), t.Pos)
 		}
 		return n
 	case cpp.CHAR_CONSTANT:
