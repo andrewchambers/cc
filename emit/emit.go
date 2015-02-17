@@ -18,6 +18,14 @@ func Emit(toplevels []parse.Node, o io.Writer) error {
 		switch tl := tl.(type) {
 		case *parse.Function:
 			e.emitFunction(tl)
+		case *parse.DeclList:
+			for _, decl := range tl.Symbols {
+				global, ok := decl.(*parse.GSymbol)
+				if !ok {
+					panic("internal error")
+				}
+				e.emitGlobal(global)
+			}
 		default:
 			panic(tl)
 		}
@@ -31,6 +39,19 @@ func (e *emitter) emit(s string, args ...interface{}) {
 
 func (e *emitter) emiti(s string, args ...interface{}) {
 	e.emit("  "+s, args...)
+}
+
+func (e *emitter) emitGlobal(g *parse.GSymbol) {
+	e.emit(".global %s\n", g.Label)
+	e.emit("%s:\n", g.Label)
+	if g.Init != nil {
+		return
+	}
+	switch {
+	case g.Type == parse.CInt:
+		e.emit(".dword 0")
+	default:
+	}
 }
 
 func (e *emitter) emitFunction(f *parse.Function) {

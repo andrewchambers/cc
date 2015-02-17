@@ -200,9 +200,11 @@ func (p *parser) parseFuncBody(f *Function) {
 func (p *parser) parseDeclaration(isGlobal bool) Node {
 	firstDecl := true
 	declPos := p.curt.Pos
+	var name *cpp.Token
+	declList := &DeclList{}
 	_, ty := p.parseDeclarationSpecifiers()
 	for {
-		name, ty := p.parseDeclarator(ty)
+		name, ty = p.parseDeclarator(ty)
 		if name == nil {
 			p.errorPos(declPos, "declarator requires a name")
 		}
@@ -224,6 +226,15 @@ func (p *parser) parseDeclaration(isGlobal bool) Node {
 				return f
 			}
 		}
+		sym := &GSymbol{
+			Label: name.Val,
+			Type:  ty,
+		}
+		err := p.decls.define(name.Val, sym)
+		if err != nil {
+			p.errorPos(declPos, err.Error())
+		}
+		declList.Symbols = append(declList.Symbols, sym)
 		if p.curt.Kind == '=' {
 			p.next()
 			p.parseInitializer()
@@ -238,7 +249,7 @@ func (p *parser) parseDeclaration(isGlobal bool) Node {
 		p.errorPos(p.curt.Pos, "expected '=', ',' or ';'")
 	}
 	p.expect(';')
-	return nil
+	return declList
 }
 
 func (p *parser) parseParameterDeclaration() (*cpp.Token, CType) {

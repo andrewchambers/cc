@@ -29,3 +29,7 @@ type Function struct {
 	FuncType *FunctionType
 	Body     []Node
 }
+
+type DeclList struct {
+	Symbols []Symbol
+}
