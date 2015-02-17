@@ -29,17 +29,17 @@ func TestCC(t *testing.T) {
 		}
 		err = compileFile(tpath, sfile)
 		if err != nil {
-			t.Fatal(err)
+			t.Fatalf("compiling %s failed. %s", tpath, err)
 		}
 		gccout, err := exec.Command("gcc", spath, "-o", bpath).CombinedOutput()
 		if err != nil {
-			t.Log(gccout)
-			t.Fatal(err)
+			t.Log(string(gccout))
+			t.Fatalf("assembling %s failed. %s", spath, err)
 		}
 		bout, err := exec.Command(bpath).CombinedOutput()
 		if err != nil {
-			t.Log(bout)
-			t.Fatal(err)
+			t.Log(string(bout))
+			t.Fatalf("running %s failed. %s", bpath, err)
 		}
 		t.Logf("%s OK", tpath)
 	}

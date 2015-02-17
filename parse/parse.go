@@ -550,10 +550,11 @@ func (p *parser) parseAdditiveExpression() Node {
 		p.next()
 		r := p.parseMultiplicativeExpression()
 		l = &Binop{
-			Pos: pos,
-			Op:  op,
-			L:   l,
-			R:   r,
+			Pos:  pos,
+			Op:   op,
+			L:    l,
+			R:    r,
+			Type: CInt,
 		}
 	}
 	return l
@@ -567,10 +568,11 @@ func (p *parser) parseMultiplicativeExpression() Node {
 		p.next()
 		r := p.parseCastExpression()
 		l = &Binop{
-			Pos: pos,
-			Op:  op,
-			L:   l,
-			R:   r,
+			Pos:  pos,
+			Op:   op,
+			L:    l,
+			R:    r,
+			Type: CInt,
 		}
 	}
 	return l

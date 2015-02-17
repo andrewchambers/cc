@@ -64,7 +64,32 @@ func (e *emitter) emitExpr(f *parse.Function, expr parse.Node) {
 	switch expr := expr.(type) {
 	case *parse.Constant:
 		e.emiti("movq $%v, %%rax\n", expr.Val)
+	case *parse.Binop:
+		e.emitBinop(f, expr)
 	default:
 		panic(e)
+	}
+}
+
+func (e *emitter) emitBinop(f *parse.Function, b *parse.Binop) {
+	e.emitExpr(f, b.L)
+	e.emiti("pushq %%rax\n")
+	e.emitExpr(f, b.R)
+	e.emiti("popq %%rbx\n")
+	switch {
+	case b.Type == parse.CInt:
+		switch b.Op {
+		case '+':
+			e.emiti("addq %%rax, %%rbx\n")
+		case '-':
+			e.emiti("subq %%rax, %%rbx\n")
+		case '*':
+			e.emiti("imul %%rax, %%rbx\n")
+		default:
+			panic("unimplemented")
+		}
+		e.emiti("movq %%rbx, %%rax\n")
+	default:
+		panic(b.Type)
 	}
 }
