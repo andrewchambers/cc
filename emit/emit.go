@@ -11,11 +11,9 @@ type emitter struct {
 }
 
 func Emit(toplevels []parse.Node, o io.Writer) error {
-
 	e := &emitter{
 		o: o,
 	}
-
 	for _, tl := range toplevels {
 		switch tl := tl.(type) {
 		case *parse.Function:
@@ -24,7 +22,6 @@ func Emit(toplevels []parse.Node, o io.Writer) error {
 			panic(tl)
 		}
 	}
-
 	return nil
 }
 
@@ -39,6 +36,34 @@ func (e *emitter) emiti(s string, args ...interface{}) {
 func (e *emitter) emitFunction(f *parse.Function) {
 	e.emit(".global %s\n", f.Name)
 	e.emit("%s:\n", f.Name)
-	e.emiti("mov $0, %%rax\n")
+	e.emiti("mov %%rsp, %%rbp\n")
+	for _, stmt := range f.Body {
+		e.emitStatement(f, stmt)
+	}
+	e.emiti("mov %%rbp, %%rsp\n")
 	e.emiti("ret\n")
+}
+
+func (e *emitter) emitStatement(f *parse.Function, stmt parse.Node) {
+	switch stmt := stmt.(type) {
+	case *parse.Return:
+		e.emitReturn(f, stmt)
+	default:
+		panic(stmt)
+	}
+}
+
+func (e *emitter) emitReturn(f *parse.Function, r *parse.Return) {
+	e.emitExpr(f, r.Expr)
+	e.emiti("mov %%rbp, %%rsp\n")
+	e.emiti("ret\n")
+}
+
+func (e *emitter) emitExpr(f *parse.Function, expr parse.Node) {
+	switch expr := expr.(type) {
+	case *parse.Constant:
+		e.emiti("mov $%v, %%rax\n", expr.Val)
+	default:
+		panic(e)
+	}
 }
