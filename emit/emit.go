@@ -36,11 +36,12 @@ func (e *emitter) emiti(s string, args ...interface{}) {
 func (e *emitter) emitFunction(f *parse.Function) {
 	e.emit(".global %s\n", f.Name)
 	e.emit("%s:\n", f.Name)
-	e.emiti("mov %%rsp, %%rbp\n")
+	e.emiti("pushq %%rbp\n")
+	e.emiti("movq %%rsp, %%rbp\n")
 	for _, stmt := range f.Body {
 		e.emitStatement(f, stmt)
 	}
-	e.emiti("mov %%rbp, %%rsp\n")
+	e.emiti("leave\n")
 	e.emiti("ret\n")
 }
 
@@ -55,14 +56,14 @@ func (e *emitter) emitStatement(f *parse.Function, stmt parse.Node) {
 
 func (e *emitter) emitReturn(f *parse.Function, r *parse.Return) {
 	e.emitExpr(f, r.Expr)
-	e.emiti("mov %%rbp, %%rsp\n")
+	e.emiti("leave\n")
 	e.emiti("ret\n")
 }
 
 func (e *emitter) emitExpr(f *parse.Function, expr parse.Node) {
 	switch expr := expr.(type) {
 	case *parse.Constant:
-		e.emiti("mov $%v, %%rax\n", expr.Val)
+		e.emiti("movq $%v, %%rax\n", expr.Val)
 	default:
 		panic(e)
 	}
