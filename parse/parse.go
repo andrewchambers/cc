@@ -242,14 +242,11 @@ func (p *parser) parseDeclaration(isGlobal bool) Node {
 }
 
 func (p *parser) parseParameterDeclaration() (*cpp.Token, CType) {
-
 	_, ty := p.parseDeclarationSpecifiers()
 	return p.parseDeclarator(ty)
 }
 
 func (p *parser) parseDeclarationSpecifiers() (SClass, CType) {
-
-	// These are assumed.
 	sc := SC_AUTO
 	ty := CInt
 	for {
