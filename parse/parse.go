@@ -368,7 +368,6 @@ func (p *parser) parseDeclaratorTail(basety CType) CType {
 }
 
 func (p *parser) parseInitializer() {
-
 	p.next()
 }
 
@@ -410,8 +409,16 @@ func (p *parser) parseConditionalExpression() Node {
 func (p *parser) parseLogicalOrExpression() Node {
 	l := p.parseLogicalAndExpression()
 	for p.curt.Kind == cpp.LOR {
+		pos := p.curt.Pos
+		op := p.curt.Kind
 		p.next()
-		p.parseLogicalAndExpression()
+		r := p.parseLogicalAndExpression()
+		l = &Binop{
+			Pos: pos,
+			Op:  op,
+			L:   l,
+			R:   r,
+		}
 	}
 	return l
 }
@@ -419,8 +426,16 @@ func (p *parser) parseLogicalOrExpression() Node {
 func (p *parser) parseLogicalAndExpression() Node {
 	l := p.parseInclusiveOrExpression()
 	for p.curt.Kind == cpp.LAND {
+		pos := p.curt.Pos
+		op := p.curt.Kind
 		p.next()
-		p.parseInclusiveOrExpression()
+		r := p.parseInclusiveOrExpression()
+		l = &Binop{
+			Pos: pos,
+			Op:  op,
+			L:   l,
+			R:   r,
+		}
 	}
 	return l
 }
@@ -428,8 +443,16 @@ func (p *parser) parseLogicalAndExpression() Node {
 func (p *parser) parseInclusiveOrExpression() Node {
 	l := p.parseExclusiveOrExpression()
 	for p.curt.Kind == '|' {
+		pos := p.curt.Pos
+		op := p.curt.Kind
 		p.next()
-		p.parseExclusiveOrExpression()
+		r := p.parseExclusiveOrExpression()
+		l = &Binop{
+			Pos: pos,
+			Op:  op,
+			L:   l,
+			R:   r,
+		}
 	}
 	return l
 }
@@ -437,8 +460,16 @@ func (p *parser) parseInclusiveOrExpression() Node {
 func (p *parser) parseExclusiveOrExpression() Node {
 	l := p.parseAndExpression()
 	for p.curt.Kind == '^' {
+		pos := p.curt.Pos
+		op := p.curt.Kind
 		p.next()
-		p.parseAndExpression()
+		r := p.parseAndExpression()
+		l = &Binop{
+			Pos: pos,
+			Op:  op,
+			L:   l,
+			R:   r,
+		}
 	}
 	return l
 }
@@ -446,8 +477,16 @@ func (p *parser) parseExclusiveOrExpression() Node {
 func (p *parser) parseAndExpression() Node {
 	l := p.parseEqualityExpression()
 	for p.curt.Kind == '&' {
+		pos := p.curt.Pos
+		op := p.curt.Kind
 		p.next()
-		p.parseEqualityExpression()
+		r := p.parseEqualityExpression()
+		l = &Binop{
+			Pos: pos,
+			Op:  op,
+			L:   l,
+			R:   r,
+		}
 	}
 	return l
 }
@@ -455,8 +494,16 @@ func (p *parser) parseAndExpression() Node {
 func (p *parser) parseEqualityExpression() Node {
 	l := p.parseRelationalExpression()
 	for p.curt.Kind == cpp.EQL || p.curt.Kind == cpp.NEQ {
+		pos := p.curt.Pos
+		op := p.curt.Kind
 		p.next()
-		p.parseRelationalExpression()
+		r := p.parseRelationalExpression()
+		l = &Binop{
+			Pos: pos,
+			Op:  op,
+			L:   l,
+			R:   r,
+		}
 	}
 	return l
 }
@@ -464,8 +511,16 @@ func (p *parser) parseEqualityExpression() Node {
 func (p *parser) parseRelationalExpression() Node {
 	l := p.parseShiftExpression()
 	for p.curt.Kind == '>' || p.curt.Kind == '<' || p.curt.Kind == cpp.LEQ || p.curt.Kind == cpp.GEQ {
+		pos := p.curt.Pos
+		op := p.curt.Kind
 		p.next()
-		p.parseShiftExpression()
+		r := p.parseShiftExpression()
+		l = &Binop{
+			Pos: pos,
+			Op:  op,
+			L:   l,
+			R:   r,
+		}
 	}
 	return l
 }
@@ -473,8 +528,16 @@ func (p *parser) parseRelationalExpression() Node {
 func (p *parser) parseShiftExpression() Node {
 	l := p.parseAdditiveExpression()
 	for p.curt.Kind == cpp.SHL || p.curt.Kind == cpp.SHR {
+		pos := p.curt.Pos
+		op := p.curt.Kind
 		p.next()
-		p.parseAdditiveExpression()
+		r := p.parseAdditiveExpression()
+		l = &Binop{
+			Pos: pos,
+			Op:  op,
+			L:   l,
+			R:   r,
+		}
 	}
 	return l
 }
@@ -482,8 +545,16 @@ func (p *parser) parseShiftExpression() Node {
 func (p *parser) parseAdditiveExpression() Node {
 	l := p.parseMultiplicativeExpression()
 	for p.curt.Kind == '+' || p.curt.Kind == '-' {
+		pos := p.curt.Pos
+		op := p.curt.Kind
 		p.next()
-		p.parseMultiplicativeExpression()
+		r := p.parseMultiplicativeExpression()
+		l = &Binop{
+			Pos: pos,
+			Op:  op,
+			L:   l,
+			R:   r,
+		}
 	}
 	return l
 }
@@ -491,8 +562,16 @@ func (p *parser) parseAdditiveExpression() Node {
 func (p *parser) parseMultiplicativeExpression() Node {
 	l := p.parseCastExpression()
 	for p.curt.Kind == '*' || p.curt.Kind == '/' || p.curt.Kind == '%' {
+		pos := p.curt.Pos
+		op := p.curt.Kind
 		p.next()
-		p.parseCastExpression()
+		r := p.parseCastExpression()
+		l = &Binop{
+			Pos: pos,
+			Op:  op,
+			L:   l,
+			R:   r,
+		}
 	}
 	return l
 }
