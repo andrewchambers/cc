@@ -20,13 +20,14 @@ func TestCC(t *testing.T) {
 		if !strings.HasSuffix(finf.Name(), ".c") {
 			continue
 		}
+		tpath := "test/" + finf.Name()
 		spath := "test/" + finf.Name() + ".s"
 		bpath := "test/" + finf.Name() + ".bin"
 		sfile, err := os.Create(spath)
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = compileFile("test/"+finf.Name(), sfile)
+		err = compileFile(tpath, sfile)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -40,5 +41,6 @@ func TestCC(t *testing.T) {
 			t.Log(bout)
 			t.Fatal(err)
 		}
+		t.Logf("%s OK", tpath)
 	}
 }
