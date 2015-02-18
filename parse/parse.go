@@ -232,7 +232,7 @@ func (p *parser) parseDeclaration(isGlobal bool) Node {
 		}
 		err := p.decls.define(name.Val, sym)
 		if err != nil {
-			p.errorPos(declPos, err.Error())
+			p.errorPos(name.Pos, err.Error())
 		}
 		declList.Symbols = append(declList.Symbols, sym)
 		if p.curt.Kind == '=' {

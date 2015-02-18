@@ -1,15 +1,29 @@
 package parse
 
+import "fmt"
+
 type scope struct {
 	parent *scope
 	kv     map[string]Symbol
 }
 
-func (s *scope) lookup(key string) (Symbol, error) {
-	return nil, nil
+func (s *scope) lookup(k string) (Symbol, error) {
+	sym, ok := s.kv[k]
+	if ok {
+		return sym, nil
+	}
+	if s.parent != nil {
+		return s.parent.lookup(k)
+	}
+	return nil, fmt.Errorf("%s is not defined", k)
 }
 
 func (s *scope) define(k string, v Symbol) error {
+	_, ok := s.kv[k]
+	if ok {
+		return fmt.Errorf("redefinition of %s", k)
+	}
+	s.kv[k] = v
 	return nil
 }
 

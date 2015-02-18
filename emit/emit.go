@@ -41,6 +41,11 @@ func (e *emitter) emiti(s string, args ...interface{}) {
 	e.emit("  "+s, args...)
 }
 
+func isPtr(ty parse.CType) bool {
+	_, ok := ty.(*parse.Ptr)
+	return ok
+}
+
 func (e *emitter) emitGlobal(g *parse.GSymbol) {
 	e.emit(".global %s\n", g.Label)
 	e.emit("%s:\n", g.Label)
@@ -49,7 +54,9 @@ func (e *emitter) emitGlobal(g *parse.GSymbol) {
 	}
 	switch {
 	case g.Type == parse.CInt:
-		e.emit(".dword 0")
+		e.emit(".dword 0\n")
+	case isPtr(g.Type):
+		e.emit(".qword 0\n")
 	default:
 	}
 }
