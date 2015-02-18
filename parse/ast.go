@@ -51,6 +51,7 @@ func (f *Function) GetType() CType { return f.FuncType }
 
 type DeclList struct {
 	Symbols []Symbol
+	Inits   []Node
 }
 
 func (d *DeclList) GetType() CType { return nil }

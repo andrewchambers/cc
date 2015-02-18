@@ -19,12 +19,12 @@ func Emit(toplevels []parse.Node, o io.Writer) error {
 		case *parse.Function:
 			e.emitFunction(tl)
 		case *parse.DeclList:
-			for _, decl := range tl.Symbols {
+			for idx, decl := range tl.Symbols {
 				global, ok := decl.(*parse.GSymbol)
 				if !ok {
 					panic("internal error")
 				}
-				e.emitGlobal(global)
+				e.emitGlobal(global, tl.Inits[idx])
 			}
 		default:
 			panic(tl)
@@ -46,13 +46,10 @@ func isPtr(ty parse.CType) bool {
 	return ok
 }
 
-func (e *emitter) emitGlobal(g *parse.GSymbol) {
+func (e *emitter) emitGlobal(g *parse.GSymbol, init parse.Node) {
 	e.emit(".data\n")
 	e.emit(".global %s\n", g.Label)
 	e.emit("%s:\n", g.Label)
-	if g.Init != nil {
-		return
-	}
 	switch {
 	case g.Type == parse.CInt:
 		e.emit(".quad 0\n")

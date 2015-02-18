@@ -1,6 +1,5 @@
 Status WIP. 
 
-The goal of the project is to create a small cross platform C compiler.
+The goal of the project is to create a minimalist cross platform C compiler.
 This includes preprocessing, parsing and assembly generation.
-
-I also want to put emphasis on good documentation, testing and simple code.
+In the future a companion assembler and linker may be considered.

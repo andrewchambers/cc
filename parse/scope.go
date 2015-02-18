@@ -39,5 +39,4 @@ type Symbol interface{}
 type GSymbol struct {
 	Label string
 	Type  CType
-	Init  Node
 }

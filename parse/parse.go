@@ -95,7 +95,6 @@ func (p *parser) parseStatement() Node {
 		p.expect(':')
 		return p.parseStatement()
 	}
-
 	switch p.curt.Kind {
 	case cpp.GOTO:
 		p.next()
@@ -165,7 +164,6 @@ func (p *parser) parseFor() {
 }
 
 func (p *parser) parseWhile() {
-
 	p.expect(cpp.WHILE)
 	p.expect('(')
 	p.parseExpression()
@@ -236,10 +234,12 @@ func (p *parser) parseDeclaration(isGlobal bool) Node {
 			p.errorPos(name.Pos, err.Error())
 		}
 		declList.Symbols = append(declList.Symbols, sym)
+		var init Node
 		if p.curt.Kind == '=' {
 			p.next()
-			p.parseInitializer()
+			init = p.parseInitializer()
 		}
+		declList.Inits = append(declList.Inits, init)
 		if p.curt.Kind != ',' {
 			break
 		}
@@ -376,8 +376,8 @@ func (p *parser) parseDeclaratorTail(basety CType) CType {
 	}
 }
 
-func (p *parser) parseInitializer() {
-	p.next()
+func (p *parser) parseInitializer() Node {
+	return p.parseAssignmentExpression()
 }
 
 func isAssignmentOperator(k cpp.TokenKind) bool {
