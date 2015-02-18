@@ -101,6 +101,8 @@ func (e *emitter) emitExpr(f *parse.Function, expr parse.Node) {
 		}
 	case *parse.Constant:
 		e.emiti("movq $%v, %%rax\n", expr.Val)
+	case *parse.Unop:
+		e.emitUnop(f, expr)
 	case *parse.Binop:
 		e.emitBinop(f, expr)
 	default:
@@ -135,9 +137,39 @@ func (e *emitter) emitBinop(f *parse.Function, b *parse.Binop) {
 	}
 }
 
+func (e *emitter) emitUnop(f *parse.Function, u *parse.Unop) {
+	switch u.Op {
+	case '&':
+		switch operand := u.Operand.(type) {
+		case *parse.Unop:
+			if operand.Op != '*' {
+				panic("internal error")
+			}
+			e.emitExpr(f, operand.Operand)
+		case *parse.Ident:
+			sym := operand.Sym
+			switch sym := sym.(type) {
+			case *parse.GSymbol:
+				e.emiti("leaq %s(%%rip), %%rax\n", sym.Label)
+			}
+		}
+	case '*':
+		e.emitExpr(f, u.Operand)
+		e.emiti("movq (%%rax), %%rax\n")
+	}
+}
+
 func (e *emitter) emitAssign(f *parse.Function, b *parse.Binop) {
 	e.emitExpr(f, b.R)
 	switch l := b.L.(type) {
+	case *parse.Unop:
+		if l.Op != '*' {
+			panic("internal error")
+		}
+		e.emiti("push %%rax\n")
+		e.emitExpr(f, l.Operand)
+		e.emiti("pop %%rbx\n")
+		e.emiti("movq %%rbx, (%%rax)\n")
 	case *parse.Ident:
 		sym := l.Sym
 		switch sym := sym.(type) {

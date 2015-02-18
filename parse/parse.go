@@ -607,8 +607,28 @@ func (p *parser) parseUnaryExpression() Node {
 		p.next()
 		p.parseUnaryExpression()
 	case '*', '+', '-', '!', '~', '&':
+		pos := p.curt.Pos
+		op := p.curt.Kind
 		p.next()
-		p.parseCastExpression()
+		operand := p.parseCastExpression()
+		ty := operand.GetType()
+		if op == '&' {
+			ty = &Ptr{
+				PointsTo: ty,
+			}
+		} else if op == '*' {
+			ptr, ok := ty.(*Ptr)
+			if !ok {
+				p.errorPos(pos, "dereferencing requires a pointer type")
+			}
+			ty = ptr.PointsTo
+		}
+		return &Unop{
+			Pos:     pos,
+			Op:      op,
+			Operand: operand,
+			Type:    ty,
+		}
 	default:
 		return p.parsePostfixExpression()
 	}
