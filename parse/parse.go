@@ -116,8 +116,9 @@ func (p *parser) parseStatement() Node {
 	case '{':
 		p.parseBlock()
 	default:
-		p.parseExpression()
+		expr := p.parseExpression()
 		p.expect(';')
+		return expr
 	}
 	panic("unreachable.")
 }
@@ -403,8 +404,16 @@ func (p *parser) parseExpression() Node {
 func (p *parser) parseAssignmentExpression() Node {
 	l := p.parseConditionalExpression()
 	if isAssignmentOperator(p.curt.Kind) {
+		pos := p.curt.Pos
+		op := p.curt.Kind
 		p.next()
-		p.parseAssignmentExpression()
+		r := p.parseAssignmentExpression()
+		l = &Binop{
+			Pos: pos,
+			Op:  op,
+			L:   l,
+			R:   r,
+		}
 	}
 	return l
 }
@@ -660,7 +669,14 @@ func constantToNode(t *cpp.Token) (Node, error) {
 func (p *parser) parsePrimaryExpression() Node {
 	switch p.curt.Kind {
 	case cpp.IDENT:
+		sym, err := p.decls.lookup(p.curt.Val)
+		if err != nil {
+			p.errorPos(p.curt.Pos, "undefined symbol %s", p.curt.Val)
+		}
 		p.next()
+		return &Ident{
+			Sym: sym,
+		}
 	case cpp.INT_CONSTANT:
 		t := p.curt
 		p.next()

@@ -33,3 +33,7 @@ type Function struct {
 type DeclList struct {
 	Symbols []Symbol
 }
+
+type Ident struct {
+	Sym Symbol
+}
