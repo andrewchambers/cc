@@ -24,7 +24,7 @@ func Emit(toplevels []parse.Node, o io.Writer) error {
 				if !ok {
 					panic("internal error")
 				}
-				e.emitGlobal(global, tl.Inits[idx])
+				e.emitGlobal(global, tl.FoldedInits[idx])
 			}
 		default:
 			panic(tl)
@@ -41,19 +41,18 @@ func (e *emitter) emiti(s string, args ...interface{}) {
 	e.emit("  "+s, args...)
 }
 
-func isPtr(ty parse.CType) bool {
-	_, ok := ty.(*parse.Ptr)
-	return ok
-}
-
-func (e *emitter) emitGlobal(g *parse.GSymbol, init parse.Node) {
+func (e *emitter) emitGlobal(g *parse.GSymbol, init *parse.FoldedConstant) {
 	e.emit(".data\n")
 	e.emit(".global %s\n", g.Label)
 	e.emit("%s:\n", g.Label)
 	switch {
 	case g.Type == parse.CInt:
-		e.emit(".quad 0\n")
-	case isPtr(g.Type):
+		if init == nil {
+			e.emit(".quad 0\n")
+		} else {
+			e.emit(".quad %v\n", init.Val)
+		}
+	case parse.IsPtrType(g.Type):
 		e.emit(".quad 0\n")
 	default:
 	}

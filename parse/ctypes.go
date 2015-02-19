@@ -69,14 +69,32 @@ var CLong *Primitive = &Primitive{Long, 8, 8, false}
 var CLLong *Primitive = &Primitive{LLong, 8, 8, false}
 
 // Unsigned
-var CBool *Primitive = &Primitive{Void, 1, 1, true}
-var CUChar *Primitive = &Primitive{Void, 1, 1, true}
-var CUShort *Primitive = &Primitive{Void, 2, 2, true}
-var CUInt *Primitive = &Primitive{Void, 4, 4, true}
-var CULong *Primitive = &Primitive{Void, 8, 8, true}
-var CULLong *Primitive = &Primitive{Void, 8, 8, true}
+var CBool *Primitive = &Primitive{Bool, 1, 1, true}
+var CUChar *Primitive = &Primitive{Char, 1, 1, true}
+var CUShort *Primitive = &Primitive{Short, 2, 2, true}
+var CUInt *Primitive = &Primitive{Int, 4, 4, true}
+var CULong *Primitive = &Primitive{Long, 8, 8, true}
+var CULLong *Primitive = &Primitive{LLong, 8, 8, true}
 
 // Floats
-var CFloat *Primitive = &Primitive{Void, 4, 4, false}
-var CDouble *Primitive = &Primitive{Void, 8, 8, false}
-var CLDouble *Primitive = &Primitive{Void, 8, 8, false}
+var CFloat *Primitive = &Primitive{Float, 4, 4, false}
+var CDouble *Primitive = &Primitive{Double, 8, 8, false}
+var CLDouble *Primitive = &Primitive{LDouble, 8, 8, false}
+
+func IsPtrType(t CType) bool {
+	_, ok := t.(*Ptr)
+	return ok
+}
+
+func IsIntType(t CType) bool {
+	prim, ok := t.(*Primitive)
+	if !ok {
+		return false
+	}
+	switch prim.Kind {
+	case Bool, Short, Int, Long, LLong:
+		return true
+	default:
+		return false
+	}
+}

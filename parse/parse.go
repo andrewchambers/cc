@@ -235,11 +235,21 @@ func (p *parser) parseDeclaration(isGlobal bool) Node {
 		}
 		declList.Symbols = append(declList.Symbols, sym)
 		var init Node
+		var initPos cpp.FilePos
 		if p.curt.Kind == '=' {
 			p.next()
+			initPos = p.curt.Pos
 			init = p.parseInitializer()
 		}
+		folded, err := Fold(init)
+		if err != nil {
+			folded = nil
+			if isGlobal {
+				p.errorPos(initPos, err.Error())
+			}
+		}
 		declList.Inits = append(declList.Inits, init)
+		declList.FoldedInits = append(declList.FoldedInits, folded)
 		if p.curt.Kind != ',' {
 			break
 		}
