@@ -1,6 +1,8 @@
 package parse
 
 type CType interface {
+	GetSize() int
+	GetAlign() int
 }
 
 type PrimitiveKind int
@@ -26,14 +28,23 @@ type Primitive struct {
 	Unsigned bool
 }
 
+func (p *Primitive) GetSize() int  { return p.Size }
+func (p *Primitive) GetAlign() int { return p.Align }
+
 type Array struct {
 	MemberType CType
 	Dim        int
 }
 
+func (a *Array) GetSize() int  { return a.MemberType.GetSize() * a.Dim }
+func (a *Array) GetAlign() int { return a.MemberType.GetAlign() }
+
 type Ptr struct {
 	PointsTo CType
 }
+
+func (p *Ptr) GetSize() int  { return 8 }
+func (p *Ptr) GetAlign() int { return 8 }
 
 // Struct or union.
 type Struct struct {
@@ -44,6 +55,9 @@ type Struct struct {
 	IsUnion bool
 }
 
+func (s *Struct) GetSize() int  { return 8 }
+func (s *Struct) GetAlign() int { return 8 }
+
 type FunctionType struct {
 	RetType  CType
 	ArgTypes []CType
@@ -51,9 +65,15 @@ type FunctionType struct {
 	IsVarArg bool
 }
 
+func (f *FunctionType) GetSize() int  { panic("internal error") }
+func (f *FunctionType) GetAlign() int { panic("internal error") }
+
 type ForwardedType struct {
 	Type CType
 }
+
+func (f *ForwardedType) GetSize() int  { return f.Type.GetSize() }
+func (f *ForwardedType) GetAlign() int { return f.Type.GetAlign() }
 
 // All the primitive C types.
 
