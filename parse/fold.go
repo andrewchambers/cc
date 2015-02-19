@@ -11,23 +11,41 @@ type FoldedConstant struct {
 }
 
 func Fold(n Node) (*FoldedConstant, error) {
-	if n == nil {
-		return nil, fmt.Errorf("not a valid constant expression")
-	}
 	switch n := n.(type) {
 	case *Unop:
-		operand, err := Fold(n.Operand)
-		if err != nil {
-			return nil, err
-		}
-		if IsIntType(operand.Type) {
-			switch n.Op {
-			case '-':
+		switch n.Op {
+		case '&':
+			ident, ok := n.Operand.(*Ident)
+			if !ok {
+				// XXX &foo[CONST] is valid.
+				return nil, fmt.Errorf("'&' requires a valid identifier")
+			}
+			gsym, ok := ident.Sym.(*GSymbol)
+			if !ok {
+				return nil, fmt.Errorf("'&' requires a static or global identifier")
+			}
+			return &FoldedConstant{
+				Val:   0,
+				Label: gsym.Label,
+				Type:  n.Type,
+			}, nil
+		case '-':
+			operand, err := Fold(n.Operand)
+			if err != nil {
+				return nil, err
+			}
+			if IsIntType(operand.Type) {
 				return &FoldedConstant{
 					Val:  -operand.Val,
 					Type: operand.Type,
 				}, nil
-			case '+':
+			}
+		case '+':
+			operand, err := Fold(n.Operand)
+			if err != nil {
+				return nil, err
+			}
+			if IsIntType(operand.Type) {
 				return operand, nil
 			}
 		}

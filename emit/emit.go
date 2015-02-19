@@ -53,7 +53,11 @@ func (e *emitter) emitGlobal(g *parse.GSymbol, init *parse.FoldedConstant) {
 			e.emit(".quad %v\n", init.Val)
 		}
 	case parse.IsPtrType(g.Type):
-		e.emit(".quad 0\n")
+		if init == nil {
+			e.emit(".quad 0\n")
+		} else {
+			e.emit(".quad %s\n", init.Label)
+		}
 	default:
 	}
 }
