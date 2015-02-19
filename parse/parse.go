@@ -355,11 +355,19 @@ func (p *parser) parseDeclaratorTail(basety CType) CType {
 		switch p.curt.Kind {
 		case '[':
 			p.next()
+			var dimn Node
 			if p.curt.Kind != ']' {
-				p.parseAssignmentExpression()
+				dimn = p.parseAssignmentExpression()
 			}
 			p.expect(']')
-			ret = &Array{MemberType: ret}
+			dim, err := Fold(dimn)
+			if err != nil {
+				p.errorPos(dimn.GetPos(), "invalid constant expression for array dimensions")
+			}
+			ret = &Array{
+				Dim:        int(dim.Val),
+				MemberType: ret,
+			}
 		case '(':
 			fret := &FunctionType{}
 			fret.RetType = basety
@@ -653,9 +661,18 @@ loop:
 	for {
 		switch p.curt.Kind {
 		case '[':
+			_, isArr := l.GetType().(*Array)
+			_, isPtr := l.GetType().(*Ptr)
+			if !isArr && !isPtr {
+				p.errorPos(p.curt.Pos, "Can only index into array or pointer types")
+			}
 			p.next()
-			p.parseExpression()
+			idx := p.parseExpression()
 			p.expect(']')
+			l = &Index{
+				Arr: l,
+				Idx: idx,
+			}
 		case '.', cpp.ARROW:
 			p.next()
 			// XXX is a typename valid here too?

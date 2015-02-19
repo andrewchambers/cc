@@ -1,10 +1,12 @@
 
 x;
-*p;
+arr[20];
+*p = &x;
+*p2;
 
 int main() {
     x = 1;
-    p = &x;
-    *p = x - 1;
+    arr[2] = 1;
+    *p = x - arr[2];
     return x;
 }
