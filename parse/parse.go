@@ -269,7 +269,6 @@ func (p *parser) parseDeclaration(isGlobal bool) Node {
 				}
 			}
 		}
-
 		declList.Inits = append(declList.Inits, init)
 		declList.FoldedInits = append(declList.FoldedInits, folded)
 		if p.curt.Kind != ',' {

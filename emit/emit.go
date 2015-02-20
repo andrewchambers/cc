@@ -66,9 +66,7 @@ func (e *emitter) emitGlobal(g *parse.GSymbol, init *parse.FoldedConstant) {
 }
 
 func (e *emitter) emitFunction(f *parse.Function) {
-	e.curlocaloffset = 0
-	e.loffsets = make(map[*parse.LSymbol]int)
-	e.calcLocalOffsets(f.Body)
+	e.curlocaloffset, e.loffsets = e.calcLocalOffsets(f.Body)
 	e.emit(".text\n")
 	e.emit(".global %s\n", f.Name)
 	e.emit("%s:\n", f.Name)
@@ -81,7 +79,9 @@ func (e *emitter) emitFunction(f *parse.Function) {
 	e.emiti("ret\n")
 }
 
-func (e *emitter) calcLocalOffsets(nodes []parse.Node) {
+func (e *emitter) calcLocalOffsets(nodes []parse.Node) (int, map[*parse.LSymbol]int) {
+	loffset := 0
+	loffsets := make(map[*parse.LSymbol]int)
 	for _, n := range nodes {
 		switch n := n.(type) {
 		case *parse.DeclList:
@@ -90,12 +90,13 @@ func (e *emitter) calcLocalOffsets(nodes []parse.Node) {
 				if !ok {
 					continue
 				}
-				e.loffsets[lsym] = e.curlocaloffset
-				e.curlocaloffset -= 8
+				loffsets[lsym] = loffset
+				loffset -= 8
 			}
 
 		}
 	}
+	return loffset, loffsets
 }
 
 func (e *emitter) emitStatement(f *parse.Function, stmt parse.Node) {
@@ -199,6 +200,8 @@ func (e *emitter) emitAssign(f *parse.Function, b *parse.Binop) {
 		case *parse.GSymbol:
 			e.emiti("leaq %s(%%rip), %%rbx\n", sym.Label)
 			e.emiti("movq %%rax, (%%rbx)\n")
+		case *parse.LSymbol:
+            
 		}
 	}
 }
