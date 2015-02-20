@@ -8,6 +8,7 @@ import (
 	"github.com/andrewchambers/cc/parse"
 	"io"
 	"os"
+	"runtime/pprof"
 )
 
 func printVersion() {
@@ -86,6 +87,7 @@ func main() {
 	preprocessOnly := flag.Bool("P", false, "Print tokens after preprocessing (For debugging).")
 	tokenizeOnly := flag.Bool("T", false, "Print tokens after lexing (For debugging).")
 	version := flag.Bool("version", false, "Print version info and exit.")
+	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
 	outputPath := flag.String("o", "-", "File to write output to, - for stdout.")
 	flag.Parse()
 
@@ -100,6 +102,15 @@ func main() {
 	if flag.NArg() != 1 {
 		fmt.Fprintf(os.Stderr, "Bad number of args, please specify a single source file.\n")
 		os.Exit(1)
+	}
+	if *cpuprofile != "" {
+		f, err := os.Create(*cpuprofile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to open cpu profile file %s\n", err)
+			os.Exit(1)
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
 	}
 
 	input := flag.Args()[0]
