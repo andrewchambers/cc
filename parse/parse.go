@@ -89,35 +89,48 @@ func (p *parser) parseTranslationUnit() []Node {
 	return topLevels
 }
 
+func isDeclStart(t cpp.TokenKind) bool {
+	switch t {
+	case cpp.STATIC, cpp.VOLATILE, cpp.STRUCT, cpp.CHAR, cpp.INT, cpp.SHORT, cpp.LONG,
+		cpp.UNSIGNED, cpp.SIGNED, cpp.FLOAT, cpp.DOUBLE:
+		return true
+	}
+	return false
+}
+
 func (p *parser) parseStatement() Node {
 	if p.nextt.Kind == ':' {
 		p.expect(cpp.IDENT)
 		p.expect(':')
 		return p.parseStatement()
 	}
-	switch p.curt.Kind {
-	case cpp.GOTO:
-		p.next()
-		p.expect(cpp.IDENT)
-		p.expect(';')
-	case ';':
-		p.next()
-	case cpp.RETURN:
-		return p.parseReturn()
-	case cpp.WHILE:
-		p.parseWhile()
-	case cpp.DO:
-		p.parseDoWhile()
-	case cpp.FOR:
-		p.parseFor()
-	case cpp.IF:
-		p.parseIf()
-	case '{':
-		p.parseBlock()
-	default:
-		expr := p.parseExpression()
-		p.expect(';')
-		return expr
+	if isDeclStart(p.curt.Kind) {
+		return p.parseDeclaration(false)
+	} else {
+		switch p.curt.Kind {
+		case cpp.GOTO:
+			p.next()
+			p.expect(cpp.IDENT)
+			p.expect(';')
+		case ';':
+			p.next()
+		case cpp.RETURN:
+			return p.parseReturn()
+		case cpp.WHILE:
+			p.parseWhile()
+		case cpp.DO:
+			p.parseDoWhile()
+		case cpp.FOR:
+			p.parseFor()
+		case cpp.IF:
+			p.parseIf()
+		case '{':
+			p.parseBlock()
+		default:
+			expr := p.parseExpression()
+			p.expect(';')
+			return expr
+		}
 	}
 	panic("unreachable.")
 }
@@ -225,9 +238,16 @@ func (p *parser) parseDeclaration(isGlobal bool) Node {
 				return f
 			}
 		}
-		sym := &GSymbol{
-			Label: name.Val,
-			Type:  ty,
+		var sym Symbol
+		if isGlobal {
+			sym = &GSymbol{
+				Label: name.Val,
+				Type:  ty,
+			}
+		} else {
+			sym = &LSymbol{
+				Type: ty,
+			}
 		}
 		err := p.decls.define(name.Val, sym)
 		if err != nil {
@@ -249,7 +269,6 @@ func (p *parser) parseDeclaration(isGlobal bool) Node {
 				}
 			}
 		}
-
 		declList.Inits = append(declList.Inits, init)
 		declList.FoldedInits = append(declList.FoldedInits, folded)
 		if p.curt.Kind != ',' {
