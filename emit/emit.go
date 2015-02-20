@@ -201,7 +201,7 @@ func (e *emitter) emitAssign(f *parse.Function, b *parse.Binop) {
 			e.emiti("leaq %s(%%rip), %%rbx\n", sym.Label)
 			e.emiti("movq %%rax, (%%rbx)\n")
 		case *parse.LSymbol:
-            
+
 		}
 	}
 }
