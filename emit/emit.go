@@ -8,6 +8,9 @@ import (
 
 type emitter struct {
 	o io.Writer
+
+	curlocaloffset int
+	loffsets       map[*parse.LSymbol]int
 }
 
 func Emit(toplevels []parse.Node, o io.Writer) error {
@@ -63,6 +66,9 @@ func (e *emitter) emitGlobal(g *parse.GSymbol, init *parse.FoldedConstant) {
 }
 
 func (e *emitter) emitFunction(f *parse.Function) {
+	e.curlocaloffset = 0
+	e.loffsets = make(map[*parse.LSymbol]int)
+	e.calcLocalOffsets(f.Body)
 	e.emit(".text\n")
 	e.emit(".global %s\n", f.Name)
 	e.emit("%s:\n", f.Name)
@@ -73,6 +79,23 @@ func (e *emitter) emitFunction(f *parse.Function) {
 	}
 	e.emiti("leave\n")
 	e.emiti("ret\n")
+}
+
+func (e *emitter) calcLocalOffsets(nodes []parse.Node) {
+	for _, n := range nodes {
+		switch n := n.(type) {
+		case *parse.DeclList:
+			for _, sym := range n.Symbols {
+				lsym, ok := sym.(*parse.LSymbol)
+				if !ok {
+					continue
+				}
+				e.loffsets[lsym] = e.curlocaloffset
+				e.curlocaloffset -= 8
+			}
+
+		}
+	}
 }
 
 func (e *emitter) emitStatement(f *parse.Function, stmt parse.Node) {

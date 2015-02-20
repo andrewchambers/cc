@@ -40,3 +40,7 @@ type GSymbol struct {
 	Label string
 	Type  CType
 }
+
+type LSymbol struct {
+	Type CType
+}
