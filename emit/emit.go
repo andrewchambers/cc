@@ -47,21 +47,17 @@ func (e *emitter) emiti(s string, args ...interface{}) {
 func (e *emitter) emitGlobal(g *parse.GSymbol, init *parse.FoldedConstant) {
 	e.emit(".data\n")
 	e.emit(".global %s\n", g.Label)
-	e.emit("%s:\n", g.Label)
-	switch {
-	case g.Type == parse.CInt:
-		if init == nil {
-			e.emit(".quad 0\n")
-		} else {
+	if init == nil {
+		e.emit(".lcomm %s, %d\n", g.Label, g.Type.GetSize())
+	} else {
+		e.emit("%s:\n", g.Label)
+		switch {
+		case g.Type == parse.CInt:
 			e.emit(".quad %v\n", init.Val)
-		}
-	case parse.IsPtrType(g.Type):
-		if init == nil {
-			e.emit(".quad 0\n")
-		} else {
+		case parse.IsPtrType(g.Type):
 			e.emit(".quad %s\n", init.Label)
+		default:
 		}
-	default:
 	}
 }
 
@@ -120,9 +116,16 @@ func (e *emitter) emitExpr(f *parse.Function, expr parse.Node) {
 		sym := expr.Sym
 		switch sym := sym.(type) {
 		case *parse.GSymbol:
-			e.emiti("leaq %s(%%rip), %%rbx\n", sym.Label)
+			e.emiti("leaq %s(%%rip), %%rax\n", sym.Label)
 			if parse.IsIntType(sym.Type) || parse.IsPtrType(sym.Type) {
-				e.emiti("movq (%%rbx), %%rax\n")
+				switch sym.Type.GetSize() {
+				case 4:
+					e.emiti("movl (%%rax), %%eax\n")
+				case 8:
+					e.emiti("movq (%%rax), %%rax\n")
+				default:
+					panic("unimplemented")
+				}
 			}
 		}
 	case *parse.Constant:
@@ -223,7 +226,15 @@ func (e *emitter) emitAssign(f *parse.Function, b *parse.Binop) {
 		switch sym := sym.(type) {
 		case *parse.GSymbol:
 			e.emiti("leaq %s(%%rip), %%rbx\n", sym.Label)
-			e.emiti("movq %%rax, (%%rbx)\n")
+			switch sym.Type.GetSize() {
+			case 4:
+				e.emiti("movl %%eax, (%%rbx)\n")
+			case 8:
+				e.emiti("movq %%rax, (%%rbx)\n")
+			default:
+				panic("unimplemented")
+			}
+
 		case *parse.LSymbol:
 
 		}

@@ -637,7 +637,6 @@ func (p *parser) parseMultiplicativeExpression() Node {
 func (p *parser) parseCastExpression() Node {
 	// Cast
 	return p.parseUnaryExpression()
-	panic("unreachable")
 }
 
 func (p *parser) parseUnaryExpression() Node {
