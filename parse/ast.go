@@ -43,13 +43,13 @@ type Cast struct {
 func (c *Cast) GetType() CType      { return c.Type }
 func (c *Cast) GetPos() cpp.FilePos { return c.Pos }
 
-type CompoundStatement struct {
+type CompndStmt struct {
 	Pos  cpp.FilePos
 	Body []Node
 }
 
-func (c *CompoundStatement) GetType() CType      { return nil }
-func (c *CompoundStatement) GetPos() cpp.FilePos { return c.Pos }
+func (c *CompndStmt) GetType() CType      { return nil }
+func (c *CompndStmt) GetPos() cpp.FilePos { return c.Pos }
 
 type If struct {
 	Pos   cpp.FilePos

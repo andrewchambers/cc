@@ -69,7 +69,7 @@ func (e *emitter) emitFunction(f *parse.Function) {
 	e.emiti("pushq %%rbp\n")
 	e.emiti("movq %%rsp, %%rbp\n")
 	for _, stmt := range f.Body {
-		e.emitStatement(f, stmt)
+		e.emitStmt(f, stmt)
 	}
 	e.emiti("leave\n")
 	e.emiti("ret\n")
@@ -95,22 +95,22 @@ func (e *emitter) calcLocalOffsets(nodes []parse.Node) (int, map[*parse.LSymbol]
 	return loffset, loffsets
 }
 
-func (e *emitter) emitStatement(f *parse.Function, stmt parse.Node) {
+func (e *emitter) emitStmt(f *parse.Function, stmt parse.Node) {
 	switch stmt := stmt.(type) {
 	case *parse.If:
 		e.emitIf(f, stmt)
 	case *parse.Return:
 		e.emitReturn(f, stmt)
-	case *parse.CompoundStatement:
-		e.emitCompoundStatement(f, stmt)
+	case *parse.CompndStmt:
+		e.emitCompndStmt(f, stmt)
 	default:
 		e.emitExpr(f, stmt)
 	}
 }
 
-func (e *emitter) emitCompoundStatement(f *parse.Function, c *parse.CompoundStatement) {
+func (e *emitter) emitCompndStmt(f *parse.Function, c *parse.CompndStmt) {
 	for _, stmt := range c.Body {
-		e.emitStatement(f, stmt)
+		e.emitStmt(f, stmt)
 	}
 }
 
@@ -118,10 +118,10 @@ func (e *emitter) emitIf(f *parse.Function, i *parse.If) {
 	e.emitExpr(f, i.Expr)
 	e.emiti("test %%rax, %%rax\n")
 	e.emiti("jz %s\n", i.LElse)
-	e.emitStatement(f, i.Stmt)
+	e.emitStmt(f, i.Stmt)
 	e.emit("%s:\n", i.LElse)
 	if i.Else != nil {
-		e.emitStatement(f, i.Else)
+		e.emitStmt(f, i.Else)
 	}
 }
 

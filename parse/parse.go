@@ -103,7 +103,7 @@ func (p *parser) tryCastToBool(n Node) *Cast {
 func (p *parser) parseTranslationUnit() []Node {
 	var topLevels []Node
 	for p.curt.Kind != cpp.EOF {
-		toplevel := p.parseDeclaration(true)
+		toplevel := p.parseDecl(true)
 		topLevels = append(topLevels, toplevel)
 	}
 	return topLevels
@@ -118,14 +118,14 @@ func isDeclStart(t cpp.TokenKind) bool {
 	return false
 }
 
-func (p *parser) parseStatement() Node {
+func (p *parser) parseStmt() Node {
 	if p.nextt.Kind == ':' {
 		p.expect(cpp.IDENT)
 		p.expect(':')
-		return p.parseStatement()
+		return p.parseStmt()
 	}
 	if isDeclStart(p.curt.Kind) {
-		return p.parseDeclaration(false)
+		return p.parseDecl(false)
 	} else {
 		switch p.curt.Kind {
 		case cpp.GOTO:
@@ -147,7 +147,7 @@ func (p *parser) parseStatement() Node {
 		case '{':
 			return p.parseBlock()
 		default:
-			expr := p.parseExpression()
+			expr := p.parseExpr()
 			p.expect(';')
 			return expr
 		}
@@ -158,7 +158,7 @@ func (p *parser) parseStatement() Node {
 func (p *parser) parseReturn() Node {
 	pos := p.curt.Pos
 	p.expect(cpp.RETURN)
-	expr := p.parseExpression()
+	expr := p.parseExpr()
 	p.expect(';')
 	return &Return{
 		Pos:  pos,
@@ -171,14 +171,14 @@ func (p *parser) parseIf() Node {
 	lelse := p.NextLabel()
 	p.expect(cpp.IF)
 	p.expect('(')
-	expr := p.parseExpression()
+	expr := p.parseExpr()
 	expr = p.tryCastToBool(expr)
 	p.expect(')')
-	stmt := p.parseStatement()
+	stmt := p.parseStmt()
 	var els Node
 	if p.curt.Kind == cpp.ELSE {
 		p.next()
-		els = p.parseStatement()
+		els = p.parseStmt()
 	}
 	return &If{
 		Pos:   ifpos,
@@ -193,47 +193,47 @@ func (p *parser) parseFor() {
 	p.expect(cpp.FOR)
 	p.expect('(')
 	if p.curt.Kind != ';' {
-		p.parseExpression()
+		p.parseExpr()
 	}
 	p.expect(';')
 	if p.curt.Kind != ';' {
-		p.parseExpression()
+		p.parseExpr()
 	}
 	p.expect(';')
 	if p.curt.Kind != ')' {
-		p.parseExpression()
+		p.parseExpr()
 	}
 	p.expect(')')
-	p.parseStatement()
+	p.parseStmt()
 }
 
 func (p *parser) parseWhile() {
 	p.expect(cpp.WHILE)
 	p.expect('(')
-	p.parseExpression()
+	p.parseExpr()
 	p.expect(')')
-	p.parseStatement()
+	p.parseStmt()
 }
 
 func (p *parser) parseDoWhile() {
 	p.expect(cpp.DO)
-	p.parseStatement()
+	p.parseStmt()
 	p.expect(cpp.WHILE)
 	p.expect('(')
-	p.parseExpression()
+	p.parseExpr()
 	p.expect(')')
 	p.expect(';')
 }
 
-func (p *parser) parseBlock() *CompoundStatement {
+func (p *parser) parseBlock() *CompndStmt {
 	var stmts []Node
 	pos := p.curt.Pos
 	p.expect('{')
 	for p.curt.Kind != '}' {
-		stmts = append(stmts, p.parseStatement())
+		stmts = append(stmts, p.parseStmt())
 	}
 	p.expect('}')
-	return &CompoundStatement{
+	return &CompndStmt{
 		Pos:  pos,
 		Body: stmts,
 	}
@@ -241,17 +241,17 @@ func (p *parser) parseBlock() *CompoundStatement {
 
 func (p *parser) parseFuncBody(f *Function) {
 	for p.curt.Kind != '}' {
-		stmt := p.parseStatement()
+		stmt := p.parseStmt()
 		f.Body = append(f.Body, stmt)
 	}
 }
 
-func (p *parser) parseDeclaration(isGlobal bool) Node {
+func (p *parser) parseDecl(isGlobal bool) Node {
 	firstDecl := true
 	declPos := p.curt.Pos
 	var name *cpp.Token
 	declList := &DeclList{}
-	_, ty := p.parseDeclarationSpecifiers()
+	_, ty := p.parseDeclSpecifiers()
 	for {
 		name, ty = p.parseDeclarator(ty)
 		if name == nil {
@@ -321,12 +321,12 @@ func (p *parser) parseDeclaration(isGlobal bool) Node {
 	return declList
 }
 
-func (p *parser) parseParameterDeclaration() (*cpp.Token, CType) {
-	_, ty := p.parseDeclarationSpecifiers()
+func (p *parser) parseParamDecl() (*cpp.Token, CType) {
+	_, ty := p.parseDeclSpecifiers()
 	return p.parseDeclarator(ty)
 }
 
-func (p *parser) parseDeclarationSpecifiers() (SClass, CType) {
+func (p *parser) parseDeclSpecifiers() (SClass, CType) {
 	sc := SC_AUTO
 	ty := CInt
 	for {
@@ -359,7 +359,7 @@ func (p *parser) parseDeclarationSpecifiers() (SClass, CType) {
 // Declarator
 // ----------
 //
-// A declarator is the part of a declaration that specifies
+// A declarator is the part of a Decl that specifies
 // the name that is to be introduced into the program.
 //
 // unsigned int a, *b, **c, *const*d *volatile*e ;
@@ -430,7 +430,7 @@ func (p *parser) parseDeclaratorTail(basety CType) CType {
 			p.next()
 			if p.curt.Kind != ')' {
 				for {
-					pnametok, pty := p.parseParameterDeclaration()
+					pnametok, pty := p.parseParamDecl()
 					pname := ""
 					if pnametok != nil {
 						pname = pnametok.Val
@@ -465,7 +465,7 @@ func isAssignmentOperator(k cpp.TokenKind) bool {
 	return false
 }
 
-func (p *parser) parseExpression() Node {
+func (p *parser) parseExpr() Node {
 	var ret Node
 	for {
 		ret = p.parseAssignmentExpression()
@@ -722,7 +722,7 @@ loop:
 				p.errorPos(p.curt.Pos, "Can only index into array or pointer types")
 			}
 			p.next()
-			idx := p.parseExpression()
+			idx := p.parseExpr()
 			p.expect(']')
 			l = &Index{
 				Arr: l,
@@ -736,7 +736,7 @@ loop:
 			p.next()
 			if p.curt.Kind != ')' {
 				for {
-					p.parseExpression()
+					p.parseExpr()
 					if p.curt.Kind == ',' {
 						p.next()
 						continue
@@ -795,7 +795,7 @@ func (p *parser) parsePrimaryExpression() Node {
 		p.next()
 	case '(':
 		p.next()
-		p.parseExpression()
+		p.parseExpr()
 		p.expect(')')
 	default:
 		p.errorPos(p.curt.Pos, "expected an identifier, constant, string or expression")
@@ -814,7 +814,7 @@ func (p *parser) parseStruct() CType {
 			if p.curt.Kind == '}' {
 				break
 			}
-			_, basety := p.parseDeclarationSpecifiers()
+			_, basety := p.parseDeclSpecifiers()
 			for {
 				p.parseDeclarator(basety)
 				if p.curt.Kind == ',' {
