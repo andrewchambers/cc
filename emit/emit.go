@@ -97,10 +97,31 @@ func (e *emitter) calcLocalOffsets(nodes []parse.Node) (int, map[*parse.LSymbol]
 
 func (e *emitter) emitStatement(f *parse.Function, stmt parse.Node) {
 	switch stmt := stmt.(type) {
+	case *parse.If:
+		e.emitIf(f, stmt)
 	case *parse.Return:
 		e.emitReturn(f, stmt)
+	case *parse.CompoundStatement:
+		e.emitCompoundStatement(f, stmt)
 	default:
 		e.emitExpr(f, stmt)
+	}
+}
+
+func (e *emitter) emitCompoundStatement(f *parse.Function, c *parse.CompoundStatement) {
+	for _, stmt := range c.Body {
+		e.emitStatement(f, stmt)
+	}
+}
+
+func (e *emitter) emitIf(f *parse.Function, i *parse.If) {
+	e.emitExpr(f, i.Expr)
+	e.emiti("test %%rax, %%rax\n")
+	e.emiti("jz %s\n", i.LElse)
+	e.emitStatement(f, i.Stmt)
+	e.emit("%s:\n", i.LElse)
+	if i.Else != nil {
+		e.emitStatement(f, i.Else)
 	}
 }
 
@@ -136,9 +157,15 @@ func (e *emitter) emitExpr(f *parse.Function, expr parse.Node) {
 		e.emitBinop(f, expr)
 	case *parse.Index:
 		e.emitIndex(f, expr)
+	case *parse.Cast:
+		e.emitCast(f, expr)
 	default:
 		panic(expr)
 	}
+}
+
+func (e *emitter) emitCast(f *parse.Function, c *parse.Cast) {
+	e.emitExpr(f, c.Operand)
 }
 
 func (e *emitter) emitBinop(f *parse.Function, b *parse.Binop) {

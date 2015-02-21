@@ -34,6 +34,34 @@ type Index struct {
 func (i *Index) GetType() CType      { return i.Type }
 func (i *Index) GetPos() cpp.FilePos { return i.Pos }
 
+type Cast struct {
+	Pos     cpp.FilePos
+	Operand Node
+	Type    CType
+}
+
+func (c *Cast) GetType() CType      { return c.Type }
+func (c *Cast) GetPos() cpp.FilePos { return c.Pos }
+
+type CompoundStatement struct {
+	Pos  cpp.FilePos
+	Body []Node
+}
+
+func (c *CompoundStatement) GetType() CType      { return nil }
+func (c *CompoundStatement) GetPos() cpp.FilePos { return c.Pos }
+
+type If struct {
+	Pos   cpp.FilePos
+	Expr  Node
+	Stmt  Node
+	Else  Node
+	LElse string
+}
+
+func (i *If) GetType() CType      { return nil }
+func (i *If) GetPos() cpp.FilePos { return i.Pos }
+
 type Unop struct {
 	Op      cpp.TokenKind
 	Pos     cpp.FilePos

@@ -23,10 +23,17 @@ type parser struct {
 	decls       *scope
 	pp          *cpp.Preprocessor
 	curt, nextt *cpp.Token
+
+	lcounter int
 }
 
 type parseErrorBreakOut struct {
 	err error
+}
+
+func (p *parser) NextLabel() string {
+	p.lcounter += 1
+	return fmt.Sprintf(".L%d", p.lcounter)
 }
 
 func Parse(pp *cpp.Preprocessor) (toplevels []Node, errRet error) {
@@ -80,6 +87,19 @@ func (p *parser) next() {
 	p.nextt = t
 }
 
+func (p *parser) tryCastToBool(n Node) *Cast {
+	if IsIntType(n.GetType()) || IsPtrType(n.GetType()) {
+		return &Cast{
+			Pos:     n.GetPos(),
+			Operand: n,
+			Type:    CBool,
+		}
+	}
+	p.errorPos(n.GetPos(), "bad cast")
+	panic("unreachable")
+
+}
+
 func (p *parser) parseTranslationUnit() []Node {
 	var topLevels []Node
 	for p.curt.Kind != cpp.EOF {
@@ -123,9 +143,9 @@ func (p *parser) parseStatement() Node {
 		case cpp.FOR:
 			p.parseFor()
 		case cpp.IF:
-			p.parseIf()
+			return p.parseIf()
 		case '{':
-			p.parseBlock()
+			return p.parseBlock()
 		default:
 			expr := p.parseExpression()
 			p.expect(';')
@@ -146,15 +166,26 @@ func (p *parser) parseReturn() Node {
 	}
 }
 
-func (p *parser) parseIf() {
+func (p *parser) parseIf() Node {
+	ifpos := p.curt.Pos
+	lelse := p.NextLabel()
 	p.expect(cpp.IF)
 	p.expect('(')
-	p.parseExpression()
+	expr := p.parseExpression()
+	expr = p.tryCastToBool(expr)
 	p.expect(')')
-	p.parseStatement()
+	stmt := p.parseStatement()
+	var els Node
 	if p.curt.Kind == cpp.ELSE {
 		p.next()
-		p.parseStatement()
+		els = p.parseStatement()
+	}
+	return &If{
+		Pos:   ifpos,
+		Expr:  expr,
+		Stmt:  stmt,
+		Else:  els,
+		LElse: lelse,
 	}
 }
 
@@ -194,12 +225,18 @@ func (p *parser) parseDoWhile() {
 	p.expect(';')
 }
 
-func (p *parser) parseBlock() {
+func (p *parser) parseBlock() *CompoundStatement {
+	var stmts []Node
+	pos := p.curt.Pos
 	p.expect('{')
 	for p.curt.Kind != '}' {
-		p.parseStatement()
+		stmts = append(stmts, p.parseStatement())
 	}
 	p.expect('}')
+	return &CompoundStatement{
+		Pos:  pos,
+		Body: stmts,
+	}
 }
 
 func (p *parser) parseFuncBody(f *Function) {
