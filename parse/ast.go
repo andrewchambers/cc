@@ -80,7 +80,8 @@ type For struct {
 	Pos    cpp.FilePos
 	Init   Node
 	Cond   Node
-	Post   Node
+	Step   Node
+	Body   Node
 	LStart string
 	LEnd   string
 }

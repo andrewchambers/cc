@@ -107,6 +107,8 @@ func (e *emitter) emitStmt(f *parse.Function, stmt parse.Node) {
 		e.emitIf(f, stmt)
 	case *parse.While:
 		e.emitWhile(f, stmt)
+	case *parse.For:
+		e.emitFor(f, stmt)
 	case *parse.Return:
 		e.emitReturn(f, stmt)
 	case *parse.CompndStmt:
@@ -128,6 +130,18 @@ func (e *emitter) emitWhile(f *parse.Function, w *parse.While) {
 	e.emitStmt(f, w.Body)
 	e.emiti("jmp %s\n", w.LStart)
 	e.emit("%s:\n", w.LEnd)
+}
+
+func (e *emitter) emitFor(f *parse.Function, fr *parse.For) {
+	e.emitExpr(f, fr.Init)
+	e.emit("%s:\n", fr.LStart)
+	e.emitExpr(f, fr.Cond)
+	e.emiti("test %%rax, %%rax\n")
+	e.emiti("jz %s\n", fr.LEnd)
+	e.emitStmt(f, fr.Body)
+	e.emitExpr(f, fr.Step)
+	e.emiti("jmp %s\n", fr.LStart)
+	e.emit("%s:\n", fr.LEnd)
 }
 
 func (e *emitter) emitCompndStmt(f *parse.Function, c *parse.CompndStmt) {
@@ -211,11 +225,22 @@ func (e *emitter) emitBinop(f *parse.Function, b *parse.Binop) {
 		case '*':
 			e.emiti("imul %%rax, %%rbx\n")
 			e.emiti("movq %%rbx, %%rax\n")
-		case cpp.EQL:
+		case cpp.EQL, '>', '<':
 			leq := e.NextLabel()
 			lafter := e.NextLabel()
+			opc := ""
+			switch b.Op {
+			case cpp.EQL:
+				opc = "je"
+			case '<':
+				opc = "jl"
+			case '>':
+				opc = "jg"
+			default:
+				panic("internal error")
+			}
 			e.emiti("cmp %%rax, %%rbx\n")
-			e.emiti("je %s\n", leq)
+			e.emiti("%s %s\n", opc, leq)
 			e.emiti("movq $0, %%rax\n")
 			e.emiti("jmp %s\n", lafter)
 			e.emiti("%s:\n", leq)

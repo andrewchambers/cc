@@ -145,7 +145,7 @@ func (p *parser) parseStmt() Node {
 		case cpp.DO:
 			p.parseDoWhile()
 		case cpp.FOR:
-			p.parseFor()
+			return p.parseFor()
 		case cpp.IF:
 			return p.parseIf()
 		case '{':
@@ -197,22 +197,35 @@ func (p *parser) parseIf() Node {
 	}
 }
 
-func (p *parser) parseFor() {
+func (p *parser) parseFor() Node {
+	pos := p.curt.Pos
+	lstart := p.NextLabel()
+	lend := p.NextLabel()
+	var init, cond, step Expr
 	p.expect(cpp.FOR)
 	p.expect('(')
 	if p.curt.Kind != ';' {
-		p.parseExpr()
+		init = p.parseExpr()
 	}
 	p.expect(';')
 	if p.curt.Kind != ';' {
-		p.parseExpr()
+		cond = p.parseExpr()
 	}
 	p.expect(';')
 	if p.curt.Kind != ')' {
-		p.parseExpr()
+		step = p.parseExpr()
 	}
 	p.expect(')')
-	p.parseStmt()
+	body := p.parseStmt()
+	return &For{
+		Pos:    pos,
+		Init:   init,
+		Cond:   cond,
+		Step:   step,
+		Body:   body,
+		LStart: lstart,
+		LEnd:   lend,
+	}
 }
 
 func (p *parser) parseWhile() Node {
@@ -628,10 +641,11 @@ func (p *parser) parseRelationalExpr() Expr {
 		p.next()
 		r := p.parseShiftExpr()
 		l = &Binop{
-			Pos: pos,
-			Op:  op,
-			L:   l,
-			R:   r,
+			Pos:  pos,
+			Op:   op,
+			L:    l,
+			R:    r,
+			Type: CInt,
 		}
 	}
 	return l

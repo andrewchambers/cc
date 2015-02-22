@@ -1,5 +1,5 @@
 
-x = 0;
+x = 5;
 
 int main() {
 	for(x = 0; x < 10 ; x = x + 1)
