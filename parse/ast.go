@@ -176,6 +176,8 @@ func (i *Ident) GetType() CType {
 	switch sym := i.Sym.(type) {
 	case *GSymbol:
 		return sym.Type
+	case *LSymbol:
+		return sym.Type
 	}
 	panic("unimplemented")
 }

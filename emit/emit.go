@@ -8,10 +8,9 @@ import (
 )
 
 type emitter struct {
-	o              io.Writer
-	labelcounter   int
-	curlocaloffset int
-	loffsets       map[*parse.LSymbol]int
+	o            io.Writer
+	labelcounter int
+	loffsets     map[*parse.LSymbol]int
 }
 
 func (e *emitter) NextLabel() string {
@@ -68,12 +67,14 @@ func (e *emitter) emitGlobal(g *parse.GSymbol, init *parse.FoldedConstant) {
 }
 
 func (e *emitter) emitFunction(f *parse.Function) {
-	e.curlocaloffset, e.loffsets = e.calcLocalOffsets(f.Body)
+	curlocaloffset, loffsets := e.calcLocalOffsets(f.Body)
+	e.loffsets = loffsets
 	e.emit(".text\n")
 	e.emit(".global %s\n", f.Name)
 	e.emit("%s:\n", f.Name)
 	e.emiti("pushq %%rbp\n")
 	e.emiti("movq %%rsp, %%rbp\n")
+	e.emiti("sub $%d, %%rsp\n", -curlocaloffset)
 	for _, stmt := range f.Body {
 		e.emitStmt(f, stmt)
 	}
@@ -82,7 +83,7 @@ func (e *emitter) emitFunction(f *parse.Function) {
 }
 
 func (e *emitter) calcLocalOffsets(nodes []parse.Node) (int, map[*parse.LSymbol]int) {
-	loffset := 0
+	loffset := -8
 	loffsets := make(map[*parse.LSymbol]int)
 	for _, n := range nodes {
 		switch n := n.(type) {
@@ -93,7 +94,12 @@ func (e *emitter) calcLocalOffsets(nodes []parse.Node) (int, map[*parse.LSymbol]
 					continue
 				}
 				loffsets[lsym] = loffset
-				loffset -= 8
+				sz := lsym.Type.GetSize()
+				if sz < 8 {
+					sz = 8
+				}
+				sz = sz + (sz % 8)
+				loffset -= sz
 			}
 
 		}
@@ -123,6 +129,8 @@ func (e *emitter) emitStmt(f *parse.Function, stmt parse.Node) {
 		e.emit("%s:\n", stmt.AnonLabel)
 		e.emitStmt(f, stmt.Stmt)
 	case *parse.EmptyStmt:
+		// pass
+	case *parse.DeclList:
 		// pass
 	default:
 		panic(stmt)
@@ -196,6 +204,20 @@ func (e *emitter) emitExpr(f *parse.Function, expr parse.Node) {
 	case *parse.Ident:
 		sym := expr.Sym
 		switch sym := sym.(type) {
+		case *parse.LSymbol:
+			offset := e.loffsets[sym]
+			if parse.IsIntType(sym.Type) || parse.IsPtrType(sym.Type) {
+				switch sym.Type.GetSize() {
+				case 4:
+					e.emiti("movl %d(%%rbp), %%eax\n", offset)
+				case 8:
+					e.emiti("movq %d(%%rbp), %%rax\n", offset)
+				default:
+					panic("unimplemented")
+				}
+			} else {
+				e.emiti("leaq %d(%%rbp), %%rax\n", offset)
+			}
 		case *parse.GSymbol:
 			e.emiti("leaq %s(%%rip), %%rax\n", sym.Label)
 			if parse.IsIntType(sym.Type) || parse.IsPtrType(sym.Type) {
@@ -345,7 +367,15 @@ func (e *emitter) emitAssign(f *parse.Function, b *parse.Binop) {
 				panic("unimplemented")
 			}
 		case *parse.LSymbol:
-
+			offset := e.loffsets[sym]
+			switch sym.Type.GetSize() {
+			case 4:
+				e.emiti("movl %%eax, %d(%%rbp)\n", offset)
+			case 8:
+				e.emiti("movq %%rax, %d(%%rbp)\n", offset)
+			default:
+				panic("unimplemented")
+			}
 		}
 	}
 }
