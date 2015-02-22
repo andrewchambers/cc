@@ -119,6 +119,9 @@ func (e *emitter) emitStmt(f *parse.Function, stmt parse.Node) {
 		e.emitExpr(f, stmt.Expr)
 	case *parse.Goto:
 		e.emiti("jmp %s\n", stmt.Label)
+	case *parse.LabeledStmt:
+		e.emit("%s:\n", stmt.AnonLabel)
+		e.emitStmt(f, stmt.Stmt)
 	case *parse.EmptyStmt:
 		// pass
 	default:

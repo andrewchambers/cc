@@ -75,6 +75,15 @@ type Goto struct {
 
 func (g *Goto) GetPos() cpp.FilePos { return g.Pos }
 
+type LabeledStmt struct {
+	Pos       cpp.FilePos
+	AnonLabel string
+	Label     string
+	Stmt      Node
+}
+
+func (l *LabeledStmt) GetPos() cpp.FilePos { return l.Pos }
+
 type If struct {
 	Pos   cpp.FilePos
 	Cond  Node

@@ -22,6 +22,11 @@ type parseErrorBreakOut struct {
 	err error
 }
 
+type gotoFixup struct {
+	actualLabel string
+	g           *Goto
+}
+
 type parser struct {
 	types       *scope
 	decls       *scope
@@ -33,6 +38,12 @@ type parser struct {
 	breaks       [2048]string
 	contCounter  int
 	continues    [2048]string
+
+	// Map of goto labels to anonymous labels.
+	labels map[string]string
+	// All gotos found in the current function.
+	// Needed so we can fix up forward references.
+	gotos []gotoFixup
 }
 
 func (p *parser) pushBreak(blabel string) {
@@ -172,18 +183,14 @@ func isDeclStart(t cpp.TokenKind) bool {
 
 func (p *parser) parseStmt() Node {
 	if p.nextt.Kind == ':' {
-		p.expect(cpp.IDENT)
-		p.expect(':')
-		return p.parseStmt()
+		return p.parseLabeledStmt()
 	}
 	if isDeclStart(p.curt.Kind) {
 		return p.parseDecl(false)
 	} else {
 		switch p.curt.Kind {
 		case cpp.GOTO:
-			p.next()
-			p.expect(cpp.IDENT)
-			p.expect(';')
+			return p.parseGoto()
 		case ';':
 			pos := p.curt.Pos
 			p.next()
@@ -215,6 +222,42 @@ func (p *parser) parseStmt() Node {
 		}
 	}
 	panic("unreachable.")
+}
+
+func (p *parser) parseGoto() Node {
+	pos := p.curt.Pos
+	p.next()
+	actualLabel := p.curt.Val
+	p.expect(cpp.IDENT)
+	p.expect(';')
+	ret := &Goto{
+		Pos:   pos,
+		Label: "", // To be fixed later.
+	}
+	p.gotos = append(p.gotos, gotoFixup{
+		actualLabel,
+		ret,
+	})
+	return ret
+}
+
+func (p *parser) parseLabeledStmt() Node {
+	pos := p.curt.Pos
+	label := p.curt.Val
+	anonlabel := p.nextLabel()
+	_, ok := p.labels[label]
+	if ok {
+		p.errorPos(pos, "redefinition of label %s in function", label)
+	}
+	p.labels[label] = anonlabel
+	p.expect(cpp.IDENT)
+	p.expect(':')
+	return &LabeledStmt{
+		Pos:       pos,
+		Label:     label,
+		AnonLabel: anonlabel,
+		Stmt:      p.parseStmt(),
+	}
 }
 
 func (p *parser) parseBreakCont() Node {
@@ -370,9 +413,18 @@ func (p *parser) parseBlock() *CompndStmt {
 }
 
 func (p *parser) parseFuncBody(f *Function) {
+	p.labels = make(map[string]string)
+	p.gotos = nil
 	for p.curt.Kind != '}' {
 		stmt := p.parseStmt()
 		f.Body = append(f.Body, stmt)
+	}
+	for _, fixup := range p.gotos {
+		anonlabel, ok := p.labels[fixup.actualLabel]
+		if !ok {
+			p.errorPos(fixup.g.GetPos(), "goto target %s is undefined", fixup.actualLabel)
+		}
+		fixup.g.Label = anonlabel
 	}
 }
 
