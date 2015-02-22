@@ -1,8 +1,8 @@
 
-x;
-arr[20];
-*p = &x;
-**p2 = &p;
+int x;
+int arr[20];
+int *p = &x;
+int **p2 = &p;
 
 int main() {
     x = 1;
