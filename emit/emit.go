@@ -341,7 +341,6 @@ func (e *emitter) emitAssign(f *parse.Function, b *parse.Binop) {
 			default:
 				panic("unimplemented")
 			}
-
 		case *parse.LSymbol:
 
 		}

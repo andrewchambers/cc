@@ -29,36 +29,58 @@ type parser struct {
 	curt, nextt *cpp.Token
 	lcounter    int
 
-	breakContCounter int
-	breaks           [2048]string
-	continues        [2048]string
+	breakCounter int
+	breaks       [2048]string
+	contCounter  int
+	continues    [2048]string
 }
 
-func (p *parser) pushBreakCont(blabel, clabel string) {
-	p.breaks[p.breakContCounter] = blabel
-	p.continues[p.breakContCounter] = clabel
-	p.breakContCounter += 1
+func (p *parser) pushBreak(blabel string) {
+	p.breaks[p.breakCounter] = blabel
+	p.breakCounter += 1
 }
 
-func (p *parser) popBreakCont() {
-	p.breakContCounter -= 1
-	if p.breakContCounter < 0 {
+func (p *parser) pushCont(clabel string) {
+	p.continues[p.contCounter] = clabel
+	p.contCounter += 1
+}
+
+func (p *parser) popBreak() {
+	p.breakCounter -= 1
+	if p.breakCounter < 0 {
 		panic("internal error")
 	}
 }
 
+func (p *parser) popCont() {
+	p.contCounter -= 1
+	if p.contCounter < 0 {
+		panic("internal error")
+	}
+}
+
+func (p *parser) pushBreakCont(blabel, clabel string) {
+	p.pushBreak(blabel)
+	p.pushCont(clabel)
+}
+
+func (p *parser) popBreakCont() {
+	p.popBreak()
+	p.popCont()
+}
+
 func (p *parser) getBreakLabel() string {
-	if p.breakContCounter == 0 {
+	if p.breakCounter == 0 {
 		return ""
 	}
-	return p.breaks[p.breakContCounter-1]
+	return p.breaks[p.breakCounter-1]
 }
 
 func (p *parser) getContLabel() string {
-	if p.breakContCounter == 0 {
+	if p.contCounter == 0 {
 		return ""
 	}
-	return p.continues[p.breakContCounter-1]
+	return p.continues[p.contCounter-1]
 }
 
 func (p *parser) nextLabel() string {
