@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -44,6 +45,8 @@ func TestCC(t *testing.T) {
 			t.Errorf("running %s failed. %s", bpath, err)
 			continue
 		}
-		t.Logf("%s OK", tpath)
+		if testing.Verbose() {
+			fmt.Printf("%s OK\n", tpath)
+		}
 	}
 }

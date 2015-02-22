@@ -87,7 +87,7 @@ func (p *parser) next() {
 	p.nextt = t
 }
 
-func (p *parser) tryCastToBool(n Node) *Cast {
+func (p *parser) tryCastToBool(n Expr) *Cast {
 	if IsIntType(n.GetType()) || IsPtrType(n.GetType()) {
 		return &Cast{
 			Pos:     n.GetPos(),
@@ -413,12 +413,12 @@ func (p *parser) parseDeclaratorTail(basety CType) CType {
 			p.next()
 			var dimn Node
 			if p.curt.Kind != ']' {
-				dimn = p.parseAssignmentExpression()
+				dimn = p.parseAssignmentExpr()
 			}
 			p.expect(']')
 			dim, err := Fold(dimn)
 			if err != nil {
-				p.errorPos(dimn.GetPos(), "invalid constant expression for array dimensions")
+				p.errorPos(dimn.GetPos(), "invalid constant Expr for array dimensions")
 			}
 			ret = &Array{
 				Dim:        int(dim.Val),
@@ -453,7 +453,7 @@ func (p *parser) parseDeclaratorTail(basety CType) CType {
 }
 
 func (p *parser) parseInitializer() Node {
-	return p.parseAssignmentExpression()
+	return p.parseAssignmentExpr()
 }
 
 func isAssignmentOperator(k cpp.TokenKind) bool {
@@ -465,10 +465,10 @@ func isAssignmentOperator(k cpp.TokenKind) bool {
 	return false
 }
 
-func (p *parser) parseExpr() Node {
-	var ret Node
+func (p *parser) parseExpr() Expr {
+	var ret Expr
 	for {
-		ret = p.parseAssignmentExpression()
+		ret = p.parseAssignmentExpr()
 		if p.curt.Kind != ',' {
 			break
 		}
@@ -477,13 +477,13 @@ func (p *parser) parseExpr() Node {
 	return ret
 }
 
-func (p *parser) parseAssignmentExpression() Node {
-	l := p.parseConditionalExpression()
+func (p *parser) parseAssignmentExpr() Expr {
+	l := p.parseCondExpr()
 	if isAssignmentOperator(p.curt.Kind) {
 		pos := p.curt.Pos
 		op := p.curt.Kind
 		p.next()
-		r := p.parseAssignmentExpression()
+		r := p.parseAssignmentExpr()
 		l = &Binop{
 			Pos: pos,
 			Op:  op,
@@ -495,17 +495,17 @@ func (p *parser) parseAssignmentExpression() Node {
 }
 
 // Aka Ternary operator.
-func (p *parser) parseConditionalExpression() Node {
-	return p.parseLogicalOrExpression()
+func (p *parser) parseCondExpr() Expr {
+	return p.parseLogOrExpr()
 }
 
-func (p *parser) parseLogicalOrExpression() Node {
-	l := p.parseLogicalAndExpression()
+func (p *parser) parseLogOrExpr() Expr {
+	l := p.parseLogAndExpr()
 	for p.curt.Kind == cpp.LOR {
 		pos := p.curt.Pos
 		op := p.curt.Kind
 		p.next()
-		r := p.parseLogicalAndExpression()
+		r := p.parseLogAndExpr()
 		l = &Binop{
 			Pos: pos,
 			Op:  op,
@@ -516,13 +516,13 @@ func (p *parser) parseLogicalOrExpression() Node {
 	return l
 }
 
-func (p *parser) parseLogicalAndExpression() Node {
-	l := p.parseInclusiveOrExpression()
+func (p *parser) parseLogAndExpr() Expr {
+	l := p.parseInclusiveOrExpr()
 	for p.curt.Kind == cpp.LAND {
 		pos := p.curt.Pos
 		op := p.curt.Kind
 		p.next()
-		r := p.parseInclusiveOrExpression()
+		r := p.parseInclusiveOrExpr()
 		l = &Binop{
 			Pos: pos,
 			Op:  op,
@@ -533,13 +533,13 @@ func (p *parser) parseLogicalAndExpression() Node {
 	return l
 }
 
-func (p *parser) parseInclusiveOrExpression() Node {
-	l := p.parseExclusiveOrExpression()
+func (p *parser) parseInclusiveOrExpr() Expr {
+	l := p.parseExclusiveOrExpr()
 	for p.curt.Kind == '|' {
 		pos := p.curt.Pos
 		op := p.curt.Kind
 		p.next()
-		r := p.parseExclusiveOrExpression()
+		r := p.parseExclusiveOrExpr()
 		l = &Binop{
 			Pos: pos,
 			Op:  op,
@@ -550,13 +550,13 @@ func (p *parser) parseInclusiveOrExpression() Node {
 	return l
 }
 
-func (p *parser) parseExclusiveOrExpression() Node {
-	l := p.parseAndExpression()
+func (p *parser) parseExclusiveOrExpr() Expr {
+	l := p.parseAndExpr()
 	for p.curt.Kind == '^' {
 		pos := p.curt.Pos
 		op := p.curt.Kind
 		p.next()
-		r := p.parseAndExpression()
+		r := p.parseAndExpr()
 		l = &Binop{
 			Pos: pos,
 			Op:  op,
@@ -567,13 +567,13 @@ func (p *parser) parseExclusiveOrExpression() Node {
 	return l
 }
 
-func (p *parser) parseAndExpression() Node {
-	l := p.parseEqualityExpression()
+func (p *parser) parseAndExpr() Expr {
+	l := p.parseEqualityExpr()
 	for p.curt.Kind == '&' {
 		pos := p.curt.Pos
 		op := p.curt.Kind
 		p.next()
-		r := p.parseEqualityExpression()
+		r := p.parseEqualityExpr()
 		l = &Binop{
 			Pos: pos,
 			Op:  op,
@@ -584,13 +584,13 @@ func (p *parser) parseAndExpression() Node {
 	return l
 }
 
-func (p *parser) parseEqualityExpression() Node {
-	l := p.parseRelationalExpression()
+func (p *parser) parseEqualityExpr() Expr {
+	l := p.parseRelationalExpr()
 	for p.curt.Kind == cpp.EQL || p.curt.Kind == cpp.NEQ {
 		pos := p.curt.Pos
 		op := p.curt.Kind
 		p.next()
-		r := p.parseRelationalExpression()
+		r := p.parseRelationalExpr()
 		l = &Binop{
 			Pos: pos,
 			Op:  op,
@@ -601,13 +601,13 @@ func (p *parser) parseEqualityExpression() Node {
 	return l
 }
 
-func (p *parser) parseRelationalExpression() Node {
-	l := p.parseShiftExpression()
+func (p *parser) parseRelationalExpr() Expr {
+	l := p.parseShiftExpr()
 	for p.curt.Kind == '>' || p.curt.Kind == '<' || p.curt.Kind == cpp.LEQ || p.curt.Kind == cpp.GEQ {
 		pos := p.curt.Pos
 		op := p.curt.Kind
 		p.next()
-		r := p.parseShiftExpression()
+		r := p.parseShiftExpr()
 		l = &Binop{
 			Pos: pos,
 			Op:  op,
@@ -618,13 +618,13 @@ func (p *parser) parseRelationalExpression() Node {
 	return l
 }
 
-func (p *parser) parseShiftExpression() Node {
-	l := p.parseAdditiveExpression()
+func (p *parser) parseShiftExpr() Expr {
+	l := p.parseAdditiveExpr()
 	for p.curt.Kind == cpp.SHL || p.curt.Kind == cpp.SHR {
 		pos := p.curt.Pos
 		op := p.curt.Kind
 		p.next()
-		r := p.parseAdditiveExpression()
+		r := p.parseAdditiveExpr()
 		l = &Binop{
 			Pos: pos,
 			Op:  op,
@@ -635,13 +635,13 @@ func (p *parser) parseShiftExpression() Node {
 	return l
 }
 
-func (p *parser) parseAdditiveExpression() Node {
-	l := p.parseMultiplicativeExpression()
+func (p *parser) parseAdditiveExpr() Expr {
+	l := p.parseMultiplicativeExpr()
 	for p.curt.Kind == '+' || p.curt.Kind == '-' {
 		pos := p.curt.Pos
 		op := p.curt.Kind
 		p.next()
-		r := p.parseMultiplicativeExpression()
+		r := p.parseMultiplicativeExpr()
 		l = &Binop{
 			Pos:  pos,
 			Op:   op,
@@ -653,13 +653,13 @@ func (p *parser) parseAdditiveExpression() Node {
 	return l
 }
 
-func (p *parser) parseMultiplicativeExpression() Node {
-	l := p.parseCastExpression()
+func (p *parser) parseMultiplicativeExpr() Expr {
+	l := p.parseCastExpr()
 	for p.curt.Kind == '*' || p.curt.Kind == '/' || p.curt.Kind == '%' {
 		pos := p.curt.Pos
 		op := p.curt.Kind
 		p.next()
-		r := p.parseCastExpression()
+		r := p.parseCastExpr()
 		l = &Binop{
 			Pos:  pos,
 			Op:   op,
@@ -671,21 +671,21 @@ func (p *parser) parseMultiplicativeExpression() Node {
 	return l
 }
 
-func (p *parser) parseCastExpression() Node {
+func (p *parser) parseCastExpr() Expr {
 	// Cast
-	return p.parseUnaryExpression()
+	return p.parseUnaryExpr()
 }
 
-func (p *parser) parseUnaryExpression() Node {
+func (p *parser) parseUnaryExpr() Expr {
 	switch p.curt.Kind {
 	case cpp.INC, cpp.DEC:
 		p.next()
-		p.parseUnaryExpression()
+		p.parseUnaryExpr()
 	case '*', '+', '-', '!', '~', '&':
 		pos := p.curt.Pos
 		op := p.curt.Kind
 		p.next()
-		operand := p.parseCastExpression()
+		operand := p.parseCastExpr()
 		ty := operand.GetType()
 		if op == '&' {
 			ty = &Ptr{
@@ -705,13 +705,13 @@ func (p *parser) parseUnaryExpression() Node {
 			Type:    ty,
 		}
 	default:
-		return p.parsePostfixExpression()
+		return p.parsePostfixExpr()
 	}
 	panic("unreachable")
 }
 
-func (p *parser) parsePostfixExpression() Node {
-	l := p.parsePrimaryExpression()
+func (p *parser) parsePostfixExpr() Expr {
+	l := p.parsePrimaryExpr()
 loop:
 	for {
 		switch p.curt.Kind {
@@ -756,7 +756,7 @@ loop:
 	return l
 }
 
-func constantToNode(t *cpp.Token) (Node, error) {
+func constantToExpr(t *cpp.Token) (Expr, error) {
 	switch t.Kind {
 	case cpp.INT_CONSTANT:
 		v, err := strconv.ParseInt(t.Val, 0, 64)
@@ -770,7 +770,7 @@ func constantToNode(t *cpp.Token) (Node, error) {
 	}
 }
 
-func (p *parser) parsePrimaryExpression() Node {
+func (p *parser) parsePrimaryExpr() Expr {
 	switch p.curt.Kind {
 	case cpp.IDENT:
 		sym, err := p.decls.lookup(p.curt.Val)
@@ -784,7 +784,7 @@ func (p *parser) parsePrimaryExpression() Node {
 	case cpp.INT_CONSTANT:
 		t := p.curt
 		p.next()
-		n, err := constantToNode(t)
+		n, err := constantToExpr(t)
 		if err != nil {
 			p.errorPos(t.Pos, err.Error())
 		}
@@ -798,7 +798,7 @@ func (p *parser) parsePrimaryExpression() Node {
 		p.parseExpr()
 		p.expect(')')
 	default:
-		p.errorPos(p.curt.Pos, "expected an identifier, constant, string or expression")
+		p.errorPos(p.curt.Pos, "expected an identifier, constant, string or Expr")
 	}
 	panic("unreachable")
 }

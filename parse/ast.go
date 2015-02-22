@@ -3,8 +3,12 @@ package parse
 import "github.com/andrewchambers/cc/cpp"
 
 type Node interface {
-	GetType() CType
 	GetPos() cpp.FilePos
+}
+
+type Expr interface {
+	Node
+	GetType() CType
 }
 
 type Constant struct {
@@ -21,7 +25,6 @@ type Return struct {
 	Expr Node
 }
 
-func (r *Return) GetType() CType      { return nil }
 func (r *Return) GetPos() cpp.FilePos { return r.Pos }
 
 type Index struct {
@@ -48,7 +51,6 @@ type CompndStmt struct {
 	Body []Node
 }
 
-func (c *CompndStmt) GetType() CType      { return nil }
 func (c *CompndStmt) GetPos() cpp.FilePos { return c.Pos }
 
 type If struct {
@@ -59,8 +61,18 @@ type If struct {
 	LElse string
 }
 
-func (i *If) GetType() CType      { return nil }
 func (i *If) GetPos() cpp.FilePos { return i.Pos }
+
+type For struct {
+	Pos    cpp.FilePos
+	Init   Node
+	Cond   Node
+	Post   Node
+	LStart string
+	LEnd   string
+}
+
+func (f *For) GetPos() cpp.FilePos { return f.Pos }
 
 type Unop struct {
 	Op      cpp.TokenKind
@@ -100,7 +112,6 @@ type DeclList struct {
 	FoldedInits []*FoldedConstant
 }
 
-func (d *DeclList) GetType() CType      { return nil }
 func (d *DeclList) GetPos() cpp.FilePos { return d.Pos }
 
 type Ident struct {
