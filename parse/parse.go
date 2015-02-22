@@ -18,20 +18,50 @@ const (
 	SC_GLOBAL
 )
 
+type parseErrorBreakOut struct {
+	err error
+}
+
 type parser struct {
 	types       *scope
 	decls       *scope
 	pp          *cpp.Preprocessor
 	curt, nextt *cpp.Token
+	lcounter    int
 
-	lcounter int
+	breakContCounter int
+	breaks           [2048]string
+	continues        [2048]string
 }
 
-type parseErrorBreakOut struct {
-	err error
+func (p *parser) pushBreakCont(blabel, clabel string) {
+	p.breaks[p.breakContCounter] = blabel
+	p.continues[p.breakContCounter] = clabel
+	p.breakContCounter += 1
 }
 
-func (p *parser) NextLabel() string {
+func (p *parser) popBreakCont() {
+	p.breakContCounter -= 1
+	if p.breakContCounter < 0 {
+		panic("internal error")
+	}
+}
+
+func (p *parser) getBreakLabel() string {
+	if p.breakContCounter == 0 {
+		return ""
+	}
+	return p.breaks[p.breakContCounter-1]
+}
+
+func (p *parser) getContLabel() string {
+	if p.breakContCounter == 0 {
+		return ""
+	}
+	return p.continues[p.breakContCounter-1]
+}
+
+func (p *parser) nextLabel() string {
 	p.lcounter += 1
 	return fmt.Sprintf(".L%d", p.lcounter)
 }
@@ -143,9 +173,11 @@ func (p *parser) parseStmt() Node {
 		case cpp.WHILE:
 			return p.parseWhile()
 		case cpp.DO:
-			p.parseDoWhile()
+			return p.parseDoWhile()
 		case cpp.FOR:
 			return p.parseFor()
+		case cpp.BREAK, cpp.CONTINUE:
+			return p.parseBreakCont()
 		case cpp.IF:
 			return p.parseIf()
 		case '{':
@@ -163,6 +195,33 @@ func (p *parser) parseStmt() Node {
 	panic("unreachable.")
 }
 
+func (p *parser) parseBreakCont() Node {
+	pos := p.curt.Pos
+	label := ""
+	isbreak := p.curt.Kind == cpp.BREAK
+	iscont := p.curt.Kind == cpp.CONTINUE
+	if isbreak {
+		label = p.getBreakLabel()
+		if label == "" {
+			p.errorPos(pos, "break outside of loop/switch")
+		}
+	}
+	if iscont {
+		label = p.getContLabel()
+		if label == "" {
+			p.errorPos(pos, "continue outside of loop/switch")
+		}
+	}
+	p.next()
+	p.expect(';')
+	return &Goto{
+		Pos:     pos,
+		IsBreak: isbreak,
+		IsCont:  iscont,
+		Label:   label,
+	}
+}
+
 func (p *parser) parseReturn() Node {
 	pos := p.curt.Pos
 	p.expect(cpp.RETURN)
@@ -176,7 +235,7 @@ func (p *parser) parseReturn() Node {
 
 func (p *parser) parseIf() Node {
 	ifpos := p.curt.Pos
-	lelse := p.NextLabel()
+	lelse := p.nextLabel()
 	p.expect(cpp.IF)
 	p.expect('(')
 	expr := p.parseExpr()
@@ -199,8 +258,8 @@ func (p *parser) parseIf() Node {
 
 func (p *parser) parseFor() Node {
 	pos := p.curt.Pos
-	lstart := p.NextLabel()
-	lend := p.NextLabel()
+	lstart := p.nextLabel()
+	lend := p.nextLabel()
 	var init, cond, step Expr
 	p.expect(cpp.FOR)
 	p.expect('(')
@@ -216,7 +275,9 @@ func (p *parser) parseFor() Node {
 		step = p.parseExpr()
 	}
 	p.expect(')')
+	p.pushBreakCont(lend, lstart)
 	body := p.parseStmt()
+	p.popBreakCont()
 	return &For{
 		Pos:    pos,
 		Init:   init,
@@ -230,30 +291,46 @@ func (p *parser) parseFor() Node {
 
 func (p *parser) parseWhile() Node {
 	pos := p.curt.Pos
-	lstart := p.NextLabel()
-	lend := p.NextLabel()
+	lstart := p.nextLabel()
+	lend := p.nextLabel()
 	p.expect(cpp.WHILE)
 	p.expect('(')
-	expr := p.tryCastToBool(p.parseExpr())
+	cond := p.tryCastToBool(p.parseExpr())
 	p.expect(')')
+	p.pushBreakCont(lend, lstart)
 	body := p.parseStmt()
+	p.popBreakCont()
 	return &While{
 		Pos:    pos,
-		Cond:   expr,
+		Cond:   cond,
 		Body:   body,
 		LStart: lstart,
 		LEnd:   lend,
 	}
 }
 
-func (p *parser) parseDoWhile() {
+func (p *parser) parseDoWhile() Node {
+	pos := p.curt.Pos
+	lstart := p.nextLabel()
+	lcond := p.nextLabel()
+	lend := p.nextLabel()
 	p.expect(cpp.DO)
-	p.parseStmt()
+	p.pushBreakCont(lend, lcond)
+	body := p.parseStmt()
+	p.popBreakCont()
 	p.expect(cpp.WHILE)
 	p.expect('(')
-	p.parseExpr()
+	cond := p.parseExpr()
 	p.expect(')')
 	p.expect(';')
+	return &DoWhile{
+		Pos:    pos,
+		Body:   body,
+		Cond:   cond,
+		LStart: lstart,
+		LCond:  lcond,
+		LEnd:   lend,
+	}
 }
 
 func (p *parser) parseBlock() *CompndStmt {

@@ -107,6 +107,8 @@ func (e *emitter) emitStmt(f *parse.Function, stmt parse.Node) {
 		e.emitIf(f, stmt)
 	case *parse.While:
 		e.emitWhile(f, stmt)
+	case *parse.DoWhile:
+		e.emitDoWhile(f, stmt)
 	case *parse.For:
 		e.emitFor(f, stmt)
 	case *parse.Return:
@@ -115,6 +117,8 @@ func (e *emitter) emitStmt(f *parse.Function, stmt parse.Node) {
 		e.emitCompndStmt(f, stmt)
 	case *parse.ExprStmt:
 		e.emitExpr(f, stmt.Expr)
+	case *parse.Goto:
+		e.emiti("jmp %s\n", stmt.Label)
 	case *parse.EmptyStmt:
 		// pass
 	default:
@@ -132,14 +136,31 @@ func (e *emitter) emitWhile(f *parse.Function, w *parse.While) {
 	e.emit("%s:\n", w.LEnd)
 }
 
+func (e *emitter) emitDoWhile(f *parse.Function, d *parse.DoWhile) {
+	e.emit("%s:\n", d.LStart)
+	e.emitStmt(f, d.Body)
+	e.emit("%s:\n", d.LCond)
+	e.emitExpr(f, d.Cond)
+	e.emiti("test %%rax, %%rax\n")
+	e.emiti("jz %s\n", d.LEnd)
+	e.emiti("jmp %s\n", d.LStart)
+	e.emit("%s:\n", d.LEnd)
+}
+
 func (e *emitter) emitFor(f *parse.Function, fr *parse.For) {
-	e.emitExpr(f, fr.Init)
+	if fr.Init != nil {
+		e.emitExpr(f, fr.Init)
+	}
 	e.emit("%s:\n", fr.LStart)
-	e.emitExpr(f, fr.Cond)
+	if fr.Cond != nil {
+		e.emitExpr(f, fr.Cond)
+	}
 	e.emiti("test %%rax, %%rax\n")
 	e.emiti("jz %s\n", fr.LEnd)
 	e.emitStmt(f, fr.Body)
-	e.emitExpr(f, fr.Step)
+	if fr.Step != nil {
+		e.emitExpr(f, fr.Step)
+	}
 	e.emiti("jmp %s\n", fr.LStart)
 	e.emit("%s:\n", fr.LEnd)
 }

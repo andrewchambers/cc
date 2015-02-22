@@ -66,6 +66,15 @@ type ExprStmt struct {
 
 func (e *ExprStmt) GetPos() cpp.FilePos { return e.Pos }
 
+type Goto struct {
+	IsBreak bool
+	IsCont  bool
+	Pos     cpp.FilePos
+	Label   string
+}
+
+func (g *Goto) GetPos() cpp.FilePos { return g.Pos }
+
 type If struct {
 	Pos   cpp.FilePos
 	Cond  Node
@@ -97,6 +106,17 @@ type While struct {
 }
 
 func (w *While) GetPos() cpp.FilePos { return w.Pos }
+
+type DoWhile struct {
+	Pos    cpp.FilePos
+	Cond   Node
+	Body   Node
+	LStart string
+	LCond  string
+	LEnd   string
+}
+
+func (d *DoWhile) GetPos() cpp.FilePos { return d.Pos }
 
 type Unop struct {
 	Op      cpp.TokenKind

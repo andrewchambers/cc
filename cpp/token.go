@@ -198,6 +198,8 @@ var keywordLUT = map[string]TokenKind{
 	"if":       IF,
 	"else":     ELSE,
 	"goto":     GOTO,
+	"break":    BREAK,
+	"continue": CONTINUE,
 	"struct":   STRUCT,
 	"signed":   SIGNED,
 	"unsigned": UNSIGNED,
