@@ -1,3 +1,4 @@
 cc
+cc.exe
 test/*.s
 test/*.bin
