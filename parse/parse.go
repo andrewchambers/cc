@@ -133,11 +133,15 @@ func (p *parser) parseStmt() Node {
 			p.expect(cpp.IDENT)
 			p.expect(';')
 		case ';':
+			pos := p.curt.Pos
 			p.next()
+			return &EmptyStmt{
+				Pos: pos,
+			}
 		case cpp.RETURN:
 			return p.parseReturn()
 		case cpp.WHILE:
-			p.parseWhile()
+			return p.parseWhile()
 		case cpp.DO:
 			p.parseDoWhile()
 		case cpp.FOR:
@@ -147,9 +151,13 @@ func (p *parser) parseStmt() Node {
 		case '{':
 			return p.parseBlock()
 		default:
+			pos := p.curt.Pos
 			expr := p.parseExpr()
 			p.expect(';')
-			return expr
+			return &ExprStmt{
+				Pos:  pos,
+				Expr: expr,
+			}
 		}
 	}
 	panic("unreachable.")
@@ -182,7 +190,7 @@ func (p *parser) parseIf() Node {
 	}
 	return &If{
 		Pos:   ifpos,
-		Expr:  expr,
+		Cond:  expr,
 		Stmt:  stmt,
 		Else:  els,
 		LElse: lelse,
@@ -207,12 +215,22 @@ func (p *parser) parseFor() {
 	p.parseStmt()
 }
 
-func (p *parser) parseWhile() {
+func (p *parser) parseWhile() Node {
+	pos := p.curt.Pos
+	lstart := p.NextLabel()
+	lend := p.NextLabel()
 	p.expect(cpp.WHILE)
 	p.expect('(')
-	p.parseExpr()
+	expr := p.tryCastToBool(p.parseExpr())
 	p.expect(')')
-	p.parseStmt()
+	body := p.parseStmt()
+	return &While{
+		Pos:    pos,
+		Cond:   expr,
+		Body:   body,
+		LStart: lstart,
+		LEnd:   lend,
+	}
 }
 
 func (p *parser) parseDoWhile() {
@@ -592,10 +610,11 @@ func (p *parser) parseEqualityExpr() Expr {
 		p.next()
 		r := p.parseRelationalExpr()
 		l = &Binop{
-			Pos: pos,
-			Op:  op,
-			L:   l,
-			R:   r,
+			Pos:  pos,
+			Op:   op,
+			L:    l,
+			R:    r,
+			Type: CInt,
 		}
 	}
 	return l

@@ -53,9 +53,22 @@ type CompndStmt struct {
 
 func (c *CompndStmt) GetPos() cpp.FilePos { return c.Pos }
 
+type EmptyStmt struct {
+	Pos cpp.FilePos
+}
+
+func (e *EmptyStmt) GetPos() cpp.FilePos { return e.Pos }
+
+type ExprStmt struct {
+	Pos  cpp.FilePos
+	Expr Expr
+}
+
+func (e *ExprStmt) GetPos() cpp.FilePos { return e.Pos }
+
 type If struct {
 	Pos   cpp.FilePos
-	Expr  Node
+	Cond  Node
 	Stmt  Node
 	Else  Node
 	LElse string
@@ -73,6 +86,16 @@ type For struct {
 }
 
 func (f *For) GetPos() cpp.FilePos { return f.Pos }
+
+type While struct {
+	Pos    cpp.FilePos
+	Cond   Node
+	Body   Node
+	LStart string
+	LEnd   string
+}
+
+func (w *While) GetPos() cpp.FilePos { return w.Pos }
 
 type Unop struct {
 	Op      cpp.TokenKind

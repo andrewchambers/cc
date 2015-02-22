@@ -2,15 +2,21 @@ package emit
 
 import (
 	"fmt"
+	"github.com/andrewchambers/cc/cpp"
 	"github.com/andrewchambers/cc/parse"
 	"io"
 )
 
 type emitter struct {
-	o io.Writer
-
+	o              io.Writer
+	labelcounter   int
 	curlocaloffset int
 	loffsets       map[*parse.LSymbol]int
+}
+
+func (e *emitter) NextLabel() string {
+	e.labelcounter += 1
+	return fmt.Sprintf(".LL%d", e.labelcounter)
 }
 
 func Emit(toplevels []parse.Node, o io.Writer) error {
@@ -99,13 +105,29 @@ func (e *emitter) emitStmt(f *parse.Function, stmt parse.Node) {
 	switch stmt := stmt.(type) {
 	case *parse.If:
 		e.emitIf(f, stmt)
+	case *parse.While:
+		e.emitWhile(f, stmt)
 	case *parse.Return:
 		e.emitReturn(f, stmt)
 	case *parse.CompndStmt:
 		e.emitCompndStmt(f, stmt)
+	case *parse.ExprStmt:
+		e.emitExpr(f, stmt.Expr)
+	case *parse.EmptyStmt:
+		// pass
 	default:
-		e.emitExpr(f, stmt)
+		panic(stmt)
 	}
+}
+
+func (e *emitter) emitWhile(f *parse.Function, w *parse.While) {
+	e.emit("%s:\n", w.LStart)
+	e.emitExpr(f, w.Cond)
+	e.emiti("test %%rax, %%rax\n")
+	e.emiti("jz %s\n", w.LEnd)
+	e.emitStmt(f, w.Body)
+	e.emiti("jmp %s\n", w.LStart)
+	e.emit("%s:\n", w.LEnd)
 }
 
 func (e *emitter) emitCompndStmt(f *parse.Function, c *parse.CompndStmt) {
@@ -115,7 +137,7 @@ func (e *emitter) emitCompndStmt(f *parse.Function, c *parse.CompndStmt) {
 }
 
 func (e *emitter) emitIf(f *parse.Function, i *parse.If) {
-	e.emitExpr(f, i.Expr)
+	e.emitExpr(f, i.Cond)
 	e.emiti("test %%rax, %%rax\n")
 	e.emiti("jz %s\n", i.LElse)
 	e.emitStmt(f, i.Stmt)
@@ -178,18 +200,30 @@ func (e *emitter) emitBinop(f *parse.Function, b *parse.Binop) {
 	e.emitExpr(f, b.R)
 	e.emiti("popq %%rbx\n")
 	switch {
-	case b.Type == parse.CInt:
+	case parse.IsIntType(b.Type):
 		switch b.Op {
 		case '+':
 			e.emiti("addq %%rax, %%rbx\n")
+			e.emiti("movq %%rbx, %%rax\n")
 		case '-':
 			e.emiti("subq %%rax, %%rbx\n")
+			e.emiti("movq %%rbx, %%rax\n")
 		case '*':
 			e.emiti("imul %%rax, %%rbx\n")
+			e.emiti("movq %%rbx, %%rax\n")
+		case cpp.EQL:
+			leq := e.NextLabel()
+			lafter := e.NextLabel()
+			e.emiti("cmp %%rax, %%rbx\n")
+			e.emiti("je %s\n", leq)
+			e.emiti("movq $0, %%rax\n")
+			e.emiti("jmp %s\n", lafter)
+			e.emiti("%s:\n", leq)
+			e.emiti("movq $1, %%rax\n")
+			e.emiti("%s:\n", lafter)
 		default:
 			panic("unimplemented")
 		}
-		e.emiti("movq %%rbx, %%rax\n")
 	default:
 		panic(b.Type)
 	}
