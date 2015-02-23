@@ -13,6 +13,7 @@ int main() {
 				default:
 					return 1;
 			}
+	return 1;
 	next:
 	switch(x)
 		case 1:
