@@ -197,6 +197,8 @@ func (p *parser) parseStmt() Node {
 			return &EmptyStmt{
 				Pos: pos,
 			}
+		case cpp.SWITCH:
+			return p.parseSwitch()
 		case cpp.RETURN:
 			return p.parseReturn()
 		case cpp.WHILE:
@@ -222,6 +224,55 @@ func (p *parser) parseStmt() Node {
 		}
 	}
 	panic("unreachable.")
+}
+
+func (p *parser) parseSwitch() Node {
+	sw := &Switch{}
+	sw.Pos = p.curt.Pos
+	sw.LAfter = p.nextLabel()
+	p.expect('(')
+	_ = p.parseExpr()
+	p.expect(')')
+	p.expect('{')
+Loop:
+	for {
+		isdefault := false
+		var caseval int64
+		switch p.curt.Kind {
+		case cpp.CASE:
+			p.next()
+			casePos := p.curt.Pos
+			c, err := Fold(p.parseExpr())
+			if err != nil {
+				p.errorPos(casePos, "expected constant expression")
+			}
+			if !IsIntType(c.Type) {
+				p.errorPos(casePos, "expected itegral type")
+			}
+			caseval = c.Val
+			p.expect(':')
+		case cpp.DEFAULT:
+			p.expect(':')
+		case '}':
+			break Loop
+		default:
+			p.errorPos(p.curt.Pos, "expected 'default', 'case' or '}'")
+		}
+		cs := &CompndStmt{
+			Pos: p.curt.Pos,
+		}
+		for p.curt.Kind != cpp.CASE && p.curt.Kind != '}' && p.curt.Kind != cpp.DEFAULT {
+			cs.Body = append(cs.Body, p.parseStmt())
+		}
+		if isdefault {
+			sw.Default = cs
+		} else {
+			sw.Cases = append(sw.Cases, cs)
+			sw.CaseVals = append(sw.CaseVals, caseval)
+		}
+	}
+	p.expect('}')
+	return sw
 }
 
 func (p *parser) parseGoto() Node {

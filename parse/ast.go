@@ -94,6 +94,17 @@ type If struct {
 
 func (i *If) GetPos() cpp.FilePos { return i.Pos }
 
+type Switch struct {
+	Pos      cpp.FilePos
+	Expr     Node
+	CaseVals []int64
+	Cases    []Node
+	Default  Node
+	LAfter   string
+}
+
+func (sw *Switch) GetPos() cpp.FilePos { return sw.Pos }
+
 type For struct {
 	Pos    cpp.FilePos
 	Init   Node
