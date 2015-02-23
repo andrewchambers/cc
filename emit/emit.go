@@ -83,7 +83,7 @@ func (e *emitter) emitFunction(f *parse.Function) {
 }
 
 func (e *emitter) calcLocalOffsets(nodes []parse.Node) (int, map[*parse.LSymbol]int) {
-	loffset := -8
+	loffset := 0
 	loffsets := make(map[*parse.LSymbol]int)
 	for _, n := range nodes {
 		switch n := n.(type) {
@@ -93,13 +93,13 @@ func (e *emitter) calcLocalOffsets(nodes []parse.Node) (int, map[*parse.LSymbol]
 				if !ok {
 					continue
 				}
-				loffsets[lsym] = loffset
 				sz := lsym.Type.GetSize()
 				if sz < 8 {
 					sz = 8
 				}
 				sz = sz + (sz % 8)
 				loffset -= sz
+				loffsets[lsym] = loffset
 			}
 
 		}
@@ -315,6 +315,15 @@ func (e *emitter) emitUnop(f *parse.Function, u *parse.Unop) {
 			case *parse.GSymbol:
 				e.emiti("leaq %s(%%rip), %%rax\n", sym.Label)
 			}
+		case *parse.Index:
+			e.emitExpr(f, operand.Idx)
+			e.emiti("imul $%d, %%rax\n", 4)
+			e.emiti("push %%rax\n")
+			e.emitExpr(f, operand.Arr)
+			e.emiti("pop %%rbx\n")
+			e.emiti("addq %%rbx, %%rax\n")
+		default:
+			panic("internal error")
 		}
 	case '*':
 		e.emitExpr(f, u.Operand)

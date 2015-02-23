@@ -1,8 +1,8 @@
 
 int main() {
     int x;
-    int y[5];
     int *p;
+    int y[10];
     p = &y[6];
     *p = 5;
     x = 10;
