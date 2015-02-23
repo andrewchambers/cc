@@ -128,6 +128,8 @@ func (e *emitter) emitStmt(f *parse.Function, stmt parse.Node) {
 	case *parse.LabeledStmt:
 		e.emit("%s:\n", stmt.AnonLabel)
 		e.emitStmt(f, stmt.Stmt)
+	case *parse.Switch:
+		e.emitSwitch(f, stmt)
 	case *parse.EmptyStmt:
 		// pass
 	case *parse.DeclList:
@@ -135,6 +137,22 @@ func (e *emitter) emitStmt(f *parse.Function, stmt parse.Node) {
 	default:
 		panic(stmt)
 	}
+}
+
+func (e *emitter) emitSwitch(f *parse.Function, sw *parse.Switch) {
+	e.emitExpr(f, sw.Expr)
+	for _, swc := range sw.Cases {
+		e.emiti("mov $%d, %%rbx\n", swc.V)
+		e.emiti("cmp %%rax, %%rbx\n")
+		e.emiti("je %s\n", swc.Label)
+	}
+	if sw.LDefault != "" {
+		e.emiti("jmp %s\n", sw.LDefault)
+	} else {
+		e.emiti("jmp %s\n", sw.LAfter)
+	}
+	e.emitStmt(f, sw.Stmt)
+	e.emit("%s:\n", sw.LAfter)
 }
 
 func (e *emitter) emitWhile(f *parse.Function, w *parse.While) {

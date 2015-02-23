@@ -39,11 +39,30 @@ type parser struct {
 	contCounter  int
 	continues    [2048]string
 
+	switchCounter int
+	switchs       [2048]*Switch
+
 	// Map of goto labels to anonymous labels.
 	labels map[string]string
 	// All gotos found in the current function.
 	// Needed so we can fix up forward references.
 	gotos []gotoFixup
+}
+
+func (p *parser) pushSwitch(s *Switch) {
+	p.switchs[p.switchCounter] = s
+	p.switchCounter += 1
+}
+
+func (p *parser) popSwitch() {
+	p.switchCounter -= 1
+}
+
+func (p *parser) getSwitch() *Switch {
+	if p.switchCounter == 0 {
+		return nil
+	}
+	return p.switchs[p.switchCounter-1]
 }
 
 func (p *parser) pushBreak(blabel string) {
@@ -175,13 +194,17 @@ func isDeclStart(t cpp.TokenKind) bool {
 }
 
 func (p *parser) parseStmt() Node {
-	if p.nextt.Kind == ':' {
+	if p.nextt.Kind == ':' && p.curt.Kind == cpp.IDENT {
 		return p.parseLabeledStmt()
 	}
 	if isDeclStart(p.curt.Kind) {
 		return p.parseDecl(false)
 	} else {
 		switch p.curt.Kind {
+		case cpp.CASE:
+			return p.parseCase()
+		case cpp.DEFAULT:
+			return p.parseDefault()
 		case cpp.GOTO:
 			return p.parseGoto()
 		case ';':
@@ -223,48 +246,20 @@ func (p *parser) parseSwitch() Node {
 	sw := &Switch{}
 	sw.Pos = p.curt.Pos
 	sw.LAfter = p.nextLabel()
+	p.expect(cpp.SWITCH)
 	p.expect('(')
-	_ = p.parseExpr()
-	p.expect(')')
-	p.expect('{')
-Loop:
-	for {
-		isdefault := false
-		var caseval int64
-		switch p.curt.Kind {
-		case cpp.CASE:
-			p.next()
-			casePos := p.curt.Pos
-			c, err := Fold(p.parseExpr())
-			if err != nil {
-				p.errorPos(casePos, "expected constant expression")
-			}
-			if !IsIntType(c.Type) {
-				p.errorPos(casePos, "expected itegral type")
-			}
-			caseval = c.Val
-			p.expect(':')
-		case cpp.DEFAULT:
-			p.expect(':')
-		case '}':
-			break Loop
-		default:
-			p.errorPos(p.curt.Pos, "expected 'default', 'case' or '}'")
-		}
-		cs := &CompndStmt{
-			Pos: p.curt.Pos,
-		}
-		for p.curt.Kind != cpp.CASE && p.curt.Kind != '}' && p.curt.Kind != cpp.DEFAULT {
-			cs.Body = append(cs.Body, p.parseStmt())
-		}
-		if isdefault {
-			sw.Default = cs
-		} else {
-			sw.Cases = append(sw.Cases, cs)
-			sw.CaseVals = append(sw.CaseVals, caseval)
-		}
+	expr := p.parseExpr()
+	sw.Expr = expr
+	if !IsIntType(expr.GetType()) {
+		p.errorPos(expr.GetPos(), "switch expression expects an integral type")
 	}
-	p.expect('}')
+	p.expect(')')
+	p.pushSwitch(sw)
+	p.pushBreak(sw.LAfter)
+	stmt := p.parseStmt()
+	sw.Stmt = stmt
+	p.popBreak()
+	p.popSwitch()
 	return sw
 }
 
@@ -301,6 +296,57 @@ func (p *parser) parseLabeledStmt() Node {
 		Label:     label,
 		AnonLabel: anonlabel,
 		Stmt:      p.parseStmt(),
+	}
+}
+
+func (p *parser) parseCase() Node {
+	pos := p.curt.Pos
+	p.expect(cpp.CASE)
+	sw := p.getSwitch()
+	if sw == nil {
+		p.errorPos(pos, "'case' outside a switch statement")
+	}
+	expr := p.parseExpr()
+	v, err := Fold(expr)
+	if err != nil {
+		p.errorPos(expr.GetPos(), "expected constant expression")
+	}
+	if !IsIntType(v.Type) {
+		p.errorPos(expr.GetPos(), "expected an integral type")
+	}
+	p.expect(':')
+	anonlabel := p.nextLabel()
+	swc := SwitchCase{
+		V:     v.Val,
+		Label: anonlabel,
+	}
+	sw.Cases = append(sw.Cases, swc)
+	return &LabeledStmt{
+		Pos:       pos,
+		AnonLabel: anonlabel,
+		Stmt:      p.parseStmt(),
+		IsCase:    true,
+	}
+}
+
+func (p *parser) parseDefault() Node {
+	pos := p.curt.Pos
+	p.expect(cpp.DEFAULT)
+	sw := p.getSwitch()
+	if sw == nil {
+		p.errorPos(pos, "'default' outside a switch statement")
+	}
+	p.expect(':')
+	if sw.LDefault != "" {
+		p.errorPos(pos, "multiple default statements in switch")
+	}
+	anonlabel := p.nextLabel()
+	sw.LDefault = anonlabel
+	return &LabeledStmt{
+		Pos:       pos,
+		AnonLabel: anonlabel,
+		Stmt:      p.parseStmt(),
+		IsDefault: true,
 	}
 }
 

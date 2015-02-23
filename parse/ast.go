@@ -80,6 +80,8 @@ type LabeledStmt struct {
 	AnonLabel string
 	Label     string
 	Stmt      Node
+	IsCase    bool
+	IsDefault bool
 }
 
 func (l *LabeledStmt) GetPos() cpp.FilePos { return l.Pos }
@@ -94,12 +96,17 @@ type If struct {
 
 func (i *If) GetPos() cpp.FilePos { return i.Pos }
 
+type SwitchCase struct {
+	V     int64
+	Label string
+}
+
 type Switch struct {
 	Pos      cpp.FilePos
 	Expr     Node
-	CaseVals []int64
-	Cases    []Node
-	Default  Node
+	Stmt     Node
+	Cases    []SwitchCase
+	LDefault string
 	LAfter   string
 }
 
