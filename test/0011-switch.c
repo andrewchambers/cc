@@ -2,10 +2,18 @@
 int x = 0;
 
 int main() {
-
 	switch(x)
 		case 0:
 			;
+	switch(x)
+		case 0:
+			switch(x) {
+				case 0:
+					goto next;
+				default:
+					return 1;
+			}
+	next:
 	switch(x)
 		case 1:
 			return 1;
