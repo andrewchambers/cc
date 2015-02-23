@@ -150,17 +150,10 @@ func (p *parser) next() {
 	p.nextt = t
 }
 
-func (p *parser) tryCastToBool(n Expr) *Cast {
-	if IsIntType(n.GetType()) || IsPtrType(n.GetType()) {
-		return &Cast{
-			Pos:     n.GetPos(),
-			Operand: n,
-			Type:    CBool,
-		}
+func (p *parser) ensureScalar(n Expr) {
+	if !IsScalarType(n.GetType()) {
+		p.errorPos(n.GetPos(), "expected scalar type")
 	}
-	p.errorPos(n.GetPos(), "bad cast")
-	panic("unreachable")
-
 }
 
 func (p *parser) parseTranslationUnit() []Node {
@@ -355,7 +348,7 @@ func (p *parser) parseIf() Node {
 	p.expect(cpp.IF)
 	p.expect('(')
 	expr := p.parseExpr()
-	expr = p.tryCastToBool(expr)
+	p.ensureScalar(expr)
 	p.expect(')')
 	stmt := p.parseStmt()
 	var els Node
@@ -411,7 +404,8 @@ func (p *parser) parseWhile() Node {
 	lend := p.nextLabel()
 	p.expect(cpp.WHILE)
 	p.expect('(')
-	cond := p.tryCastToBool(p.parseExpr())
+	cond := p.parseExpr()
+	p.ensureScalar(cond)
 	p.expect(')')
 	p.pushBreakCont(lend, lstart)
 	body := p.parseStmt()

@@ -118,3 +118,7 @@ func IsIntType(t CType) bool {
 		return false
 	}
 }
+
+func IsScalarType(t CType) bool {
+	return IsPtrType(t) || IsIntType(t)
+}
