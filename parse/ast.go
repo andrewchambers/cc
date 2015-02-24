@@ -177,6 +177,16 @@ type Function struct {
 func (f *Function) GetType() CType      { return f.FuncType }
 func (f *Function) GetPos() cpp.FilePos { return f.Pos }
 
+type Call struct {
+	Pos      cpp.FilePos
+	FuncLike Node
+	Args     []Node
+	Type     CType
+}
+
+func (c *Call) GetType() CType      { return c.Type }
+func (c *Call) GetPos() cpp.FilePos { return c.Pos }
+
 type DeclList struct {
 	Pos         cpp.FilePos
 	Symbols     []Symbol

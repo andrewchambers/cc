@@ -1039,10 +1039,25 @@ loop:
 			// XXX is a typename valid here too?
 			p.expect(cpp.IDENT)
 		case '(':
+			parenpos := p.curt.Pos
+			var fty *FunctionType
+			switch ty := l.GetType().(type) {
+			case *Ptr:
+				functy, ok := ty.PointsTo.(*FunctionType)
+				if !ok {
+					p.errorPos(l.GetPos(), "expected a function pointer")
+				}
+				fty = functy
+			case *FunctionType:
+				fty = ty
+			default:
+				p.errorPos(l.GetPos(), "expected a func or func pointer")
+			}
+			var args []Node
 			p.next()
 			if p.curt.Kind != ')' {
 				for {
-					p.parseExpr()
+					args = append(args, p.parseExpr())
 					if p.curt.Kind == ',' {
 						p.next()
 						continue
@@ -1051,6 +1066,12 @@ loop:
 				}
 			}
 			p.expect(')')
+			return &Call{
+				Pos:      parenpos,
+				FuncLike: l,
+				Args:     args,
+				Type:     fty.RetType,
+			}
 		case cpp.INC:
 			p.next()
 		case cpp.DEC:
