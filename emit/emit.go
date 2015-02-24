@@ -157,8 +157,8 @@ func (e *emitter) emitStmt(f *parse.Function, stmt parse.Node) {
 func (e *emitter) emitSwitch(f *parse.Function, sw *parse.Switch) {
 	e.emitExpr(f, sw.Expr)
 	for _, swc := range sw.Cases {
-		e.emiti("mov $%d, %%rbx\n", swc.V)
-		e.emiti("cmp %%rax, %%rbx\n")
+		e.emiti("mov $%d, %%rcx\n", swc.V)
+		e.emiti("cmp %%rax, %%rcx\n")
 		e.emiti("je %s\n", swc.Label)
 	}
 	if sw.LDefault != "" {
@@ -291,19 +291,19 @@ func (e *emitter) emitBinop(f *parse.Function, b *parse.Binop) {
 	e.emitExpr(f, b.L)
 	e.emiti("pushq %%rax\n")
 	e.emitExpr(f, b.R)
-	e.emiti("popq %%rbx\n")
+	e.emiti("popq %%rcx\n")
 	switch {
 	case parse.IsIntType(b.Type):
 		switch b.Op {
 		case '+':
-			e.emiti("addq %%rax, %%rbx\n")
-			e.emiti("movq %%rbx, %%rax\n")
+			e.emiti("addq %%rax, %%rcx\n")
+			e.emiti("movq %%rcx, %%rax\n")
 		case '-':
-			e.emiti("subq %%rax, %%rbx\n")
-			e.emiti("movq %%rbx, %%rax\n")
+			e.emiti("subq %%rax, %%rcx\n")
+			e.emiti("movq %%rcx, %%rax\n")
 		case '*':
-			e.emiti("imul %%rax, %%rbx\n")
-			e.emiti("movq %%rbx, %%rax\n")
+			e.emiti("imul %%rax, %%rcx\n")
+			e.emiti("movq %%rcx, %%rax\n")
 		case cpp.EQL, '>', '<':
 			leq := e.NextLabel()
 			lafter := e.NextLabel()
@@ -318,7 +318,7 @@ func (e *emitter) emitBinop(f *parse.Function, b *parse.Binop) {
 			default:
 				panic("internal error")
 			}
-			e.emiti("cmp %%rax, %%rbx\n")
+			e.emiti("cmp %%rax, %%rcx\n")
 			e.emiti("%s %s\n", opc, leq)
 			e.emiti("movq $0, %%rax\n")
 			e.emiti("jmp %s\n", lafter)
@@ -353,8 +353,8 @@ func (e *emitter) emitUnop(f *parse.Function, u *parse.Unop) {
 			e.emiti("imul $%d, %%rax\n", 4)
 			e.emiti("push %%rax\n")
 			e.emitExpr(f, operand.Arr)
-			e.emiti("pop %%rbx\n")
-			e.emiti("addq %%rbx, %%rax\n")
+			e.emiti("pop %%rcx\n")
+			e.emiti("addq %%rcx, %%rax\n")
 		default:
 			panic("internal error")
 		}
@@ -369,8 +369,8 @@ func (e *emitter) emitIndex(f *parse.Function, idx *parse.Index) {
 	e.emiti("imul $%d, %%rax\n", 4)
 	e.emiti("push %%rax\n")
 	e.emitExpr(f, idx.Arr)
-	e.emiti("pop %%rbx\n")
-	e.emiti("addq %%rbx, %%rax\n")
+	e.emiti("pop %%rcx\n")
+	e.emiti("addq %%rcx, %%rax\n")
 	e.emiti("movq (%%rax), %%rax\n")
 }
 
@@ -383,28 +383,28 @@ func (e *emitter) emitAssign(f *parse.Function, b *parse.Binop) {
 		e.emiti("imul $%d, %%rax\n", 4)
 		e.emiti("push %%rax\n")
 		e.emitExpr(f, l.Arr)
-		e.emiti("pop %%rbx\n")
-		e.emiti("add %%rbx, %%rax\n")
-		e.emiti("pop %%rbx\n")
-		e.emiti("movq %%rbx,(%%rax)\n")
+		e.emiti("pop %%rcx\n")
+		e.emiti("add %%rcx, %%rax\n")
+		e.emiti("pop %%rcx\n")
+		e.emiti("movq %%rcx,(%%rax)\n")
 	case *parse.Unop:
 		if l.Op != '*' {
 			panic("internal error")
 		}
 		e.emiti("push %%rax\n")
 		e.emitExpr(f, l.Operand)
-		e.emiti("pop %%rbx\n")
-		e.emiti("movq %%rbx, (%%rax)\n")
+		e.emiti("pop %%rcx\n")
+		e.emiti("movq %%rcx, (%%rax)\n")
 	case *parse.Ident:
 		sym := l.Sym
 		switch sym := sym.(type) {
 		case *parse.GSymbol:
-			e.emiti("leaq %s(%%rip), %%rbx\n", sym.Label)
+			e.emiti("leaq %s(%%rip), %%rcx\n", sym.Label)
 			switch sym.Type.GetSize() {
 			case 4:
-				e.emiti("movl %%eax, (%%rbx)\n")
+				e.emiti("movl %%eax, (%%rcx)\n")
 			case 8:
-				e.emiti("movq %%rax, (%%rbx)\n")
+				e.emiti("movq %%rax, (%%rcx)\n")
 			default:
 				panic("unimplemented")
 			}
