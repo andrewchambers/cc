@@ -167,10 +167,11 @@ func (b *Binop) GetType() CType      { return b.Type }
 func (b *Binop) GetPos() cpp.FilePos { return b.Pos }
 
 type Function struct {
-	Name     string
-	Pos      cpp.FilePos
-	FuncType *FunctionType
-	Body     []Node
+	Name         string
+	Pos          cpp.FilePos
+	FuncType     *FunctionType
+	ParamSymbols []*LSymbol
+	Body         []Node
 }
 
 func (f *Function) GetType() CType      { return f.FuncType }

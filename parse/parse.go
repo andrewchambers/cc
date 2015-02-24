@@ -49,6 +49,14 @@ type parser struct {
 	gotos []gotoFixup
 }
 
+func (p *parser) pushScope() {
+	p.decls = newScope(p.decls)
+}
+
+func (p *parser) popScope() {
+	p.decls = p.decls.parent
+}
+
 func (p *parser) pushSwitch(s *Switch) {
 	p.switchs[p.switchCounter] = s
 	p.switchCounter += 1
@@ -533,18 +541,41 @@ func (p *parser) parseDecl(isGlobal bool) Node {
 		if firstDecl && isGlobal {
 			// if declaring a function
 			if p.curt.Kind == '{' {
+
 				fty, ok := ty.(*FunctionType)
 				if !ok {
 					p.errorPos(name.Pos, "expected a function")
 				}
+				err := p.decls.define(name.Val, &GSymbol{
+					Label: name.Val,
+					Type:  fty,
+				})
+				if err != nil {
+					p.errorPos(declPos, err.Error())
+				}
+				p.pushScope()
+				var psyms []*LSymbol
+
+				for idx, name := range fty.ArgNames {
+					sym := &LSymbol{
+						Type: fty.ArgTypes[idx],
+					}
+					psyms = append(psyms, sym)
+					err := p.decls.define(name, sym)
+					if err != nil {
+						p.errorPos(declPos, "multiple params with name %s", name)
+					}
+				}
 				f := &Function{
-					Name:     name.Val,
-					FuncType: fty,
-					Pos:      declPos,
+					Name:         name.Val,
+					FuncType:     fty,
+					Pos:          declPos,
+					ParamSymbols: psyms,
 				}
 				p.expect('{')
 				p.parseFuncBody(f)
 				p.expect('}')
+				p.popScope()
 				return f
 			}
 		}

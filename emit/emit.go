@@ -66,15 +66,24 @@ func (e *emitter) emitGlobal(g *parse.GSymbol, init *parse.FoldedConstant) {
 	}
 }
 
+var intParamLUT = [...]string{
+	"%rdi", "%rsi", "%rdx", "%rcx", "r8", "r9",
+}
+
 func (e *emitter) emitFunction(f *parse.Function) {
-	curlocaloffset, loffsets := e.calcLocalOffsets(f.Body)
-	e.loffsets = loffsets
 	e.emit(".text\n")
 	e.emit(".global %s\n", f.Name)
 	e.emit("%s:\n", f.Name)
 	e.emiti("pushq %%rbp\n")
 	e.emiti("movq %%rsp, %%rbp\n")
-	e.emiti("sub $%d, %%rsp\n", -curlocaloffset)
+	curlocaloffset, loffsets := e.calcLocalOffsets(f)
+	e.loffsets = loffsets
+	if curlocaloffset != 0 {
+		e.emiti("sub $%d, %%rsp\n", -curlocaloffset)
+	}
+	for idx, psym := range f.ParamSymbols {
+		e.emiti("movq %s, %d(%%rbp)\n", intParamLUT[idx], e.loffsets[psym])
+	}
 	for _, stmt := range f.Body {
 		e.emitStmt(f, stmt)
 	}
@@ -82,10 +91,22 @@ func (e *emitter) emitFunction(f *parse.Function) {
 	e.emiti("ret\n")
 }
 
-func (e *emitter) calcLocalOffsets(nodes []parse.Node) (int, map[*parse.LSymbol]int) {
+func (e *emitter) calcLocalOffsets(f *parse.Function) (int, map[*parse.LSymbol]int) {
 	loffset := 0
 	loffsets := make(map[*parse.LSymbol]int)
-	for _, n := range nodes {
+	addLSymbol := func(lsym *parse.LSymbol) {
+		sz := lsym.Type.GetSize()
+		if sz < 8 {
+			sz = 8
+		}
+		sz = sz + (sz % 8)
+		loffset -= sz
+		loffsets[lsym] = loffset
+	}
+	for _, lsym := range f.ParamSymbols {
+		addLSymbol(lsym)
+	}
+	for _, n := range f.Body {
 		switch n := n.(type) {
 		case *parse.DeclList:
 			for _, sym := range n.Symbols {
@@ -93,13 +114,7 @@ func (e *emitter) calcLocalOffsets(nodes []parse.Node) (int, map[*parse.LSymbol]
 				if !ok {
 					continue
 				}
-				sz := lsym.Type.GetSize()
-				if sz < 8 {
-					sz = 8
-				}
-				sz = sz + (sz % 8)
-				loffset -= sz
-				loffsets[lsym] = loffset
+				addLSymbol(lsym)
 			}
 
 		}
