@@ -1053,11 +1053,11 @@ loop:
 			default:
 				p.errorPos(l.GetPos(), "expected a func or func pointer")
 			}
-			var args []Node
+			var args []Expr
 			p.next()
 			if p.curt.Kind != ')' {
 				for {
-					args = append(args, p.parseExpr())
+					args = append(args, p.parseAssignmentExpr())
 					if p.curt.Kind == ',' {
 						p.next()
 						continue
@@ -1119,7 +1119,12 @@ func (p *parser) parsePrimaryExpr() Expr {
 	case cpp.CHAR_CONSTANT:
 		p.next()
 	case cpp.STRING:
+		s := p.curt
 		p.next()
+		return &String{
+			Pos: s.Pos,
+			Val: s.Val,
+		}
 	case '(':
 		p.next()
 		p.parseExpr()

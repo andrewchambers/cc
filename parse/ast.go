@@ -179,8 +179,8 @@ func (f *Function) GetPos() cpp.FilePos { return f.Pos }
 
 type Call struct {
 	Pos      cpp.FilePos
-	FuncLike Node
-	Args     []Node
+	FuncLike Expr
+	Args     []Expr
 	Type     CType
 }
 
@@ -195,6 +195,14 @@ type DeclList struct {
 }
 
 func (d *DeclList) GetPos() cpp.FilePos { return d.Pos }
+
+type String struct {
+	Pos cpp.FilePos
+	Val string
+}
+
+func (s *String) GetType() CType      { return &Ptr{CChar} }
+func (s *String) GetPos() cpp.FilePos { return s.Pos }
 
 type Ident struct {
 	Pos cpp.FilePos

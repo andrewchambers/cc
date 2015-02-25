@@ -50,6 +50,10 @@ func (e *emitter) emiti(s string, args ...interface{}) {
 }
 
 func (e *emitter) emitGlobal(g *parse.GSymbol, init *parse.FoldedConstant) {
+	_, ok := g.Type.(*parse.FunctionType)
+	if ok {
+		return
+	}
 	e.emit(".data\n")
 	e.emit(".global %s\n", g.Label)
 	if init == nil {
@@ -235,35 +239,9 @@ func (e *emitter) emitReturn(f *parse.Function, r *parse.Return) {
 func (e *emitter) emitExpr(f *parse.Function, expr parse.Node) {
 	switch expr := expr.(type) {
 	case *parse.Ident:
-		sym := expr.Sym
-		switch sym := sym.(type) {
-		case *parse.LSymbol:
-			offset := e.loffsets[sym]
-			if parse.IsIntType(sym.Type) || parse.IsPtrType(sym.Type) {
-				switch sym.Type.GetSize() {
-				case 4:
-					e.emiti("movl %d(%%rbp), %%eax\n", offset)
-				case 8:
-					e.emiti("movq %d(%%rbp), %%rax\n", offset)
-				default:
-					panic("unimplemented")
-				}
-			} else {
-				e.emiti("leaq %d(%%rbp), %%rax\n", offset)
-			}
-		case *parse.GSymbol:
-			e.emiti("leaq %s(%%rip), %%rax\n", sym.Label)
-			if parse.IsIntType(sym.Type) || parse.IsPtrType(sym.Type) {
-				switch sym.Type.GetSize() {
-				case 4:
-					e.emiti("movl (%%rax), %%eax\n")
-				case 8:
-					e.emiti("movq (%%rax), %%rax\n")
-				default:
-					panic("unimplemented")
-				}
-			}
-		}
+		e.emitIdent(f, expr)
+	case *parse.Call:
+		e.emitCall(f, expr)
 	case *parse.Constant:
 		e.emiti("movq $%v, %%rax\n", expr.Val)
 	case *parse.Unop:
@@ -279,8 +257,82 @@ func (e *emitter) emitExpr(f *parse.Function, expr parse.Node) {
 	}
 }
 
+func (e *emitter) emitIdent(f *parse.Function, i *parse.Ident) {
+	sym := i.Sym
+	switch sym := sym.(type) {
+	case *parse.LSymbol:
+		offset := e.loffsets[sym]
+		if parse.IsIntType(sym.Type) || parse.IsPtrType(sym.Type) {
+			switch sym.Type.GetSize() {
+			case 4:
+				e.emiti("movl %d(%%rbp), %%eax\n", offset)
+			case 8:
+				e.emiti("movq %d(%%rbp), %%rax\n", offset)
+			default:
+				panic("unimplemented")
+			}
+		} else {
+			e.emiti("leaq %d(%%rbp), %%rax\n", offset)
+		}
+	case *parse.GSymbol:
+		e.emiti("leaq %s(%%rip), %%rax\n", sym.Label)
+		if parse.IsIntType(sym.Type) || parse.IsPtrType(sym.Type) {
+			switch sym.Type.GetSize() {
+			case 4:
+				e.emiti("movl (%%rax), %%eax\n")
+			case 8:
+				e.emiti("movq (%%rax), %%rax\n")
+			default:
+				panic("unimplemented")
+			}
+		}
+	}
+}
+
+func isIntRegArg(t parse.CType) bool {
+	return parse.IsIntType(t) || parse.IsPtrType(t)
+}
+
+func classifyArgs(args []parse.Expr) ([]parse.Expr, []parse.Expr) {
+	var intargs, memargs []parse.Expr
+	nintargs := 0
+	for _, arg := range args {
+		if nintargs < 6 && isIntRegArg(arg.GetType()) {
+			nintargs += 1
+			intargs = append(intargs, arg)
+		} else {
+			memargs = append(memargs, arg)
+		}
+	}
+	return intargs, memargs
+}
+
+func (e *emitter) emitCall(f *parse.Function, c *parse.Call) {
+	intargs, memargs := classifyArgs(c.Args)
+	sz := 0
+	for i := len(memargs) - 1; i >= 0; i-- {
+		arg := memargs[i]
+		e.emitExpr(f, arg)
+		e.emiti("push %%rax\n")
+		sz += 8
+	}
+	for i := len(intargs) - 1; i >= 0; i-- {
+		arg := intargs[i]
+		e.emitExpr(f, arg)
+		e.emiti("push %%rax\n")
+	}
+	for idx, _ := range intargs {
+		e.emiti("pop %s\n", intParamLUT[idx])
+	}
+	e.emitExpr(f, c.FuncLike)
+	e.emiti("call *%%rax\n")
+	if sz != 0 {
+		e.emiti("add $%d, %%rsp\n", sz)
+	}
+}
+
 func (e *emitter) emitCast(f *parse.Function, c *parse.Cast) {
-	e.emitExpr(f, c.Operand)
+	//
 }
 
 func (e *emitter) emitBinop(f *parse.Function, b *parse.Binop) {
@@ -358,6 +410,9 @@ func (e *emitter) emitUnop(f *parse.Function, u *parse.Unop) {
 		default:
 			panic("internal error")
 		}
+	case '-':
+		e.emitExpr(f, u.Operand)
+		e.emiti("neg %%rax\n")
 	case '*':
 		e.emitExpr(f, u.Operand)
 		e.emiti("movq (%%rax), %%rax\n")
