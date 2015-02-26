@@ -109,6 +109,11 @@ func Fold(n Node) (*FoldedConstant, error) {
 			Label: "",
 			Type:  n.Type,
 		}, nil
+	case *String:
+		return &FoldedConstant{
+			Label: n.Label,
+			Type:  n.GetType(),
+		}, nil
 	default:
 		return nil, fmt.Errorf("not a valid constant expression")
 	}

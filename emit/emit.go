@@ -22,6 +22,11 @@ func Emit(toplevels []parse.Node, o io.Writer) error {
 	e := &emitter{
 		o: o,
 	}
+
+	e.emit(".data\n")
+	for _, tl := range toplevels {
+		e.emitStrings(tl)
+	}
 	for _, tl := range toplevels {
 		switch tl := tl.(type) {
 		case *parse.Function:
@@ -47,6 +52,22 @@ func (e *emitter) emit(s string, args ...interface{}) {
 
 func (e *emitter) emiti(s string, args ...interface{}) {
 	e.emit("  "+s, args...)
+}
+
+func (e *emitter) emitStrings(n parse.Node) {
+	s, ok := n.(*parse.String)
+	if !ok {
+		if n == nil {
+			return //XXX this should not happen.
+		}
+		children := n.Children()
+		for _, v := range children {
+			e.emitStrings(v)
+		}
+		return
+	}
+	e.emit("%s:\n", s.Label)
+	e.emit(".string %s\n", s.Val)
 }
 
 func (e *emitter) emitGlobal(g *parse.GSymbol, init *parse.FoldedConstant) {
@@ -231,7 +252,7 @@ func (e *emitter) emitIf(f *parse.Function, i *parse.If) {
 }
 
 func (e *emitter) emitReturn(f *parse.Function, r *parse.Return) {
-	e.emitExpr(f, r.Expr)
+	e.emitExpr(f, r.Ret)
 	e.emiti("leave\n")
 	e.emiti("ret\n")
 }
@@ -264,6 +285,8 @@ func (e *emitter) emitIdent(f *parse.Function, i *parse.Ident) {
 		offset := e.loffsets[sym]
 		if parse.IsIntType(sym.Type) || parse.IsPtrType(sym.Type) {
 			switch sym.Type.GetSize() {
+			case 1:
+				e.emiti("movb %d(%%rbp), %%al\n", offset)
 			case 4:
 				e.emiti("movl %d(%%rbp), %%eax\n", offset)
 			case 8:
@@ -278,6 +301,8 @@ func (e *emitter) emitIdent(f *parse.Function, i *parse.Ident) {
 		e.emiti("leaq %s(%%rip), %%rax\n", sym.Label)
 		if parse.IsIntType(sym.Type) || parse.IsPtrType(sym.Type) {
 			switch sym.Type.GetSize() {
+			case 1:
+				e.emiti("movb (%%rax), %%al\n")
 			case 4:
 				e.emiti("movl (%%rax), %%eax\n")
 			case 8:
@@ -402,7 +427,11 @@ func (e *emitter) emitUnop(f *parse.Function, u *parse.Unop) {
 			}
 		case *parse.Index:
 			e.emitExpr(f, operand.Idx)
-			e.emiti("imul $%d, %%rax\n", 4)
+			sz := operand.GetType().GetSize()
+			e.emiti("imul $%d, %%rax\n", sz)
+			if sz != 1 {
+				e.emiti("imul $%d, %%rax\n", sz)
+			}
 			e.emiti("push %%rax\n")
 			e.emitExpr(f, operand.Arr)
 			e.emiti("pop %%rcx\n")
@@ -421,12 +450,22 @@ func (e *emitter) emitUnop(f *parse.Function, u *parse.Unop) {
 
 func (e *emitter) emitIndex(f *parse.Function, idx *parse.Index) {
 	e.emitExpr(f, idx.Idx)
-	e.emiti("imul $%d, %%rax\n", 4)
+	sz := idx.GetType().GetSize()
+	if sz != 1 {
+		e.emiti("imul $%d, %%rax\n", sz)
+	}
 	e.emiti("push %%rax\n")
 	e.emitExpr(f, idx.Arr)
 	e.emiti("pop %%rcx\n")
 	e.emiti("addq %%rcx, %%rax\n")
-	e.emiti("movq (%%rax), %%rax\n")
+	switch idx.GetType().GetSize() {
+	case 1:
+		e.emiti("movb (%%rax), %%al\n")
+	case 4:
+		e.emiti("movl (%%rax), %%eax\n")
+	case 8:
+		e.emiti("movq (%%rax), %%rax\n")
+	}
 }
 
 func (e *emitter) emitAssign(f *parse.Function, b *parse.Binop) {
@@ -456,6 +495,8 @@ func (e *emitter) emitAssign(f *parse.Function, b *parse.Binop) {
 		case *parse.GSymbol:
 			e.emiti("leaq %s(%%rip), %%rcx\n", sym.Label)
 			switch sym.Type.GetSize() {
+			case 1:
+				e.emiti("movb %%al, (%%rcx)\n")
 			case 4:
 				e.emiti("movl %%eax, (%%rcx)\n")
 			case 8:
@@ -466,6 +507,8 @@ func (e *emitter) emitAssign(f *parse.Function, b *parse.Binop) {
 		case *parse.LSymbol:
 			offset := e.loffsets[sym]
 			switch sym.Type.GetSize() {
+			case 1:
+				e.emiti("movb %%ax, %d(%%rbp)\n", offset)
 			case 4:
 				e.emiti("movl %%eax, %d(%%rbp)\n", offset)
 			case 8:

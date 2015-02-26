@@ -82,7 +82,7 @@ var CVoid *Primitive = &Primitive{Void, 0, 0, false}
 var CEnum *Primitive = &Primitive{Enum, 4, 4, false}
 
 // Signed
-var CChar *Primitive = &Primitive{Char, 0, 0, false}
+var CChar *Primitive = &Primitive{Char, 1, 1, false}
 var CShort *Primitive = &Primitive{Short, 2, 2, false}
 var CInt *Primitive = &Primitive{Int, 4, 4, false}
 var CLong *Primitive = &Primitive{Long, 8, 8, false}

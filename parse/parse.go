@@ -391,8 +391,8 @@ func (p *parser) parseReturn() Node {
 	expr := p.parseExpr()
 	p.expect(';')
 	return &Return{
-		Pos:  pos,
-		Expr: expr,
+		Pos: pos,
+		Ret: expr,
 	}
 }
 
@@ -534,9 +534,9 @@ func (p *parser) parseDecl(isGlobal bool) Node {
 	declList := &DeclList{}
 	_, ty := p.parseDeclSpecifiers()
 	for {
-		name, ty = p.parseDeclarator(ty)
+		name, ty = p.parseDeclarator(ty, false)
 		if name == nil {
-			p.errorPos(declPos, "declarator requires a name")
+			panic("internal error")
 		}
 		if firstDecl && isGlobal {
 			// if declaring a function
@@ -627,7 +627,7 @@ func (p *parser) parseDecl(isGlobal bool) Node {
 
 func (p *parser) parseParamDecl() (*cpp.Token, CType) {
 	_, ty := p.parseDeclSpecifiers()
-	return p.parseDeclarator(ty)
+	return p.parseDeclarator(ty, true)
 }
 
 func (p *parser) parseDeclSpecifiers() (SClass, CType) {
@@ -641,6 +641,7 @@ func (p *parser) parseDeclSpecifiers() (SClass, CType) {
 		case cpp.TYPEDEF: // Typedef is actually a storage class like static.
 		case cpp.VOID:
 		case cpp.CHAR:
+			ty = CChar
 		case cpp.SHORT:
 		case cpp.INT:
 		case cpp.LONG:
@@ -683,19 +684,19 @@ func (p *parser) parseDeclSpecifiers() (SClass, CType) {
 //
 // A delcarator missing an identifier.
 
-func (p *parser) parseDeclarator(basety CType) (*cpp.Token, CType) {
+func (p *parser) parseDeclarator(basety CType, abstract bool) (*cpp.Token, CType) {
 	for p.curt.Kind == cpp.CONST || p.curt.Kind == cpp.VOLATILE {
 		p.next()
 	}
 	switch p.curt.Kind {
 	case '*':
 		p.next()
-		name, ty := p.parseDeclarator(basety)
+		name, ty := p.parseDeclarator(basety, abstract)
 		return name, &Ptr{ty}
 	case '(':
 		forward := &ForwardedType{}
 		p.next()
-		name, ty := p.parseDeclarator(forward)
+		name, ty := p.parseDeclarator(forward, abstract)
 		p.expect(')')
 		forward.Type = p.parseDeclaratorTail(basety)
 		return name, ty
@@ -704,6 +705,9 @@ func (p *parser) parseDeclarator(basety CType) (*cpp.Token, CType) {
 		p.next()
 		return name, p.parseDeclaratorTail(basety)
 	default:
+		if abstract {
+			return nil, p.parseDeclaratorTail(basety)
+		}
 		p.errorPos(p.curt.Pos, "expected ident, '(' or '*' but got %s", p.curt.Kind)
 	}
 	panic("unreachable")
@@ -1022,17 +1026,25 @@ loop:
 	for {
 		switch p.curt.Kind {
 		case '[':
-			_, isArr := l.GetType().(*Array)
-			_, isPtr := l.GetType().(*Ptr)
+			var ty CType
+			arr, isArr := l.GetType().(*Array)
+			ptr, isPtr := l.GetType().(*Ptr)
 			if !isArr && !isPtr {
 				p.errorPos(p.curt.Pos, "Can only index into array or pointer types")
+			}
+			if isArr {
+				ty = arr.MemberType
+			}
+			if isPtr {
+				ty = ptr.PointsTo
 			}
 			p.next()
 			idx := p.parseExpr()
 			p.expect(']')
 			l = &Index{
-				Arr: l,
-				Idx: idx,
+				Arr:  l,
+				Idx:  idx,
+				Type: ty,
 			}
 		case '.', cpp.ARROW:
 			p.next()
@@ -1122,8 +1134,9 @@ func (p *parser) parsePrimaryExpr() Expr {
 		s := p.curt
 		p.next()
 		return &String{
-			Pos: s.Pos,
-			Val: s.Val,
+			Pos:   s.Pos,
+			Val:   s.Val,
+			Label: p.nextLabel(),
 		}
 	case '(':
 		p.next()
@@ -1148,7 +1161,7 @@ func (p *parser) parseStruct() CType {
 			}
 			_, basety := p.parseDeclSpecifiers()
 			for {
-				p.parseDeclarator(basety)
+				p.parseDeclarator(basety, false)
 				if p.curt.Kind == ',' {
 					p.next()
 					continue
