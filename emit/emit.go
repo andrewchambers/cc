@@ -22,11 +22,6 @@ func Emit(toplevels []parse.Node, o io.Writer) error {
 	e := &emitter{
 		o: o,
 	}
-
-	e.emit(".data\n")
-	for _, tl := range toplevels {
-		e.emitStrings(tl)
-	}
 	for _, tl := range toplevels {
 		switch tl := tl.(type) {
 		case *parse.Function:
@@ -52,22 +47,6 @@ func (e *emitter) emit(s string, args ...interface{}) {
 
 func (e *emitter) emiti(s string, args ...interface{}) {
 	e.emit("  "+s, args...)
-}
-
-func (e *emitter) emitStrings(n parse.Node) {
-	s, ok := n.(*parse.String)
-	if !ok {
-		if n == nil {
-			return //XXX this should not happen.
-		}
-		children := n.Children()
-		for _, v := range children {
-			e.emitStrings(v)
-		}
-		return
-	}
-	e.emit("%s:\n", s.Label)
-	e.emit(".string %s\n", s.Val)
 }
 
 func (e *emitter) emitGlobal(g *parse.GSymbol, init *parse.FoldedConstant) {

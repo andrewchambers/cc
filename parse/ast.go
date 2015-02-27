@@ -4,7 +4,6 @@ import "github.com/andrewchambers/cc/cpp"
 
 type Node interface {
 	GetPos() cpp.FilePos
-	Children() []Node
 }
 
 type Expr interface {
@@ -20,7 +19,13 @@ type Constant struct {
 
 func (c *Constant) GetType() CType      { return c.Type }
 func (c *Constant) GetPos() cpp.FilePos { return c.Pos }
-func (c *Constant) Children() []Node    { return []Node{} }
+
+type Initializer struct {
+	Pos   cpp.FilePos
+	Inits []Node
+}
+
+func (i *Initializer) GetPos() cpp.FilePos { return i.Pos }
 
 type Return struct {
 	Pos cpp.FilePos
@@ -28,7 +33,6 @@ type Return struct {
 }
 
 func (r *Return) GetPos() cpp.FilePos { return r.Pos }
-func (r *Return) Children() []Node    { return []Node{r.Ret} }
 
 type Index struct {
 	Pos  cpp.FilePos
@@ -39,7 +43,6 @@ type Index struct {
 
 func (i *Index) GetType() CType      { return i.Type }
 func (i *Index) GetPos() cpp.FilePos { return i.Pos }
-func (i *Index) Children() []Node    { return []Node{i.Arr, i.Idx} }
 
 type Cast struct {
 	Pos     cpp.FilePos
@@ -49,7 +52,6 @@ type Cast struct {
 
 func (c *Cast) GetType() CType      { return c.Type }
 func (c *Cast) GetPos() cpp.FilePos { return c.Pos }
-func (c *Cast) Children() []Node    { return []Node{c.Operand} }
 
 type CompndStmt struct {
 	Pos  cpp.FilePos
@@ -57,14 +59,12 @@ type CompndStmt struct {
 }
 
 func (c *CompndStmt) GetPos() cpp.FilePos { return c.Pos }
-func (c *CompndStmt) Children() []Node    { return c.Body }
 
 type EmptyStmt struct {
 	Pos cpp.FilePos
 }
 
 func (e *EmptyStmt) GetPos() cpp.FilePos { return e.Pos }
-func (*EmptyStmt) Children() []Node      { return []Node{} }
 
 type ExprStmt struct {
 	Pos  cpp.FilePos
@@ -72,7 +72,6 @@ type ExprStmt struct {
 }
 
 func (e *ExprStmt) GetPos() cpp.FilePos { return e.Pos }
-func (e *ExprStmt) Children() []Node    { return []Node{e.Expr} }
 
 type Goto struct {
 	IsBreak bool
@@ -82,7 +81,6 @@ type Goto struct {
 }
 
 func (g *Goto) GetPos() cpp.FilePos { return g.Pos }
-func (*Goto) Children() []Node      { return []Node{} }
 
 type LabeledStmt struct {
 	Pos       cpp.FilePos
@@ -94,7 +92,6 @@ type LabeledStmt struct {
 }
 
 func (l *LabeledStmt) GetPos() cpp.FilePos { return l.Pos }
-func (l *LabeledStmt) Children() []Node    { return []Node{l.Stmt} }
 
 type If struct {
 	Pos   cpp.FilePos
@@ -105,7 +102,6 @@ type If struct {
 }
 
 func (i *If) GetPos() cpp.FilePos { return i.Pos }
-func (i *If) Children() []Node    { return []Node{i.Cond, i.Stmt, i.Else} }
 
 type SwitchCase struct {
 	V     int64
@@ -122,7 +118,6 @@ type Switch struct {
 }
 
 func (sw *Switch) GetPos() cpp.FilePos { return sw.Pos }
-func (sw *Switch) Children() []Node    { return []Node{sw.Expr, sw.Stmt} }
 
 type For struct {
 	Pos    cpp.FilePos
@@ -135,7 +130,6 @@ type For struct {
 }
 
 func (f *For) GetPos() cpp.FilePos { return f.Pos }
-func (f *For) Children() []Node    { return []Node{f.Init, f.Cond, f.Step, f.Body} }
 
 type While struct {
 	Pos    cpp.FilePos
@@ -146,7 +140,6 @@ type While struct {
 }
 
 func (w *While) GetPos() cpp.FilePos { return w.Pos }
-func (w *While) Children() []Node    { return []Node{w.Cond, w.Body} }
 
 type DoWhile struct {
 	Pos    cpp.FilePos
@@ -158,7 +151,6 @@ type DoWhile struct {
 }
 
 func (d *DoWhile) GetPos() cpp.FilePos { return d.Pos }
-func (d *DoWhile) Children() []Node    { return []Node{d.Body, d.Cond} }
 
 type Unop struct {
 	Op      cpp.TokenKind
@@ -169,7 +161,6 @@ type Unop struct {
 
 func (u *Unop) GetType() CType      { return u.Type }
 func (u *Unop) GetPos() cpp.FilePos { return u.Pos }
-func (u *Unop) Children() []Node    { return []Node{u.Operand} }
 
 type Binop struct {
 	Op   cpp.TokenKind
@@ -181,7 +172,6 @@ type Binop struct {
 
 func (b *Binop) GetType() CType      { return b.Type }
 func (b *Binop) GetPos() cpp.FilePos { return b.Pos }
-func (b *Binop) Children() []Node    { return []Node{b.L, b.R} }
 
 type Function struct {
 	Name         string
@@ -193,7 +183,6 @@ type Function struct {
 
 func (f *Function) GetType() CType      { return f.FuncType }
 func (f *Function) GetPos() cpp.FilePos { return f.Pos }
-func (f *Function) Children() []Node    { return f.Body }
 
 type Call struct {
 	Pos      cpp.FilePos
@@ -204,13 +193,6 @@ type Call struct {
 
 func (c *Call) GetType() CType      { return c.Type }
 func (c *Call) GetPos() cpp.FilePos { return c.Pos }
-func (c *Call) Children() []Node {
-	ret := []Node{c.FuncLike}
-	for _, n := range c.Args {
-		ret = append(ret, n)
-	}
-	return ret
-}
 
 type DeclList struct {
 	Pos         cpp.FilePos
@@ -220,7 +202,6 @@ type DeclList struct {
 }
 
 func (d *DeclList) GetPos() cpp.FilePos { return d.Pos }
-func (d *DeclList) Children() []Node    { return d.Inits }
 
 type String struct {
 	Pos   cpp.FilePos
@@ -230,7 +211,6 @@ type String struct {
 
 func (s *String) GetType() CType      { return &Ptr{CChar} }
 func (s *String) GetPos() cpp.FilePos { return s.Pos }
-func (*String) Children() []Node      { return []Node{} }
 
 type Ident struct {
 	Pos cpp.FilePos
@@ -248,4 +228,3 @@ func (i *Ident) GetType() CType {
 }
 
 func (i *Ident) GetPos() cpp.FilePos { return i.Pos }
-func (*Ident) Children() []Node      { return []Node{} }

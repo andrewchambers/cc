@@ -761,6 +761,28 @@ func (p *parser) parseDeclaratorTail(basety CType) CType {
 }
 
 func (p *parser) parseInitializer() Node {
+	pos := p.curt.Pos
+	if p.curt.Kind == '{' {
+		p.expect('{')
+		/*
+			if IsScalarType(ty) {
+				ret := p.parseAssignmentExpr()
+				p.expect('}')
+				return ret
+			}*/
+		var inits []Node
+		for p.curt.Kind != '}' {
+			inits = append(inits, p.parseInitializer())
+			if p.curt.Kind == ',' {
+				continue
+			}
+		}
+		p.expect('}')
+		return &Initializer{
+			Pos:   pos,
+			Inits: inits,
+		}
+	}
 	return p.parseAssignmentExpr()
 }
 
