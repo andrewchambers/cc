@@ -15,6 +15,7 @@ const (
 	SC_AUTO SClass = iota
 	SC_REGISTER
 	SC_STATIC
+	SC_TYPEDEF
 	SC_GLOBAL
 )
 
@@ -630,25 +631,128 @@ func (p *parser) parseParamDecl() (*cpp.Token, CType) {
 	return p.parseDeclarator(ty, true)
 }
 
+func isStorageClass(k cpp.TokenKind) (bool, SClass) {
+	switch k {
+	case cpp.STATIC:
+		return true, SC_STATIC
+	case cpp.EXTERN:
+		return true, SC_GLOBAL
+	case cpp.TYPEDEF:
+		return true, SC_TYPEDEF
+	case cpp.REGISTER:
+		return true, SC_REGISTER
+	}
+	return false, 0
+}
+
+type dSpec struct {
+	signedcnt   int
+	unsignedcnt int
+	charcnt     int
+	intcnt      int
+	shortcnt    int
+	longcnt     int
+	floatcnt    int
+	doublecnt   int
+}
+
+type dSpecLutEnt struct {
+	spec dSpec
+	ty   Primitive
+}
+
+var declSpecLut = [...]dSpecLutEnt{
+	dSpecLutEnt{dSpec{
+		signedcnt:   0,
+		unsignedcnt: 0,
+		charcnt:     0,
+		intcnt:      0,
+		shortcnt:    0,
+		longcnt:     0,
+		floatcnt:    0,
+		doublecnt:   0}, CChar},
+	dSpecLutEnt{dSpec{
+		signedcnt:   0,
+		unsignedcnt: 0,
+		charcnt:     0,
+		intcnt:      0,
+		shortcnt:    0,
+		longcnt:     0,
+		floatcnt:    0,
+		doublecnt:   0}, CShort},
+	dSpecLutEnt{dSpec{
+		signedcnt:   0,
+		unsignedcnt: 0,
+		charcnt:     0,
+		intcnt:      0,
+		shortcnt:    0,
+		longcnt:     0,
+		floatcnt:    0,
+		doublecnt:   0}, CInt},
+	dSpecLutEnt{dSpec{
+		signedcnt:   0,
+		unsignedcnt: 0,
+		charcnt:     0,
+		intcnt:      0,
+		shortcnt:    0,
+		longcnt:     0,
+		floatcnt:    0,
+		doublecnt:   0}, CLong},
+	dSpecLutEnt{dSpec{
+		signedcnt:   0,
+		unsignedcnt: 0,
+		charcnt:     0,
+		intcnt:      0,
+		shortcnt:    0,
+		longcnt:     0,
+		floatcnt:    0,
+		doublecnt:   0}, CLLong},
+	dSpecLutEnt{dSpec{
+		signedcnt:   0,
+		unsignedcnt: 0,
+		charcnt:     0,
+		intcnt:      0,
+		shortcnt:    0,
+		longcnt:     0,
+		floatcnt:    0,
+		doublecnt:   0}, CLLong},
+}
+
 func (p *parser) parseDeclSpecifiers() (SClass, CType) {
+	scassigned := false
 	sc := SC_AUTO
 	ty := CInt
+	var spec dSpec
 	for {
+		pos := p.curt.Pos
+		issc, sclass := isStorageClass(p.curt.Kind)
+		if issc {
+			if scassigned {
+				p.errorPos(pos, "only one storage class specifier allowed")
+			}
+			scassigned = true
+			sc = sclass
+			p.next()
+			continue
+		}
 		switch p.curt.Kind {
-		case cpp.REGISTER:
-		case cpp.EXTERN:
-		case cpp.STATIC:
-		case cpp.TYPEDEF: // Typedef is actually a storage class like static.
 		case cpp.VOID:
 		case cpp.CHAR:
-			ty = CChar
+			spec.charcnt += 1
 		case cpp.SHORT:
+			spec.shortcnt += 1
 		case cpp.INT:
+			spec.intcnt += 1
 		case cpp.LONG:
+			spec.longcnt += 1
 		case cpp.FLOAT:
+			spec.floatcnt += 1
 		case cpp.DOUBLE:
+			spec.doublecnt += 1
 		case cpp.SIGNED:
+			spec.signedcnt += 1
 		case cpp.UNSIGNED:
+			spec.unsignedcnt += 1
 		case cpp.TYPENAME:
 		case cpp.STRUCT:
 			p.parseStruct()
