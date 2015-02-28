@@ -663,66 +663,131 @@ type dSpecLutEnt struct {
 
 var declSpecLut = [...]dSpecLutEnt{
 	dSpecLutEnt{dSpec{
-		signedcnt:   0,
-		unsignedcnt: 0,
-		charcnt:     0,
-		intcnt:      0,
-		shortcnt:    0,
-		longcnt:     0,
-		floatcnt:    0,
-		doublecnt:   0}, CChar},
+		charcnt: 1,
+	}, CChar},
 	dSpecLutEnt{dSpec{
-		signedcnt:   0,
-		unsignedcnt: 0,
-		charcnt:     0,
-		intcnt:      0,
-		shortcnt:    0,
-		longcnt:     0,
-		floatcnt:    0,
-		doublecnt:   0}, CShort},
+		signedcnt: 1,
+		charcnt:   1,
+	}, CChar},
 	dSpecLutEnt{dSpec{
-		signedcnt:   0,
-		unsignedcnt: 0,
-		charcnt:     0,
-		intcnt:      0,
-		shortcnt:    0,
-		longcnt:     0,
-		floatcnt:    0,
-		doublecnt:   0}, CInt},
+		unsignedcnt: 1,
+		charcnt:     1,
+	}, CUChar},
 	dSpecLutEnt{dSpec{
-		signedcnt:   0,
-		unsignedcnt: 0,
-		charcnt:     0,
-		intcnt:      0,
-		shortcnt:    0,
-		longcnt:     0,
-		floatcnt:    0,
-		doublecnt:   0}, CLong},
+		shortcnt: 1,
+	}, CShort},
 	dSpecLutEnt{dSpec{
-		signedcnt:   0,
-		unsignedcnt: 0,
-		charcnt:     0,
-		intcnt:      0,
-		shortcnt:    0,
-		longcnt:     0,
-		floatcnt:    0,
-		doublecnt:   0}, CLLong},
+		signedcnt: 1,
+		shortcnt:  1,
+	}, CShort},
 	dSpecLutEnt{dSpec{
-		signedcnt:   0,
-		unsignedcnt: 0,
-		charcnt:     0,
-		intcnt:      0,
-		shortcnt:    0,
-		longcnt:     0,
-		floatcnt:    0,
-		doublecnt:   0}, CLLong},
+		intcnt:   1,
+		shortcnt: 1,
+	}, CShort},
+	dSpecLutEnt{dSpec{
+		signedcnt: 1,
+		intcnt:    1,
+		shortcnt:  1,
+	}, CShort},
+	dSpecLutEnt{dSpec{
+		signedcnt: 1,
+		intcnt:    1,
+		shortcnt:  1,
+	}, CShort},
+	dSpecLutEnt{dSpec{
+		unsignedcnt: 1,
+		intcnt:      1,
+		shortcnt:    1,
+	}, CUShort},
+	dSpecLutEnt{dSpec{
+		unsignedcnt: 1,
+		shortcnt:    1,
+	}, CUShort},
+	dSpecLutEnt{dSpec{
+		intcnt: 1,
+	}, CInt},
+	dSpecLutEnt{dSpec{
+		intcnt: 1,
+	}, CInt},
+	dSpecLutEnt{dSpec{
+		signedcnt: 1,
+	}, CInt},
+	dSpecLutEnt{dSpec{
+		signedcnt: 1,
+		intcnt:    1,
+	}, CInt},
+	dSpecLutEnt{dSpec{
+		unsignedcnt: 1,
+	}, CUInt},
+	dSpecLutEnt{dSpec{
+		unsignedcnt: 1,
+		intcnt:      1,
+	}, CUInt},
+	dSpecLutEnt{dSpec{
+		longcnt: 1,
+	}, CLong},
+	dSpecLutEnt{dSpec{
+		signedcnt: 1,
+		longcnt:   1,
+	}, CLong},
+	dSpecLutEnt{dSpec{
+		longcnt: 1,
+		intcnt:  1,
+	}, CLong},
+	dSpecLutEnt{dSpec{
+		signedcnt: 1,
+		longcnt:   1,
+		intcnt:    1,
+	}, CLong},
+	dSpecLutEnt{dSpec{
+		unsignedcnt: 1,
+		longcnt:     1,
+	}, CULong},
+	dSpecLutEnt{dSpec{
+		unsignedcnt: 1,
+		longcnt:     1,
+		intcnt:      1,
+	}, CLong},
+	dSpecLutEnt{dSpec{
+		longcnt: 2,
+	}, CLLong},
+	dSpecLutEnt{dSpec{
+		signedcnt: 1,
+		longcnt:   2,
+	}, CLLong},
+	dSpecLutEnt{dSpec{
+		intcnt:  1,
+		longcnt: 2,
+	}, CLLong},
+	dSpecLutEnt{dSpec{
+		intcnt:    1,
+		signedcnt: 1,
+		longcnt:   2,
+	}, CLLong},
+	dSpecLutEnt{dSpec{
+		unsignedcnt: 1,
+		longcnt:     2,
+	}, CULLong},
+	dSpecLutEnt{dSpec{
+		intcnt:      1,
+		unsignedcnt: 1,
+		longcnt:     2,
+	}, CULLong},
+	dSpecLutEnt{dSpec{
+		floatcnt: 1,
+	}, CFloat},
+	dSpecLutEnt{dSpec{
+		doublecnt: 1,
+	}, CDouble},
 }
 
 func (p *parser) parseDeclSpecifiers() (SClass, CType) {
+	dspecpos := p.curt.Pos
 	scassigned := false
 	sc := SC_AUTO
 	ty := CInt
 	var spec dSpec
+loop:
 	for {
 		pos := p.curt.Pos
 		issc, sclass := isStorageClass(p.curt.Kind)
@@ -737,32 +802,59 @@ func (p *parser) parseDeclSpecifiers() (SClass, CType) {
 		}
 		switch p.curt.Kind {
 		case cpp.VOID:
+			p.next()
 		case cpp.CHAR:
 			spec.charcnt += 1
+			p.next()
 		case cpp.SHORT:
 			spec.shortcnt += 1
+			p.next()
 		case cpp.INT:
 			spec.intcnt += 1
+			p.next()
 		case cpp.LONG:
 			spec.longcnt += 1
+			p.next()
 		case cpp.FLOAT:
 			spec.floatcnt += 1
+			p.next()
 		case cpp.DOUBLE:
 			spec.doublecnt += 1
+			p.next()
 		case cpp.SIGNED:
 			spec.signedcnt += 1
+			p.next()
 		case cpp.UNSIGNED:
 			spec.unsignedcnt += 1
+			p.next()
 		case cpp.TYPENAME:
 		case cpp.STRUCT:
 			p.parseStruct()
 			return sc, ty
 		case cpp.UNION:
+		case cpp.VOLATILE, cpp.CONST:
+			p.next()
 		default:
-			return sc, ty
+			break loop
 		}
-		p.next()
 	}
+	nullspec := dSpec{}
+	// If we got any type specifiers, look up
+	// the correct type.
+	if spec != nullspec {
+		match := false
+		for _, te := range declSpecLut {
+			if te.spec == spec {
+				ty = te.ty
+				match = true
+				break
+			}
+		}
+		if !match {
+			p.errorPos(dspecpos, "invalid type")
+		}
+	}
+	return sc, ty
 }
 
 // Declarator
