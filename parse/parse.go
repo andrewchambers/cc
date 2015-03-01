@@ -956,16 +956,30 @@ func (p *parser) parseDeclaratorTail(basety CType) CType {
 	}
 }
 
-func (p *parser) parseInitializer() Node {
+func (p *parser) parseInitializer(ty CType, constant bool) Node {
 	pos := p.curt.Pos
-	if p.curt.Kind == '{' {
+	if IsScalarType(ty) {
+		var init Expr
+		if p.curt.Kind == '{' {
+			p.expect('{')
+			init = p.parseAssignmentExpr()
+			p.expect('}')
+		} else {
+			init = p.parseAssignmentExpr()
+		}
+		return init
+	} else if IsCharArr(ty) {
+		switch p.curt.Kind {
+		case cpp.String:
+			p.expect(cpp.STRING)
+		case '{':
+			p.expect('{')
+			p.expect(cpp.STRING)
+			p.expect('}')
+		default:
+		}
+	} else if IsArrType(t) {
 		p.expect('{')
-		/*
-			if IsScalarType(ty) {
-				ret := p.parseAssignmentExpr()
-				p.expect('}')
-				return ret
-			}*/
 		var inits []Node
 		for p.curt.Kind != '}' {
 			inits = append(inits, p.parseInitializer())
@@ -974,12 +988,7 @@ func (p *parser) parseInitializer() Node {
 			}
 		}
 		p.expect('}')
-		return &Initializer{
-			Pos:   pos,
-			Inits: inits,
-		}
 	}
-	return p.parseAssignmentExpr()
 }
 
 func isAssignmentOperator(k cpp.TokenKind) bool {

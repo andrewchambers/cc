@@ -129,3 +129,20 @@ func IsIntType(t CType) bool {
 func IsScalarType(t CType) bool {
 	return IsPtrType(t) || IsIntType(t)
 }
+
+func IsArrType(t CType) bool {
+	_, ok := t.(*Arr)
+	return ok
+}
+
+func IsCharType(t CType) bool {
+	prim, ok := t.(Primitive)
+	if !ok {
+		return false
+	}
+	return prim == CChar
+}
+
+func IsCharArr(t CType) bool {
+	return IsArrType(t) && IsCharType(t)
+}
