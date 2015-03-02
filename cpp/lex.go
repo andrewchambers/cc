@@ -8,6 +8,12 @@ import (
 	"io"
 )
 
+// TODO:
+// Prefer this to not use a goroutine to allow proper garbage collection of lexers.
+//
+// Prefer tokens had flags indicating whitespace and newlines, instead of special tokens.
+// The preprocessor needs this info to correctly identify directives etc.
+
 type Lexer struct {
 	brdr      *bufio.Reader
 	pos       FilePos
