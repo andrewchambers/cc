@@ -316,17 +316,18 @@ func (p *parser) parseCase() Node {
 		p.errorPos(pos, "'case' outside a switch statement")
 	}
 	expr := p.parseExpr()
+	if !IsIntType(expr.GetType()) {
+		p.errorPos(expr.GetPos(), "expected an integral type")
+	}
 	v, err := Fold(expr)
 	if err != nil {
-		p.errorPos(expr.GetPos(), "expected constant expression")
-	}
-	if !IsIntType(v.Type) {
-		p.errorPos(expr.GetPos(), "expected an integral type")
+		p.errorPos(expr.GetPos(), err.Error())
 	}
 	p.expect(':')
 	anonlabel := p.nextLabel()
+	i := v.(*ConstantInt)
 	swc := SwitchCase{
-		V:     v.Val,
+		V:     i.Val,
 		Label: anonlabel,
 	}
 	sw.Cases = append(sw.Cases, swc)
@@ -598,11 +599,11 @@ func (p *parser) parseDecl(isGlobal bool) Node {
 		declList.Symbols = append(declList.Symbols, sym)
 		var init Node
 		var initPos cpp.FilePos
-		var folded *FoldedConstant
+		var folded ConstantValue
 		if p.curt.Kind == '=' {
 			p.next()
 			initPos = p.curt.Pos
-			init = p.parseInitializer()
+			init = p.parseInitializer(nil, true)
 			folded, err = Fold(init)
 			if err != nil {
 				folded = nil
@@ -924,8 +925,9 @@ func (p *parser) parseDeclaratorTail(basety CType) CType {
 			if err != nil {
 				p.errorPos(dimn.GetPos(), "invalid constant Expr for array dimensions")
 			}
+			i := dim.(*ConstantInt)
 			ret = &Array{
-				Dim:        int(dim.Val),
+				Dim:        int(i.Val),
 				MemberType: ret,
 			}
 		case '(':
@@ -957,7 +959,7 @@ func (p *parser) parseDeclaratorTail(basety CType) CType {
 }
 
 func (p *parser) parseInitializer(ty CType, constant bool) Node {
-	pos := p.curt.Pos
+	_ = p.curt.Pos
 	if IsScalarType(ty) {
 		var init Expr
 		if p.curt.Kind == '{' {
@@ -970,7 +972,7 @@ func (p *parser) parseInitializer(ty CType, constant bool) Node {
 		return init
 	} else if IsCharArr(ty) {
 		switch p.curt.Kind {
-		case cpp.String:
+		case cpp.STRING:
 			p.expect(cpp.STRING)
 		case '{':
 			p.expect('{')
@@ -978,17 +980,20 @@ func (p *parser) parseInitializer(ty CType, constant bool) Node {
 			p.expect('}')
 		default:
 		}
-	} else if IsArrType(t) {
+	} else if IsArrType(ty) {
+		arr := ty.(*Array)
 		p.expect('{')
 		var inits []Node
 		for p.curt.Kind != '}' {
-			inits = append(inits, p.parseInitializer())
+			inits = append(inits, p.parseInitializer(arr.MemberType, true))
 			if p.curt.Kind == ',' {
 				continue
 			}
 		}
 		p.expect('}')
 	}
+
+	return nil
 }
 
 func isAssignmentOperator(k cpp.TokenKind) bool {

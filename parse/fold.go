@@ -4,14 +4,47 @@ import (
 	"fmt"
 )
 
-type FoldedConstant struct {
-	Val   int64
+type ConstantValue interface{}
+
+type ConstantGPtr struct {
 	Label string
+	Off   int64
 	Type  CType
 }
 
-func Fold(n Node) (*FoldedConstant, error) {
+type ConstantPtr struct {
+	Val  ConstantValue
+	Off  int64
+	Type CType
+}
+
+type ConstantString struct {
+	Val  string
+	Type CType
+}
+
+type ConstantArr struct {
+	Inits map[int]ConstantValue
+	Type  CType
+}
+
+type ConstantInt struct {
+	Val  int64
+	Type CType
+}
+
+func Fold(n Node) (ConstantValue, error) {
 	switch n := n.(type) {
+	case *Constant:
+		return &ConstantInt{
+			Type: n.Type,
+			Val:  n.Val,
+		}, nil
+	case *String:
+		return &ConstantString{
+			Type: &Ptr{PointsTo: CChar},
+			Val:  n.Val,
+		}, nil
 	case *Unop:
 		switch n.Op {
 		case '&':
@@ -24,98 +57,12 @@ func Fold(n Node) (*FoldedConstant, error) {
 			if !ok {
 				return nil, fmt.Errorf("'&' requires a static or global identifier")
 			}
-			return &FoldedConstant{
-				Val:   0,
+			return &ConstantGPtr{
+				Off:   0,
 				Label: gsym.Label,
 				Type:  n.Type,
 			}, nil
-		case '-':
-			operand, err := Fold(n.Operand)
-			if err != nil {
-				return nil, err
-			}
-			if IsIntType(operand.Type) {
-				return &FoldedConstant{
-					Val:  -operand.Val,
-					Type: operand.Type,
-				}, nil
-			}
-		case '+':
-			operand, err := Fold(n.Operand)
-			if err != nil {
-				return nil, err
-			}
-			if IsIntType(operand.Type) {
-				return operand, nil
-			}
 		}
-	case *Binop:
-		l, err := Fold(n.L)
-		if err != nil {
-			return nil, err
-		}
-		r, err := Fold(n.R)
-		if err != nil {
-			return nil, err
-		}
-		switch n.Op {
-		case '+':
-			if IsIntType(l.Type) && IsIntType(r.Type) {
-				if l.Label != "" || r.Label != "" {
-					panic("internal error.")
-				}
-				return &FoldedConstant{
-					Val:  l.Val + r.Val,
-					Type: l.Type,
-				}, nil
-			}
-		case '*':
-			if IsIntType(l.Type) && IsIntType(r.Type) {
-				if l.Label != "" || r.Label != "" {
-					panic("internal error.")
-				}
-				return &FoldedConstant{
-					Val:  l.Val * r.Val,
-					Type: l.Type,
-				}, nil
-			}
-		case '/':
-			if IsIntType(l.Type) && IsIntType(r.Type) {
-				if l.Label != "" || r.Label != "" {
-					panic("internal error.")
-				}
-				if r.Val == 0 {
-					return nil, fmt.Errorf("division by zero.")
-				}
-				return &FoldedConstant{
-					Val:  l.Val / r.Val,
-					Type: l.Type,
-				}, nil
-			}
-		case '-':
-			if IsIntType(l.Type) && IsIntType(r.Type) {
-				if l.Label != "" || r.Label != "" {
-					panic("internal error.")
-				}
-				return &FoldedConstant{
-					Val:  l.Val - r.Val,
-					Type: l.Type,
-				}, nil
-			}
-		}
-	case *Constant:
-		return &FoldedConstant{
-			Val:   n.Val,
-			Label: "",
-			Type:  n.Type,
-		}, nil
-	case *String:
-		return &FoldedConstant{
-			Label: n.Label,
-			Type:  n.GetType(),
-		}, nil
-	default:
-		return nil, fmt.Errorf("not a valid constant expression")
 	}
-	panic("internal error.")
+	return nil, fmt.Errorf("not a valid constant value")
 }

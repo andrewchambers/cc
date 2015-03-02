@@ -49,7 +49,7 @@ func (e *emitter) emiti(s string, args ...interface{}) {
 	e.emit("  "+s, args...)
 }
 
-func (e *emitter) emitGlobal(g *parse.GSymbol, init *parse.FoldedConstant) {
+func (e *emitter) emitGlobal(g *parse.GSymbol, init parse.ConstantValue) {
 	_, ok := g.Type.(*parse.FunctionType)
 	if ok {
 		return
@@ -62,9 +62,11 @@ func (e *emitter) emitGlobal(g *parse.GSymbol, init *parse.FoldedConstant) {
 		e.emit("%s:\n", g.Label)
 		switch {
 		case g.Type == parse.CInt:
-			e.emit(".quad %v\n", init.Val)
+			v := init.(*parse.ConstantInt)
+			e.emit(".quad %v\n", v.Val)
 		case parse.IsPtrType(g.Type):
-			e.emit(".quad %s\n", init.Label)
+			v := init.(*parse.ConstantGPtr)
+			e.emit(".quad %s\n", v.Label)
 		default:
 		}
 	}

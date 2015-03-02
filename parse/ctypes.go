@@ -131,7 +131,7 @@ func IsScalarType(t CType) bool {
 }
 
 func IsArrType(t CType) bool {
-	_, ok := t.(*Arr)
+	_, ok := t.(*Array)
 	return ok
 }
 

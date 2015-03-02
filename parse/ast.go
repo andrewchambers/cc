@@ -198,7 +198,7 @@ type DeclList struct {
 	Pos         cpp.FilePos
 	Symbols     []Symbol
 	Inits       []Node
-	FoldedInits []*FoldedConstant
+	FoldedInits []ConstantValue
 }
 
 func (d *DeclList) GetPos() cpp.FilePos { return d.Pos }
