@@ -959,40 +959,42 @@ func (p *parser) parseDeclaratorTail(basety CType) CType {
 }
 
 func (p *parser) parseInitializer(ty CType, constant bool) Node {
-	_ = p.curt.Pos
-	if IsScalarType(ty) {
-		var init Expr
-		if p.curt.Kind == '{' {
-			p.expect('{')
-			init = p.parseAssignmentExpr()
-			p.expect('}')
-		} else {
-			init = p.parseAssignmentExpr()
-		}
-		return init
-	} else if IsCharArr(ty) {
-		switch p.curt.Kind {
-		case cpp.STRING:
-			p.expect(cpp.STRING)
-		case '{':
-			p.expect('{')
-			p.expect(cpp.STRING)
-			p.expect('}')
-		default:
-		}
-	} else if IsArrType(ty) {
-		arr := ty.(*Array)
-		p.expect('{')
-		var inits []Node
-		for p.curt.Kind != '}' {
-			inits = append(inits, p.parseInitializer(arr.MemberType, true))
-			if p.curt.Kind == ',' {
-				continue
+	return p.parseAssignmentExpr()
+	/*
+		_ = p.curt.Pos
+		if IsScalarType(ty) {
+			var init Expr
+			if p.curt.Kind == '{' {
+				p.expect('{')
+				init = p.parseAssignmentExpr()
+				p.expect('}')
+			} else {
+				init = p.parseAssignmentExpr()
 			}
+			return init
+		} else if IsCharArr(ty) {
+			switch p.curt.Kind {
+			case cpp.STRING:
+				p.expect(cpp.STRING)
+			case '{':
+				p.expect('{')
+				p.expect(cpp.STRING)
+				p.expect('}')
+			default:
+			}
+		} else if IsArrType(ty) {
+			arr := ty.(*Array)
+			p.expect('{')
+			var inits []Node
+			for p.curt.Kind != '}' {
+				inits = append(inits, p.parseInitializer(arr.MemberType, true))
+				if p.curt.Kind == ',' {
+					continue
+				}
+			}
+			p.expect('}')
 		}
-		p.expect('}')
-	}
-
+	*/
 	return nil
 }
 

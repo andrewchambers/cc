@@ -65,8 +65,14 @@ func (e *emitter) emitGlobal(g *parse.GSymbol, init parse.ConstantValue) {
 			v := init.(*parse.ConstantInt)
 			e.emit(".quad %v\n", v.Val)
 		case parse.IsPtrType(g.Type):
-			v := init.(*parse.ConstantGPtr)
-			e.emit(".quad %s\n", v.Label)
+			switch init := init.(type) {
+			case *parse.ConstantGPtr:
+				e.emit(".quad %s\n", init.Label)
+			case *parse.ConstantString:
+				e.emit(".quad %s\n", init.Label)
+				e.emit("%s:\n", init.Label)
+				e.emit(".string %s\n", init.Val)
+			}
 		default:
 		}
 	}

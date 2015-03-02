@@ -19,8 +19,9 @@ type ConstantPtr struct {
 }
 
 type ConstantString struct {
-	Val  string
-	Type CType
+	Val   string
+	Type  CType
+	Label string
 }
 
 type ConstantArr struct {
@@ -42,8 +43,9 @@ func Fold(n Node) (ConstantValue, error) {
 		}, nil
 	case *String:
 		return &ConstantString{
-			Type: &Ptr{PointsTo: CChar},
-			Val:  n.Val,
+			Type:  &Ptr{PointsTo: CChar},
+			Val:   n.Val,
+			Label: n.Label,
 		}, nil
 	case *Unop:
 		switch n.Op {
@@ -63,6 +65,9 @@ func Fold(n Node) (ConstantValue, error) {
 				Type:  n.Type,
 			}, nil
 		}
+	default:
+
 	}
+
 	return nil, fmt.Errorf("not a valid constant value")
 }
