@@ -196,6 +196,7 @@ func (c *Call) GetPos() cpp.FilePos { return c.Pos }
 
 type DeclList struct {
 	Pos         cpp.FilePos
+	Storage     SClass
 	Symbols     []Symbol
 	Inits       []Node
 	FoldedInits []ConstantValue

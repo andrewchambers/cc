@@ -11,7 +11,7 @@ partially implemented.
 It is heavily inspired by https://github.com/rui314/8cc as well as http://bellard.org/tcc/. 
 I recommend studying the source code of 8cc before contributing here, as 8cc is currently far more mature.
 
-*Project Trajectory/Stretch Goals.*
+*Project Trajectory/Stretch Goals*
 
  * Compiling non trivial C99/C11 programs with x86_64 with a non optimising backend on linux/windows/macos. Compiling Go1.4 would be a good test, as then we could bootstrap ourselves.
  * Simple optimizing backend, maintaining functionality.

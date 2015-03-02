@@ -44,3 +44,7 @@ type GSymbol struct {
 type LSymbol struct {
 	Type CType
 }
+
+type TSymbol struct {
+	Type CType
+}

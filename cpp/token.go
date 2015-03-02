@@ -43,7 +43,6 @@ const (
 	HEADER
 	// Identifiers and basic type literals
 	// (these tokens stand for classes of literals)
-	TYPENAME       // Same as ident, but typedefed.
 	IDENT          // main
 	INT_CONSTANT   // 12345
 	FLOAT_CONSTANT // 123.45

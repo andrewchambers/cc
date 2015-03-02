@@ -29,8 +29,10 @@ type gotoFixup struct {
 }
 
 type parser struct {
-	types       *scope
-	decls       *scope
+	types   *scope
+	structs *scope
+	decls   *scope
+
 	pp          *cpp.Preprocessor
 	curt, nextt *cpp.Token
 	lcounter    int
@@ -52,10 +54,14 @@ type parser struct {
 
 func (p *parser) pushScope() {
 	p.decls = newScope(p.decls)
+	p.structs = newScope(p.structs)
+	p.types = newScope(p.types)
 }
 
 func (p *parser) popScope() {
 	p.decls = p.decls.parent
+	p.structs = p.structs.parent
+	p.types = p.types.parent
 }
 
 func (p *parser) pushSwitch(s *Switch) {
@@ -132,6 +138,7 @@ func Parse(pp *cpp.Preprocessor) (toplevels []Node, errRet error) {
 	p.pp = pp
 	p.types = newScope(nil)
 	p.decls = newScope(nil)
+	p.structs = newScope(nil)
 
 	defer func() {
 		if e := recover(); e != nil {
@@ -534,7 +541,9 @@ func (p *parser) parseDecl(isGlobal bool) Node {
 	declPos := p.curt.Pos
 	var name *cpp.Token
 	declList := &DeclList{}
-	_, ty := p.parseDeclSpecifiers()
+	sc, ty := p.parseDeclSpecifiers()
+	declList.Storage = sc
+	isTypedef := sc == SC_TYPEDEF
 	for {
 		name, ty = p.parseDeclarator(ty, false)
 		if name == nil {
@@ -543,7 +552,9 @@ func (p *parser) parseDecl(isGlobal bool) Node {
 		if firstDecl && isGlobal {
 			// if declaring a function
 			if p.curt.Kind == '{' {
-
+				if isTypedef {
+					p.errorPos(name.Pos, "cannot typedef a function")
+				}
 				fty, ok := ty.(*FunctionType)
 				if !ok {
 					p.errorPos(name.Pos, "expected a function")
@@ -582,7 +593,11 @@ func (p *parser) parseDecl(isGlobal bool) Node {
 			}
 		}
 		var sym Symbol
-		if isGlobal {
+		if isTypedef {
+			sym = &TSymbol{
+				Type: ty,
+			}
+		} else if isGlobal {
 			sym = &GSymbol{
 				Label: name.Val,
 				Type:  ty,
@@ -592,7 +607,12 @@ func (p *parser) parseDecl(isGlobal bool) Node {
 				Type: ty,
 			}
 		}
-		err := p.decls.define(name.Val, sym)
+		var err error
+		if isTypedef {
+			err = p.types.define(name.Val, sym)
+		} else {
+			err = p.decls.define(name.Val, sym)
+		}
 		if err != nil {
 			p.errorPos(name.Pos, err.Error())
 		}
@@ -603,6 +623,9 @@ func (p *parser) parseDecl(isGlobal bool) Node {
 		if p.curt.Kind == '=' {
 			p.next()
 			initPos = p.curt.Pos
+			if isTypedef {
+				p.errorPos(initPos, "cannot initialize a typedef")
+			}
 			init = p.parseInitializer(nil, true)
 			folded, err = Fold(init)
 			if err != nil {
@@ -786,8 +809,9 @@ func (p *parser) parseDeclSpecifiers() (SClass, CType) {
 	dspecpos := p.curt.Pos
 	scassigned := false
 	sc := SC_AUTO
-	ty := CInt
+	var ty CType = CInt
 	var spec dSpec
+	nullspec := dSpec{}
 loop:
 	for {
 		pos := p.curt.Pos
@@ -828,7 +852,17 @@ loop:
 		case cpp.UNSIGNED:
 			spec.unsignedcnt += 1
 			p.next()
-		case cpp.TYPENAME:
+		case cpp.IDENT:
+			t := p.curt
+			sym, err := p.types.lookup(t.Val)
+			if err != nil {
+				break loop
+			}
+			p.next()
+			if spec != nullspec {
+				p.error("TODO...")
+			}
+			return sc, sym.(*TSymbol).Type
 		case cpp.STRUCT:
 			p.parseStruct()
 			return sc, ty
@@ -839,7 +873,7 @@ loop:
 			break loop
 		}
 	}
-	nullspec := dSpec{}
+
 	// If we got any type specifiers, look up
 	// the correct type.
 	if spec != nullspec {
