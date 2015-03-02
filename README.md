@@ -5,7 +5,7 @@ It is implemented in Go because it is cross platform, fast, simple, and has a ga
 Go applications run natively on windows/linux/mac with no effort, and are statically linked, so easy it's install.
 Building the compiler is fast and simple, and I plan for it to be "usb key ready" by simply copying the static binary to the desired location.
 
-It is extremely work in progress, and the test suite is the best idea of what currently works, though other features may be
+It is a work in progress, and the test suite is the best idea of what currently works, though other features may be
 partially implemented.
 
 It is heavily inspired by https://github.com/rui314/8cc as well as http://bellard.org/tcc/. 
