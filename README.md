@@ -22,7 +22,7 @@ I recommend studying the source code of 8cc before contributing here, as 8cc is 
 
 ```
 $ go get github.com/andrewchambers/cc
-$ cd $GOPATH/andrewchambers/cc
+$ cd $GOPATH/src/github.com/andrewchambers/cc
 $ go test -v
 $ go build
 $ ./cc -h
