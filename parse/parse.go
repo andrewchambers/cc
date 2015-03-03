@@ -858,11 +858,12 @@ loop:
 			if err != nil {
 				break loop
 			}
+			tsym := sym.(*TSymbol)
 			p.next()
 			if spec != nullspec {
 				p.error("TODO...")
 			}
-			return sc, sym.(*TSymbol).Type
+			return sc, tsym.Type
 		case cpp.STRUCT:
 			p.parseStruct()
 			return sc, ty

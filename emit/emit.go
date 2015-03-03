@@ -27,6 +27,9 @@ func Emit(toplevels []parse.Node, o io.Writer) error {
 		case *parse.Function:
 			e.emitFunction(tl)
 		case *parse.DeclList:
+			if tl.Storage == parse.SC_TYPEDEF {
+				continue
+			}
 			for idx, decl := range tl.Symbols {
 				global, ok := decl.(*parse.GSymbol)
 				if !ok {

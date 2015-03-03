@@ -27,6 +27,15 @@ func (s *scope) define(k string, v Symbol) error {
 	return nil
 }
 
+func (s *scope) String() string {
+	str := ""
+	if s.parent != nil {
+		str += s.parent.String() + "\n"
+	}
+	str += fmt.Sprintf("%v", s.kv)
+	return str
+}
+
 func newScope(parent *scope) *scope {
 	ret := &scope{}
 	ret.parent = parent
