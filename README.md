@@ -1,3 +1,6 @@
+[![Join the chat at https://gitter.im/andrewchambers/cc](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/andrewchambers/cc?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
+
 The goal of the project is to create a minimalist, cross platform C compiler which is accessible to
 hobbyists, but can still compile serious applications.
 
@@ -36,6 +39,4 @@ You will need to discuss progress/direction for various aspects of the compiler 
 Allow preprocessor include paths from archives to allow sdk's to be packaged as a single binary + archive.
 Concurrency using goroutines - C can be compiled a function at a time, so there is a lot of room for this.
 Compile to javascript using Gopherjs.
-
-[![Join the chat at https://gitter.im/andrewchambers/cc](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/andrewchambers/cc?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
