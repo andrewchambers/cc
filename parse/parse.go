@@ -200,8 +200,13 @@ func (p *parser) parseTranslationUnit() []Node {
 	return topLevels
 }
 
-func isDeclStart(t cpp.TokenKind) bool {
-	switch t {
+func (p *parser) isDeclStart(t *cpp.Token) bool {
+	switch t.Kind {
+	case cpp.IDENT:
+		_, err := p.decls.lookup(t.Val)
+		if err != nil {
+			return true
+		}
 	case cpp.STATIC, cpp.VOLATILE, cpp.STRUCT, cpp.CHAR, cpp.INT, cpp.SHORT, cpp.LONG,
 		cpp.UNSIGNED, cpp.SIGNED, cpp.FLOAT, cpp.DOUBLE:
 		return true
@@ -213,7 +218,7 @@ func (p *parser) parseStmt() Node {
 	if p.nextt.Kind == ':' && p.curt.Kind == cpp.IDENT {
 		return p.parseLabeledStmt()
 	}
-	if isDeclStart(p.curt.Kind) {
+	if p.isDeclStart(p.curt) {
 		return p.parseDecl(false)
 	} else {
 		switch p.curt.Kind {
