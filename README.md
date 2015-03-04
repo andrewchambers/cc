@@ -36,7 +36,8 @@ You will need to discuss progress/direction for various aspects of the compiler 
 
 *Fun Ideas*
 
-Allow preprocessor include paths from archives to allow sdk's to be packaged as a single binary + archive.
-Concurrency using goroutines - C can be compiled a function at a time, so there is a lot of room for this.
-Compile to javascript using Gopherjs.
+- Allow preprocessor include paths from archives to allow sdk's to be packaged as a single binary + archive.
+- Concurrency using goroutines - C can be compiled a function at a time, so there is a lot of room for this.
+- Embed Gopherlua (lua), Otto(javascript) or other Go based interpreters inside the compiler for plugins or interactive debugging.
+- Compile to javascript using Gopherjs.
 
