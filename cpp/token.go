@@ -244,11 +244,14 @@ func (pos FilePos) String() string {
 //Token represents a grouping of characters
 //that provide semantic meaning in a C program.
 type Token struct {
-	Kind             TokenKind
-	Val              string
-	Pos              FilePos
-	WasMacroExpanded bool
-	hs               *hideset
+	Kind TokenKind
+	Val  string
+	Pos  FilePos
+	hs   *hideset
+}
+
+func (t *Token) wasExpanded() bool {
+	return t.hs.len() > 0
 }
 
 func (t *Token) copy() *Token {
@@ -257,7 +260,7 @@ func (t *Token) copy() *Token {
 }
 
 func (t Token) String() string {
-	if t.WasMacroExpanded {
+	if t.wasExpanded() {
 		fmt.Sprintf("%s expanded from macro at %s", t.Val, t.Pos)
 	}
 	return fmt.Sprintf("%s at %s", t.Val, t.Pos)

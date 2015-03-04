@@ -7,20 +7,34 @@ package cpp
 // Performance should be ok for most real world code (hidesets are small in practice).
 
 type hideset struct {
-	next *hideset
-	val  string
+	r   *hideset
+	val string
 }
 
-var emptyHS *hideset
+var emptyHS *hideset = nil
+
+func (hs *hideset) rest() *hideset {
+	if hs == emptyHS {
+		return emptyHS
+	}
+	return hs.r
+}
+
+func (hs *hideset) len() int {
+	if hs == emptyHS {
+		return 0
+	}
+	return 1 + hs.rest().len()
+}
 
 func (hs *hideset) contains(s string) bool {
-	for hs != nil {
-		if s == hs.val {
-			return true
-		}
-		hs = hs.next
+	if hs == emptyHS {
+		return false
 	}
-	return false
+	if s == hs.val {
+		return true
+	}
+	return hs.rest().contains(s)
 }
 
 func (hs *hideset) add(s string) *hideset {
@@ -28,26 +42,26 @@ func (hs *hideset) add(s string) *hideset {
 		return hs
 	}
 	return &hideset{
-		next: hs,
-		val:  s,
+		r:   hs,
+		val: s,
 	}
 }
 
 func (hs *hideset) intersection(b *hideset) *hideset {
-	for hs != nil {
+	for hs != emptyHS {
 		b = b.add(hs.val)
-		hs = hs.next
+		hs = hs.rest()
 	}
 	return b
 }
 
 func (hs *hideset) union(b *hideset) *hideset {
 	ret := emptyHS
-	for hs.next != nil {
+	for hs.rest() != emptyHS {
 		if b.contains(hs.val) {
 			ret = ret.add(hs.val)
 		}
-		hs = hs.next
+		hs = hs.rest()
 	}
 	return ret
 }
