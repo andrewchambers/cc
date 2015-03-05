@@ -21,20 +21,22 @@ func (hs *hideset) rest() *hideset {
 }
 
 func (hs *hideset) len() int {
-	if hs == emptyHS {
-		return 0
+	l := 0
+	for hs != emptyHS {
+		l += 1
+		hs = hs.rest()
 	}
-	return 1 + hs.rest().len()
+	return l
 }
 
 func (hs *hideset) contains(s string) bool {
-	if hs == emptyHS {
-		return false
+	for hs != emptyHS {
+		if hs.val == s {
+			return true
+		}
+		hs = hs.rest()
 	}
-	if s == hs.val {
-		return true
-	}
-	return hs.rest().contains(s)
+	return false
 }
 
 func (hs *hideset) add(s string) *hideset {
@@ -47,7 +49,7 @@ func (hs *hideset) add(s string) *hideset {
 	}
 }
 
-func (hs *hideset) intersection(b *hideset) *hideset {
+func (hs *hideset) union(b *hideset) *hideset {
 	for hs != emptyHS {
 		b = b.add(hs.val)
 		hs = hs.rest()
@@ -55,9 +57,9 @@ func (hs *hideset) intersection(b *hideset) *hideset {
 	return b
 }
 
-func (hs *hideset) union(b *hideset) *hideset {
+func (hs *hideset) intersection(b *hideset) *hideset {
 	ret := emptyHS
-	for hs.rest() != emptyHS {
+	for hs != emptyHS {
 		if b.contains(hs.val) {
 			ret = ret.add(hs.val)
 		}
