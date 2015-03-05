@@ -549,6 +549,12 @@ func (p *parser) parseDecl(isGlobal bool) Node {
 	sc, ty := p.parseDeclSpecifiers()
 	declList.Storage = sc
 	isTypedef := sc == SC_TYPEDEF
+
+	if p.curt.Kind == ';' {
+		p.next()
+		return declList
+	}
+
 	for {
 		name, ty = p.parseDeclarator(ty, false)
 		if name == nil {
@@ -870,7 +876,10 @@ loop:
 			}
 			return sc, tsym.Type
 		case cpp.STRUCT:
-			p.parseStruct()
+			if spec != nullspec {
+				p.error("TODO...")
+			}
+			ty = p.parseStruct()
 			return sc, ty
 		case cpp.UNION:
 		case cpp.VOLATILE, cpp.CONST:
@@ -1321,9 +1330,26 @@ loop:
 				Type: ty,
 			}
 		case '.', cpp.ARROW:
+			op := p.curt.Kind
+			pos := p.curt.Pos
+			strct, isStruct := l.GetType().(*CStruct)
 			p.next()
-			// XXX is a typename valid here too?
+			if !isStruct {
+				p.errorPos(l.GetPos(), "expected a struct")
+			}
+			sel := p.curt
 			p.expect(cpp.IDENT)
+			ty := strct.FieldType(sel.Val)
+			if ty == nil {
+				p.errorPos(pos, "struct does not have field %s", sel.Val)
+			}
+			l = &Selector{
+				Op:      op,
+				Pos:     pos,
+				Operand: l,
+				Type:    ty,
+				Sel:     sel.Val,
+			}
 		case '(':
 			parenpos := p.curt.Pos
 			var fty *FunctionType
@@ -1423,28 +1449,51 @@ func (p *parser) parsePrimaryExpr() Expr {
 }
 
 func (p *parser) parseStruct() CType {
+	spos := p.curt.Pos
 	p.expect(cpp.STRUCT)
+	var ret *CStruct
+	sname := ""
+	npos := p.curt.Pos
 	if p.curt.Kind == cpp.IDENT {
+		sname = p.curt.Val
 		p.next()
-	}
-	if p.curt.Kind == '{' {
-		p.next()
-		for {
-			if p.curt.Kind == '}' {
-				break
-			}
-			_, basety := p.parseDeclSpecifiers()
-			for {
-				p.parseDeclarator(basety, false)
-				if p.curt.Kind == ',' {
-					p.next()
-					continue
-				}
-				break
-			}
-			p.expect(';')
+		sym, err := p.structs.lookup(sname)
+		if err != nil && p.curt.Kind != '{' {
+			p.errorPos(npos, err.Error())
 		}
-		p.expect('}')
+		ret = sym.(*TSymbol).Type.(*CStruct)
 	}
-	return nil
+	if p.curt.Kind != '{' {
+		if ret == nil {
+			p.errorPos(spos, "invalid struct")
+		}
+		return ret
+	}
+	p.expect('{')
+	ret = &CStruct{}
+	for {
+		if p.curt.Kind == '}' {
+			break
+		}
+		_, basety := p.parseDeclSpecifiers()
+		for {
+			name, ty := p.parseDeclarator(basety, false)
+			ret.Names = append(ret.Names, name.Val)
+			ret.Types = append(ret.Types, ty)
+			if p.curt.Kind == ',' {
+				p.next()
+				continue
+			}
+			break
+		}
+		p.expect(';')
+	}
+	p.expect('}')
+	if sname != "" {
+		err := p.structs.define(sname, ret)
+		if err == nil {
+			p.errorPos(npos, err.Error())
+		}
+	}
+	return ret
 }

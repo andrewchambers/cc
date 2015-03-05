@@ -21,16 +21,23 @@ func (p *Ptr) GetSize() int  { return 8 }
 func (p *Ptr) GetAlign() int { return 8 }
 
 // Struct or union.
-type Struct struct {
-	Fields []struct {
-		Name string
-		Type CType
-	}
+type CStruct struct {
+	Names   []string
+	Types   []CType
 	IsUnion bool
 }
 
-func (s *Struct) GetSize() int  { return 8 }
-func (s *Struct) GetAlign() int { return 8 }
+func (s *CStruct) GetSize() int  { return 8 }
+func (s *CStruct) GetAlign() int { return 8 }
+
+func (s *CStruct) FieldType(n string) CType {
+	for idx, v := range s.Names {
+		if v == n {
+			return s.Types[idx]
+		}
+	}
+	return nil
+}
 
 type FunctionType struct {
 	RetType  CType

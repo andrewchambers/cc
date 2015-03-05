@@ -162,6 +162,17 @@ type Unop struct {
 func (u *Unop) GetType() CType      { return u.Type }
 func (u *Unop) GetPos() cpp.FilePos { return u.Pos }
 
+type Selector struct {
+	Op      cpp.TokenKind
+	Pos     cpp.FilePos
+	Type    CType
+	Operand Node
+	Sel     string
+}
+
+func (s *Selector) GetType() CType      { return s.Type }
+func (s *Selector) GetPos() cpp.FilePos { return s.Pos }
+
 type Binop struct {
 	Op   cpp.TokenKind
 	Pos  cpp.FilePos
