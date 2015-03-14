@@ -1,8 +1,7 @@
 [![Join the chat at https://gitter.im/andrewchambers/cc](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/andrewchambers/cc?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 
-The goal of the project is to create a minimalist, cross platform C compiler which is accessible to
-hobbyists, but can still compile serious applications.
+The goal of the project is to create a minimalist, cross platform C compiler.
 
 It is implemented in Go because it is cross platform, fast, simple, and has a garbage collector.
 Go applications run natively on windows/linux/mac with no effort, and are statically linked, so easy it's install.
@@ -14,10 +13,10 @@ partially implemented.
 It is heavily inspired by https://github.com/rui314/8cc as well as http://bellard.org/tcc/. 
 I recommend studying the source code of 8cc before contributing here, as 8cc is currently far more mature.
 
-*Project Trajectory/Stretch Goals*
+*Project Goals*
 
  * Compiling non trivial C99/C11 programs with x86_64 with a non optimising backend on linux/windows/macos. Compiling Go1.4 would be a good test, as then we could bootstrap ourselves.
- * Simple optimizing backend, maintaining functionality.
+ * Add SSA optimizing backend, maintaining functionality.
  * Cross compiling and porting, make this compiler simple to port. Keeping the backend fairly simple may support this goal.
  * Companion assembler/linker to remove dependence on binutils.
 
