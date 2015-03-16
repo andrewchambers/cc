@@ -87,8 +87,8 @@ func main() {
 	preprocessOnly := flag.Bool("P", false, "Print tokens after preprocessing (For debugging).")
 	tokenizeOnly := flag.Bool("T", false, "Print tokens after lexing (For debugging).")
 	version := flag.Bool("version", false, "Print version info and exit.")
-	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
-	outputPath := flag.String("o", "-", "File to write output to, - for stdout.")
+	cpuprofile := flag.String("cpuprofile", "", "Write cpu profile to `file`")
+	outputPath := flag.String("o", "-", "Write output to `file`, '-' for stdout.")
 	flag.Parse()
 
 	if *version {
