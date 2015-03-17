@@ -4,15 +4,16 @@
 
 The goal of the project is to create a minimalist, useful, cross platform C compiler. I'd like to see...
 
-- Compilation of Go1.4 so we can bootstrap ourselves.
+- C11 Compatibility.
 - Both Windows and *nix work equally well.
 - Zero config toolchain builds.
 - Zero config cross compilation (Or as close as possible, this includes support libraries like libc).
-- Toolchain builds in the blink of an eye (I usually take a nap/shower between GCC/Clang builds).
+- Toolchain builds in the blink of an eye (I usually take a nap between GCC/Clang builds).
 - Good documentation and a low learning curve.
-- An SSA optimizing backend AFTER feature completion.
 - A companion assembler/linker to remove the dependence on binutils.
 - Aggressive removal of cruft.
+- An SSA optimizing backend AFTER feature completion.
+- Compilation of Go1.4 so we can bootstrap ourselves.
 
 ## Status
 
@@ -47,6 +48,21 @@ simple backend.
 
 Contributions to this project are welcome, please discuss ideas on the project gitter before commencing work.
 You will probably need to discuss progress/direction for various aspects of the compiler to avoid duplicate/wasted work.
+I will try to maintain a code review culture in order to maintain a high standard of work.
+
+## Bug reports
+
+The compiler is currently so immature that it is trivial to find bugs. I don't need bug reports unless
+you are also willing to fix the bug yourself in a pull request or by emailing a diff. If you want to tackle an issue, be sure to add a
+self contained snippet or file that reproduces the issue.
+
+When the compiler is more mature, we can do automatic bug hunting using the following resources:
+
+- https://embed.cs.utah.edu/csmith/ (https://github.com/csmith-project/csmith)
+- https://github.com/gcc-mirror/gcc/tree/master/gcc/testsuite/gcc.c-torture
+- https://github.com/rui314/8cc/tree/master/test
+
+The bugs can then be automatically reduced to minimal form using http://embed.cs.utah.edu/creduce/ (https://github.com/csmith-project/creduce).
 
 ## Fun Ideas
 - Concurrency using goroutines - C can be compiled a function at a time, so there is a lot of room for this.
