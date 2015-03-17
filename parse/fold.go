@@ -34,6 +34,8 @@ type ConstantInt struct {
 	Type CType
 }
 
+// To fold a node means to compute the simplified form which can replace it without
+// changing the meaning of the program.
 func Fold(n Node) (ConstantValue, error) {
 	switch n := n.(type) {
 	case *Constant:
