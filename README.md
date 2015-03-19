@@ -17,6 +17,10 @@ The goal of the project is to create a minimalist, useful, cross platform C comp
 
 ## Status
 
+- Currently only x86_64 machines are supported.
+- Currently I run tests on Windows with cygwin, and Arch Linux. Any Linux should work. 
+- Not much works yet, but this will change.
+
 It is a work in progress and a hobby project. The test suite is the best idea of what currently works, though other features may be
 partially implemented.
 
