@@ -1,5 +1,8 @@
 package emit
 
+// Emits final assembly.
+// The frontend should have checked everything is valid by now.
+
 import (
 	"fmt"
 	"github.com/andrewchambers/cc/cpp"
@@ -385,13 +388,15 @@ func (e *emitter) emitBinop(f *parse.Function, b *parse.Binop) {
 			e.emiti("sal %%cl, %%rax\n")
 		case cpp.SHR:
 			e.emiti("sar %%cl, %%rax\n")
-		case cpp.EQL, '>', '<':
-			leq := e.NextLabel()
+		case cpp.EQL, cpp.NEQ, '>', '<':
+			lset := e.NextLabel()
 			lafter := e.NextLabel()
 			opc := ""
 			switch b.Op {
 			case cpp.EQL:
-				opc = "je"
+				opc = "jz"
+			case cpp.NEQ:
+				opc = "jnz"
 			case '<':
 				opc = "jl"
 			case '>':
@@ -399,11 +404,19 @@ func (e *emitter) emitBinop(f *parse.Function, b *parse.Binop) {
 			default:
 				panic("internal error")
 			}
-			e.emiti("cmp %%rax, %%rcx\n")
-			e.emiti("%s %s\n", opc, leq)
+			switch b.GetType().GetSize() {
+			case 8:
+				e.emiti("cmp %%rcx, %%rax\n")
+			case 4:
+				e.emiti("cmp %%ecx, %%eax\n")
+			default:
+				// There shouldn't be arith operations on anything else.
+				panic("internal error")
+			}
+			e.emiti("%s %s\n", opc, lset)
 			e.emiti("movq $0, %%rax\n")
 			e.emiti("jmp %s\n", lafter)
-			e.emiti("%s:\n", leq)
+			e.emiti("%s:\n", lset)
 			e.emiti("movq $1, %%rax\n")
 			e.emiti("%s:\n", lafter)
 		default:
