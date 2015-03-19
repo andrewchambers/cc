@@ -1076,10 +1076,11 @@ func (p *parser) parseAssignmentExpr() Expr {
 		p.next()
 		r := p.parseAssignmentExpr()
 		l = &Binop{
-			Pos: pos,
-			Op:  op,
-			L:   l,
-			R:   r,
+			Pos:  pos,
+			Op:   op,
+			L:    l,
+			R:    r,
+			Type: CInt,
 		}
 	}
 	return l
@@ -1098,10 +1099,11 @@ func (p *parser) parseLogOrExpr() Expr {
 		p.next()
 		r := p.parseLogAndExpr()
 		l = &Binop{
-			Pos: pos,
-			Op:  op,
-			L:   l,
-			R:   r,
+			Pos:  pos,
+			Op:   op,
+			L:    l,
+			R:    r,
+			Type: CInt,
 		}
 	}
 	return l
@@ -1115,10 +1117,11 @@ func (p *parser) parseLogAndExpr() Expr {
 		p.next()
 		r := p.parseInclusiveOrExpr()
 		l = &Binop{
-			Pos: pos,
-			Op:  op,
-			L:   l,
-			R:   r,
+			Pos:  pos,
+			Op:   op,
+			L:    l,
+			R:    r,
+			Type: CInt,
 		}
 	}
 	return l
@@ -1132,10 +1135,11 @@ func (p *parser) parseInclusiveOrExpr() Expr {
 		p.next()
 		r := p.parseExclusiveOrExpr()
 		l = &Binop{
-			Pos: pos,
-			Op:  op,
-			L:   l,
-			R:   r,
+			Pos:  pos,
+			Op:   op,
+			L:    l,
+			R:    r,
+			Type: CInt,
 		}
 	}
 	return l
@@ -1149,10 +1153,11 @@ func (p *parser) parseExclusiveOrExpr() Expr {
 		p.next()
 		r := p.parseAndExpr()
 		l = &Binop{
-			Pos: pos,
-			Op:  op,
-			L:   l,
-			R:   r,
+			Pos:  pos,
+			Op:   op,
+			L:    l,
+			R:    r,
+			Type: CInt,
 		}
 	}
 	return l
@@ -1166,10 +1171,11 @@ func (p *parser) parseAndExpr() Expr {
 		p.next()
 		r := p.parseEqualityExpr()
 		l = &Binop{
-			Pos: pos,
-			Op:  op,
-			L:   l,
-			R:   r,
+			Pos:  pos,
+			Op:   op,
+			L:    l,
+			R:    r,
+			Type: CInt,
 		}
 	}
 	return l
@@ -1219,10 +1225,11 @@ func (p *parser) parseShiftExpr() Expr {
 		p.next()
 		r := p.parseAdditiveExpr()
 		l = &Binop{
-			Pos: pos,
-			Op:  op,
-			L:   l,
-			R:   r,
+			Pos:  pos,
+			Op:   op,
+			L:    l,
+			R:    r,
+			Type: CInt,
 		}
 	}
 	return l
@@ -1440,8 +1447,9 @@ func (p *parser) parsePrimaryExpr() Expr {
 		}
 	case '(':
 		p.next()
-		p.parseExpr()
+		expr := p.parseExpr()
 		p.expect(')')
+		return expr
 	default:
 		p.errorPos(p.curt.Pos, "expected an identifier, constant, string or Expr")
 	}

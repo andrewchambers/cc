@@ -358,19 +358,33 @@ func (e *emitter) emitBinop(f *parse.Function, b *parse.Binop) {
 	e.emitExpr(f, b.L)
 	e.emiti("pushq %%rax\n")
 	e.emitExpr(f, b.R)
-	e.emiti("popq %%rcx\n")
+	e.emiti("movq %%rax, %%rcx\n")
+	e.emiti("popq %%rax\n")
 	switch {
 	case parse.IsIntType(b.Type):
 		switch b.Op {
 		case '+':
-			e.emiti("addq %%rax, %%rcx\n")
-			e.emiti("movq %%rcx, %%rax\n")
+			e.emiti("addq %%rcx, %%rax\n")
 		case '-':
-			e.emiti("subq %%rax, %%rcx\n")
-			e.emiti("movq %%rcx, %%rax\n")
+			e.emiti("subq %%rcx, %%rax\n")
 		case '*':
-			e.emiti("imul %%rax, %%rcx\n")
-			e.emiti("movq %%rcx, %%rax\n")
+			e.emiti("imul %%rcx, %%rax\n")
+		case '|':
+			e.emiti("or %%rcx, %%rax\n")
+		case '&':
+			e.emiti("and %%rcx, %%rax\n")
+		case '^':
+			e.emiti("xor %%rcx, %%rax\n")
+		case '/':
+			e.emiti("cqto\n")
+			e.emiti("idiv %%rcx\n")
+		case '%':
+			e.emiti("idiv %%rcx\n")
+			e.emiti("mov %%rdx, %%rax\n")
+		case cpp.SHL:
+			e.emiti("sal %%cl, %%rax\n")
+		case cpp.SHR:
+			e.emiti("sar %%cl, %%rax\n")
 		case cpp.EQL, '>', '<':
 			leq := e.NextLabel()
 			lafter := e.NextLabel()
@@ -393,10 +407,10 @@ func (e *emitter) emitBinop(f *parse.Function, b *parse.Binop) {
 			e.emiti("movq $1, %%rax\n")
 			e.emiti("%s:\n", lafter)
 		default:
-			panic("unimplemented")
+			panic("unimplemented " + b.Op.String())
 		}
 	default:
-		panic(b.Type)
+		panic(b)
 	}
 }
 
@@ -429,6 +443,12 @@ func (e *emitter) emitUnop(f *parse.Function, u *parse.Unop) {
 		default:
 			panic("internal error")
 		}
+	case '!':
+		e.emitExpr(f, u.Operand)
+		e.emiti("xor %%rcx, %%rcx\n")
+		e.emiti("test %%rax, %%rax\n")
+		e.emiti("setnz %%cl\n")
+		e.emiti("mov %%rcx, %%rax\n")
 	case '-':
 		e.emitExpr(f, u.Operand)
 		e.emiti("neg %%rax\n")

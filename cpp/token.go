@@ -241,8 +241,8 @@ func (pos FilePos) String() string {
 	return fmt.Sprintf("%s:%d:%d", pos.File, pos.Line, pos.Col)
 }
 
-//Token represents a grouping of characters
-//that provide semantic meaning in a C program.
+// Token represents a grouping of characters
+// that provide semantic meaning in a C program.
 type Token struct {
 	Kind TokenKind
 	Val  string
