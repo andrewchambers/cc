@@ -366,7 +366,14 @@ func (e *emitter) emitCast(c *parse.Cast) {
 			case 8:
 				return
 			case 4:
-				e.emiti("mov %%eax, %%rax\n")
+				// *NOTE* This zeros top half of rax.
+				e.emiti("mov %%eax, %%eax\n")
+				return
+			case 2:
+				e.emiti("movzwq %%ax, %%eax\n")
+				return
+			case 1:
+				e.emiti("movzbq %%al, %%eax\n")
 				return
 			}
 		}
@@ -380,15 +387,30 @@ func (e *emitter) emitCast(c *parse.Cast) {
 				// Free truncation
 				return
 			}
-			switch from.GetSize() {
-			case 4:
-				e.emiti("movsdq %%eax, %%rax\n")
-			case 2:
-				e.emiti("movswq %%ax, %%rax\n")
-			case 1:
-				e.emiti("movsbq %%al, %%rax\n")
-			default:
-				panic("internal error")
+			if parse.IsSignedIntType(from) {
+				switch from.GetSize() {
+				case 4:
+					e.emiti("movsdq %%eax, %%rax\n")
+				case 2:
+					e.emiti("movswq %%ax, %%rax\n")
+				case 1:
+					e.emiti("movsbq %%al, %%rax\n")
+				default:
+					panic("internal error")
+				}
+			} else {
+				switch to.GetSize() {
+				case 4:
+					// *NOTE* This zeros top half of rax.
+					e.emiti("mov %%eax, %%eax\n")
+					return
+				case 2:
+					e.emiti("movzwq %%ax, %%eax\n")
+					return
+				case 1:
+					e.emiti("movzbq %%al, %%eax\n")
+					return
+				}
 			}
 			return
 		}

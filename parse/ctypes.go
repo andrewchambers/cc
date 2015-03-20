@@ -133,6 +133,14 @@ func IsIntType(t CType) bool {
 	return prim >= CEnum && prim < CFloat
 }
 
+func IsSignedIntType(t CType) bool {
+	prim, ok := t.(Primitive)
+	if !ok {
+		return false
+	}
+	return prim >= CEnum && prim <= CLLong
+}
+
 func IsScalarType(t CType) bool {
 	return IsPtrType(t) || IsIntType(t)
 }
