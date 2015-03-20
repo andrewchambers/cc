@@ -46,7 +46,7 @@ func (i *Index) GetPos() cpp.FilePos { return i.Pos }
 
 type Cast struct {
 	Pos     cpp.FilePos
-	Operand Node
+	Operand Expr
 	Type    CType
 }
 

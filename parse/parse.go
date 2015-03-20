@@ -1273,7 +1273,27 @@ func (p *parser) parseMultiplicativeExpr() Expr {
 
 func (p *parser) parseCastExpr() Expr {
 	// Cast
+	if p.curt.Kind == '(' {
+		if p.isDeclStart(p.nextt) {
+			pos := p.curt.Pos
+			p.expect('(')
+			ty := p.parseTypeName()
+			p.expect(')')
+			operand := p.parseUnaryExpr()
+			return &Cast{
+				Pos:     pos,
+				Operand: operand,
+				Type:    ty,
+			}
+		}
+	}
 	return p.parseUnaryExpr()
+}
+
+func (p *parser) parseTypeName() CType {
+	_, ty := p.parseDeclSpecifiers()
+	_, ty = p.parseDeclarator(ty, true)
+	return ty
 }
 
 func (p *parser) parseUnaryExpr() Expr {
