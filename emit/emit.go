@@ -380,21 +380,17 @@ func (e *emitter) emitCast(c *parse.Cast) {
 				// Free truncation
 				return
 			}
-			fromreg := ""
-			toreg := ""
 			switch from.GetSize() {
-			case 8:
-				fromreg = "%rax"
 			case 4:
-				fromreg = "%eax"
+				e.emiti("movsdq %%eax, %%rax\n")
+			case 2:
+				e.emiti("movswq %%ax, %%rax\n")
+			case 1:
+				e.emiti("movsbq %%al, %%rax\n")
+			default:
+				panic("internal error")
 			}
-			switch to.GetSize() {
-			case 8:
-				toreg = "%rax"
-			case 4:
-				toreg = "%rax"
-			}
-			e.emiti("mov %s, %s\n", fromreg, toreg)
+			return
 		}
 	}
 	panic("unimplemented cast")
@@ -588,7 +584,7 @@ func (e *emitter) emitAssign(b *parse.Binop) {
 			offset := e.loffsets[sym]
 			switch sym.Type.GetSize() {
 			case 1:
-				e.emiti("movb %%ax, %d(%%rbp)\n", offset)
+				e.emiti("movb %%al, %d(%%rbp)\n", offset)
 			case 4:
 				e.emiti("movl %%eax, %d(%%rbp)\n", offset)
 			case 8:
