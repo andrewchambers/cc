@@ -176,13 +176,24 @@ func (s *Selector) GetPos() cpp.FilePos { return s.Pos }
 type Binop struct {
 	Op   cpp.TokenKind
 	Pos  cpp.FilePos
-	L    Node
-	R    Node
+	L    Expr
+	R    Expr
 	Type CType
 }
 
 func (b *Binop) GetType() CType      { return b.Type }
 func (b *Binop) GetPos() cpp.FilePos { return b.Pos }
+
+type PtrArith struct {
+	Op     cpp.TokenKind
+	Pos    cpp.FilePos
+	Ptr    Expr
+	Offset Expr
+	Type   CType
+}
+
+func (p *PtrArith) GetType() CType      { return p.Type }
+func (p *PtrArith) GetPos() cpp.FilePos { return p.Pos }
 
 type Function struct {
 	Name         string

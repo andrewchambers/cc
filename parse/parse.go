@@ -1056,6 +1056,200 @@ func isAssignmentOperator(k cpp.TokenKind) bool {
 	return false
 }
 
+func (p *parser) checkPointerArith(pos cpp.FilePos, op cpp.TokenKind, l Expr, r Expr) {
+	lty, rty := l.GetType(), r.GetType()
+	// Handle pointer arith.
+	switch op {
+	case '+':
+		if IsPtrType(lty) && IsPtrType(rty) {
+			p.errorPos(pos, "cannot add two pointers")
+		}
+		if IsPtrType(lty) {
+			if !IsIntType(rty) {
+				p.errorPos(pos, "pointer addition expects an int type")
+			}
+			return &PtrArith{
+				Pos:    pos,
+				Op:     op,
+				Ptr:    l,
+				Offset: r,
+				Type:   lty,
+			}
+		}
+		if IsPtrType(rty) {
+			if !IsIntType(lty) {
+				p.errorPos(pos, "pointer addition expects an int type")
+			}
+			return &PtrArith{
+				Pos:    pos,
+				Op:     op,
+				Ptr:    l,
+				Offset: r,
+				Type:   rty,
+			}
+		}
+	case '-':
+		if IsPtrType(lty) && IsPtrType(rty) {
+			return &Binop{
+				Pos: pos,
+				Op:  op,
+				// ptrdiff_t
+				Type: CLong,
+			}
+		}
+	}
+	p.errorPos(pos, "invalid pointer operator %s", op)
+	return nil
+}
+
+func (p *parser) usualBinopConv(pos cpp.FilePos, op cpp.TokenKind, l Expr, r Expr) Expr {
+	lty, rty := l.GetType(), r.GetType()
+	if IsPtrType(lty) || IsPtrType(rty) {
+		return p.checkPointerArith(pos, op, l, r)
+	}
+	// Handle integer arith.
+	if !IsIntType(lty) {
+		p.errorPos(l.GetPos(), "expected int type on lhs of %s", op)
+	}
+	if !IsIntType(rty) {
+		p.errorPos(r.GetPos(), "expected int type on rhs of %s", op)
+	}
+
+	// If either operand is of type long double, the other operand is converted
+	// to type long double.
+	// XXX
+	// If the above condition is not met and either operand is of type double,
+	// the other operand is converted to type double.
+	// XXX
+	// If the above two conditions are not met and either operand is of type
+	// float, the other operand is converted to type float.
+	// XXX
+
+	// If either operand is of type unsigned long, the other operand is converted
+	// to type unsigned long.
+	if lty == CULLong {
+		return &Binop{
+			Pos: pos,
+			Op:  op,
+			L:   l,
+			R:   r,
+		}
+	}
+	if rty == CULLong {
+		return &Binop{
+			Pos: pos,
+			Op:  op,
+			L:   l,
+			R:   r,
+		}
+	}
+	if lty == CULong {
+		return &Binop{
+			Pos: pos,
+			Op:  op,
+			L:   l,
+			R:   r,
+		}
+	}
+	if rty == CULong {
+		return &Binop{
+			Pos: pos,
+			Op:  op,
+			L:   l,
+			R:   r,
+		}
+	}
+	// If the above condition is not met and either operand is of type long
+	// and the other of type unsigned int, both operands are converted to type
+	// unsigned long.
+	if lty == CLong && rty == CUInt {
+		return &Binop{
+			Pos: pos,
+			Op:  op,
+			L:   l,
+			R:   r,
+		}
+	}
+	if rty == CLong && lty == CUInt {
+		return &Binop{
+			Pos: pos,
+			Op:  op,
+			L:   l,
+			R:   r,
+		}
+	}
+	// If the above two conditions are not met, and either operand is of type long,
+	// the other operand is converted to type long.
+	if lty == CLong {
+		return &Binop{
+			Pos: pos,
+			Op:  op,
+			L:   l,
+			R:   r,
+		}
+	}
+	if rty == CLong {
+		return &Binop{
+			Pos: pos,
+			Op:  op,
+			L:   l,
+			R:   r,
+		}
+	}
+	// If the above three conditions are not met, and either operand is of type
+	// unsigned int, the other operand is converted to type unsigned int.
+	if lty == CUInt {
+		r = &Cast{
+			Pos:     r.GetPos(),
+			Type:    CUInt,
+			Operand: r,
+		}
+		return &Binop{
+			Pos:  pos,
+			Op:   op,
+			L:    l,
+			R:    r,
+			Type: CUInt,
+		}
+	}
+	if rty == CUInt {
+		l = &Cast{
+			Pos:     l.GetPos(),
+			Type:    CUInt,
+			Operand: l,
+		}
+		return &Binop{
+			Pos:  pos,
+			Op:   op,
+			L:    l,
+			R:    r,
+			Type: CUInt,
+		}
+	}
+	// If none of the above conditions are met, both operands are converted to type int.
+	if lty != CInt {
+		l = &Cast{
+			Pos:     l.GetPos(),
+			Type:    CInt,
+			Operand: l,
+		}
+	}
+	if rty != CInt {
+		r = &Cast{
+			Pos:     r.GetPos(),
+			Type:    CInt,
+			Operand: r,
+		}
+	}
+	return &Binop{
+		Pos:  pos,
+		Op:   op,
+		L:    l,
+		R:    r,
+		Type: CInt,
+	}
+}
+
 func (p *parser) parseExpr() Expr {
 	var ret Expr
 	for {
