@@ -1,5 +1,6 @@
 set -e
 go test ./...
+echo "testing x64cc"
 go build ./cmd/x64cc
 for T in `echo ./test/*.c | sort` ;
 do
