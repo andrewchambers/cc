@@ -1,5 +1,10 @@
 package parse
 
+type TargetSizeDesc struct {
+	GetSize  func(CType) int
+	GetAlign func(CType) int
+}
+
 type CType interface{}
 
 type Array struct {

@@ -8,7 +8,6 @@ import (
 	"github.com/andrewchambers/cc/parse"
 	"io"
 	"os"
-	"runtime/pprof"
 )
 
 func printVersion() {
@@ -38,59 +37,18 @@ func compileFile(path string, out io.Writer) error {
 	}
 	lexer := cpp.Lex(path, f)
 	pp := cpp.New(lexer, nil)
-	toplevels, err := parse.Parse(pp)
+	toplevels, err := parse.Parse(x64SzDesc, pp)
 	if err != nil {
 		return err
 	}
 	return Emit(toplevels, out)
 }
 
-func preprocessFile(sourceFile string, out io.Writer) error {
-	f, err := os.Open(sourceFile)
-	if err != nil {
-		return fmt.Errorf("Failed to open source file %s for preprocessing: %s\n", sourceFile, err)
-	}
-	lexer := cpp.Lex(sourceFile, f)
-	pp := cpp.New(lexer, nil)
-	for {
-		tok, err := pp.Next()
-		if err != nil {
-			return err
-		}
-		fmt.Fprintf(out, "%s:%s:%d:%d\n", tok.Kind, tok.Val, tok.Pos.Line, tok.Pos.Col)
-		if tok.Kind == cpp.EOF {
-			return nil
-		}
-	}
-}
-
-func tokenizeFile(sourceFile string, out io.Writer) error {
-	f, err := os.Open(sourceFile)
-	if err != nil {
-		return fmt.Errorf("Failed to open source file %s for preprocessing: %s\n", sourceFile, err)
-	}
-	lexer := cpp.Lex(sourceFile, f)
-	for {
-		tok, err := lexer.Next()
-		if err != nil {
-			return err
-		}
-		fmt.Fprintf(out, "%s:%s:%d:%d\n", tok.Kind, tok.Val, tok.Pos.Line, tok.Pos.Col)
-		if tok.Kind == cpp.EOF {
-			return nil
-		}
-	}
-}
-
 func main() {
 	flag.Usage = printUsage
-	preprocessOnly := flag.Bool("P", false, "Print tokens after preprocessing (For debugging).")
-	tokenizeOnly := flag.Bool("T", false, "Print tokens after lexing (For debugging).")
 	version := flag.Bool("version", false, "Print version info and exit.")
-	cpuprofile := flag.String("cpuprofile", "", "Write cpu profile to `file`")
 	outputPath := flag.String("o", "-", "Write output to `file`, '-' for stdout.")
 	flag.Parse()
-
 	if *version {
 		printVersion()
 		return
@@ -103,20 +61,9 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Bad number of args, please specify a single source file.\n")
 		os.Exit(1)
 	}
-	if *cpuprofile != "" {
-		f, err := os.Create(*cpuprofile)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to open cpu profile file %s\n", err)
-			os.Exit(1)
-		}
-		pprof.StartCPUProfile(f)
-		defer pprof.StopCPUProfile()
-	}
-
 	input := flag.Args()[0]
 	var output io.WriteCloser
 	var err error
-
 	if *outputPath == "-" {
 		output = os.Stdout
 	} else {
@@ -126,15 +73,6 @@ func main() {
 			os.Exit(1)
 		}
 	}
-
-	if *preprocessOnly {
-		err := preprocessFile(input, output)
-		helper.ReportError(err)
-	} else if *tokenizeOnly {
-		err := tokenizeFile(input, output)
-		helper.ReportError(err)
-	} else {
-		err := compileFile(input, output)
-		helper.ReportError(err)
-	}
+	err = compileFile(input, output)
+	helper.ReportError(err)
 }

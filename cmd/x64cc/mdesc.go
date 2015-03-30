@@ -56,3 +56,8 @@ func getAlign(t parse.CType) int {
 	}
 	panic(t)
 }
+
+var x64SzDesc = parse.TargetSizeDesc{
+	GetSize:  getSize,
+	GetAlign: getAlign,
+}

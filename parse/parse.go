@@ -29,6 +29,8 @@ type gotoFixup struct {
 }
 
 type parser struct {
+	szdesc TargetSizeDesc
+
 	types   *scope
 	structs *scope
 	decls   *scope
@@ -133,8 +135,9 @@ func (p *parser) nextLabel() string {
 	return fmt.Sprintf(".L%d", p.lcounter)
 }
 
-func Parse(pp *cpp.Preprocessor) (toplevels []Node, errRet error) {
+func Parse(szdesc TargetSizeDesc, pp *cpp.Preprocessor) (toplevels []Node, errRet error) {
 	p := &parser{}
+	p.szdesc = szdesc
 	p.pp = pp
 	p.types = newScope(nil)
 	p.decls = newScope(nil)
@@ -331,7 +334,7 @@ func (p *parser) parseCase() Node {
 	if !IsIntType(expr.GetType()) {
 		p.errorPos(expr.GetPos(), "expected an integral type")
 	}
-	v, err := Fold(expr)
+	v, err := Fold(p.szdesc, expr)
 	if err != nil {
 		p.errorPos(expr.GetPos(), err.Error())
 	}
@@ -638,7 +641,7 @@ func (p *parser) parseDecl(isGlobal bool) Node {
 				p.errorPos(initPos, "cannot initialize a typedef")
 			}
 			init = p.parseInitializer(nil, true)
-			folded, err = Fold(init)
+			folded, err = Fold(p.szdesc, init)
 			if err != nil {
 				folded = nil
 				if isGlobal {
@@ -970,7 +973,7 @@ func (p *parser) parseDeclaratorTail(basety CType) CType {
 				dimn = p.parseAssignmentExpr()
 			}
 			p.expect(']')
-			dim, err := Fold(dimn)
+			dim, err := Fold(p.szdesc, dimn)
 			if err != nil {
 				p.errorPos(dimn.GetPos(), "invalid constant Expr for array dimensions")
 			}
