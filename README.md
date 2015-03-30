@@ -31,11 +31,12 @@ partially implemented.
 - Ensure your ```$GOPATH``` environmental variable is setup correctly.
 - Run the following in a terminal.
 ```
-$ go get github.com/andrewchambers/cc
+$ mkdir -p $GOPATH/src/github.com/andrewchambers/cc
 $ cd $GOPATH/src/github.com/andrewchambers/cc
-$ go test -v
-$ go build
-$ ./cc -h
+$ git clone https://github.com/andrewchambers/cc
+$ sh ./test.sh
+$ go install ./cmd/x64cc
+$ x64cc -h
 ```
 
 ## Hacking
