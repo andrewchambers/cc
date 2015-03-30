@@ -1,7 +1,4 @@
-package emit
-
-// Emits final assembly.
-// The frontend should have checked everything is valid by now.
+package main
 
 import (
 	"fmt"
@@ -64,7 +61,7 @@ func (e *emitter) emitGlobal(g *parse.GSymbol, init parse.ConstantValue) {
 	e.emit(".data\n")
 	e.emit(".global %s\n", g.Label)
 	if init == nil {
-		e.emit(".lcomm %s, %d\n", g.Label, g.Type.GetSize())
+		e.emit(".lcomm %s, %d\n", g.Label, getSize(g.Type))
 	} else {
 		e.emit("%s:\n", g.Label)
 		switch {
@@ -116,7 +113,7 @@ func (e *emitter) calcLocalOffsets(f *parse.Function) (int, map[*parse.LSymbol]i
 	loffset := 0
 	loffsets := make(map[*parse.LSymbol]int)
 	addLSymbol := func(lsym *parse.LSymbol) {
-		sz := lsym.Type.GetSize()
+		sz := getSize(lsym.Type)
 		if sz < 8 {
 			sz = 8
 		}
@@ -280,7 +277,7 @@ func (e *emitter) emitIdent(i *parse.Ident) {
 	case *parse.LSymbol:
 		offset := e.loffsets[sym]
 		if parse.IsIntType(sym.Type) || parse.IsPtrType(sym.Type) {
-			switch sym.Type.GetSize() {
+			switch getSize(sym.Type) {
 			case 1:
 				e.emiti("movb %d(%%rbp), %%al\n", offset)
 			case 4:
@@ -296,7 +293,7 @@ func (e *emitter) emitIdent(i *parse.Ident) {
 	case *parse.GSymbol:
 		e.emiti("leaq %s(%%rip), %%rax\n", sym.Label)
 		if parse.IsIntType(sym.Type) || parse.IsPtrType(sym.Type) {
-			switch sym.Type.GetSize() {
+			switch getSize(sym.Type) {
 			case 1:
 				e.emiti("movb (%%rax), %%al\n")
 			case 4:
@@ -362,7 +359,7 @@ func (e *emitter) emitCast(c *parse.Cast) {
 			return
 		}
 		if parse.IsIntType(from) {
-			switch to.GetSize() {
+			switch getSize(to) {
 			case 8:
 				return
 			case 4:
@@ -383,12 +380,12 @@ func (e *emitter) emitCast(c *parse.Cast) {
 			return
 		}
 		if parse.IsIntType(from) {
-			if to.GetSize() <= from.GetSize() {
+			if getSize(to) <= getSize(from) {
 				// Free truncation
 				return
 			}
 			if parse.IsSignedIntType(from) {
-				switch from.GetSize() {
+				switch getSize(from) {
 				case 4:
 					e.emiti("movsdq %%eax, %%rax\n")
 				case 2:
@@ -399,7 +396,7 @@ func (e *emitter) emitCast(c *parse.Cast) {
 					panic("internal error")
 				}
 			} else {
-				switch to.GetSize() {
+				switch getSize(to) {
 				case 4:
 					// *NOTE* This zeros top half of rax.
 					e.emiti("mov %%eax, %%eax\n")
@@ -469,7 +466,7 @@ func (e *emitter) emitBinop(b *parse.Binop) {
 			default:
 				panic("internal error")
 			}
-			switch b.GetType().GetSize() {
+			switch getSize(b.GetType()) {
 			case 8:
 				e.emiti("cmp %%rcx, %%rax\n")
 			case 4:
@@ -514,7 +511,7 @@ func (e *emitter) emitUnop(u *parse.Unop) {
 			}
 		case *parse.Index:
 			e.emitExpr(operand.Idx)
-			sz := operand.GetType().GetSize()
+			sz := getSize(operand.GetType())
 			e.emiti("imul $%d, %%rax\n", sz)
 			if sz != 1 {
 				e.emiti("imul $%d, %%rax\n", sz)
@@ -529,7 +526,7 @@ func (e *emitter) emitUnop(u *parse.Unop) {
 	case '!':
 		e.emitExpr(u.Operand)
 		e.emiti("xor %%rcx, %%rcx\n")
-		switch u.GetType().GetSize() {
+		switch getSize(u.GetType()) {
 		case 8:
 			e.emiti("test %%rax, %%rax\n")
 		case 4:
@@ -548,7 +545,7 @@ func (e *emitter) emitUnop(u *parse.Unop) {
 
 func (e *emitter) emitIndex(idx *parse.Index) {
 	e.emitExpr(idx.Idx)
-	sz := idx.GetType().GetSize()
+	sz := getSize(idx.GetType())
 	if sz != 1 {
 		e.emiti("imul $%d, %%rax\n", sz)
 	}
@@ -556,7 +553,7 @@ func (e *emitter) emitIndex(idx *parse.Index) {
 	e.emitExpr(idx.Arr)
 	e.emiti("pop %%rcx\n")
 	e.emiti("addq %%rcx, %%rax\n")
-	switch idx.GetType().GetSize() {
+	switch getSize(idx.GetType()) {
 	case 1:
 		e.emiti("movb (%%rax), %%al\n")
 	case 4:
@@ -592,7 +589,7 @@ func (e *emitter) emitAssign(b *parse.Binop) {
 		switch sym := sym.(type) {
 		case *parse.GSymbol:
 			e.emiti("leaq %s(%%rip), %%rcx\n", sym.Label)
-			switch sym.Type.GetSize() {
+			switch getSize(sym.Type) {
 			case 1:
 				e.emiti("movb %%al, (%%rcx)\n")
 			case 4:
@@ -604,7 +601,7 @@ func (e *emitter) emitAssign(b *parse.Binop) {
 			}
 		case *parse.LSymbol:
 			offset := e.loffsets[sym]
-			switch sym.Type.GetSize() {
+			switch getSize(sym.Type) {
 			case 1:
 				e.emiti("movb %%al, %d(%%rbp)\n", offset)
 			case 4:

@@ -4,7 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/andrewchambers/cc/cpp"
-	"github.com/andrewchambers/cc/emit"
+	"github.com/andrewchambers/cc/helper"
 	"github.com/andrewchambers/cc/parse"
 	"io"
 	"os"
@@ -12,14 +12,14 @@ import (
 )
 
 func printVersion() {
-	fmt.Println("cc version 0.01")
+	fmt.Println("x64cc")
 }
 
 func printUsage() {
 	printVersion()
 	fmt.Println()
 	fmt.Println("Usage:")
-	fmt.Println("  cc [FLAGS] FILE.c")
+	fmt.Println("  x64cc [FLAGS] FILE.c")
 	fmt.Println()
 	fmt.Println("Environment variables:")
 	fmt.Println("  CCDEBUG=true enables extended error messages for debugging the compiler.")
@@ -42,7 +42,7 @@ func compileFile(path string, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	return emit.Emit(toplevels, out)
+	return Emit(toplevels, out)
 }
 
 func preprocessFile(sourceFile string, out io.Writer) error {
@@ -129,12 +129,12 @@ func main() {
 
 	if *preprocessOnly {
 		err := preprocessFile(input, output)
-		reportError(err)
+		helper.ReportError(err)
 	} else if *tokenizeOnly {
 		err := tokenizeFile(input, output)
-		reportError(err)
+		helper.ReportError(err)
 	} else {
 		err := compileFile(input, output)
-		reportError(err)
+		helper.ReportError(err)
 	}
 }
