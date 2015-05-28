@@ -1,4 +1,4 @@
-package helper
+package report
 
 import (
 	"bufio"
@@ -7,7 +7,7 @@ import (
 	"os"
 )
 
-func ReportError(err error) {
+func Error(err error) {
 	if err == nil {
 		return
 	}

@@ -640,14 +640,17 @@ func (p *parser) parseDecl(isGlobal bool) Node {
 			if isTypedef {
 				p.errorPos(initPos, "cannot initialize a typedef")
 			}
-			init = p.parseInitializer(nil, true)
-			folded, err = Fold(p.szdesc, init)
-			if err != nil {
-				folded = nil
-				if isGlobal {
-					p.errorPos(initPos, err.Error())
+			init = p.parseInitializer()
+			init = nil
+			/*
+				folded, err = Fold(p.szdesc, init)
+				if err != nil {
+					folded = nil
+					if isGlobal {
+						p.errorPos(initPos, err.Error())
+					}
 				}
-			}
+			*/
 		}
 		declList.Inits = append(declList.Inits, init)
 		declList.FoldedInits = append(declList.FoldedInits, folded)
@@ -1010,44 +1013,44 @@ func (p *parser) parseDeclaratorTail(basety CType) CType {
 	}
 }
 
-func (p *parser) parseInitializer(ty CType, constant bool) Node {
+func (p *parser) parseInitializer() Node {
+	if p.curt.Kind == '{' {
+		return p.parseInitializerList()
+	}
 	return p.parseAssignmentExpr()
-	/*
-		_ = p.curt.Pos
-		if IsScalarType(ty) {
-			var init Expr
-			if p.curt.Kind == '{' {
-				p.expect('{')
-				init = p.parseAssignmentExpr()
-				p.expect('}')
-			} else {
-				init = p.parseAssignmentExpr()
-			}
-			return init
-		} else if IsCharArr(ty) {
-			switch p.curt.Kind {
-			case cpp.STRING:
-				p.expect(cpp.STRING)
-			case '{':
-				p.expect('{')
-				p.expect(cpp.STRING)
-				p.expect('}')
-			default:
-			}
-		} else if IsArrType(ty) {
-			arr := ty.(*Array)
-			p.expect('{')
-			var inits []Node
-			for p.curt.Kind != '}' {
-				inits = append(inits, p.parseInitializer(arr.MemberType, true))
-				if p.curt.Kind == ',' {
-					continue
-				}
-			}
-			p.expect('}')
+}
+
+func (p *parser) parseInitializerList() *InitializerList {
+	ret := &InitializerList{}
+	ret.Pos = p.curt.Pos
+	p.expect('{')
+	for {
+		n := p.parseExpr()
+		ret.Members = append(ret.Members, n)
+		if p.curt.Kind == '}' {
+			break
 		}
-	*/
-	return nil
+		p.expect(',')
+	}
+	p.expect('}')
+	return ret
+}
+
+func (p *parser) isStartOfType(t *cpp.Token) bool {
+	switch t.Kind {
+	case cpp.CHAR, cpp.SHORT, cpp.INT, cpp.LONG,
+		cpp.FLOAT, cpp.DOUBLE, cpp.SIGNED, cpp.UNSIGNED:
+		return true
+	case cpp.IDENT:
+		t := p.curt
+		_, err := p.types.lookup(t.Val)
+		if err != nil {
+			return false
+		}
+		return true
+	default:
+		return false
+	}
 }
 
 func isAssignmentOperator(k cpp.TokenKind) bool {
@@ -1277,11 +1280,19 @@ func (p *parser) parseMultiplicativeExpr() Expr {
 func (p *parser) parseCastExpr() Expr {
 	// Cast
 	if p.curt.Kind == '(' {
-		if p.isDeclStart(p.nextt) {
+		if p.isStartOfType(p.nextt) {
 			pos := p.curt.Pos
 			p.expect('(')
 			ty := p.parseTypeName()
 			p.expect(')')
+			if p.curt.Kind == '{' {
+				init := p.parseInitializerList()
+				return &Initializer{
+					Pos:  pos,
+					Init: init,
+					Type: ty,
+				}
+			}
 			operand := p.parseUnaryExpr()
 			return &Cast{
 				Pos:     pos,
@@ -1335,6 +1346,10 @@ func (p *parser) parseUnaryExpr() Expr {
 
 func (p *parser) parsePostfixExpr() Expr {
 	l := p.parsePrimaryExpr()
+	_, isinit := l.(*Initializer)
+	if isinit {
+		return l
+	}
 loop:
 	for {
 		switch p.curt.Kind {

@@ -21,11 +21,20 @@ func (c *Constant) GetType() CType      { return c.Type }
 func (c *Constant) GetPos() cpp.FilePos { return c.Pos }
 
 type Initializer struct {
-	Pos   cpp.FilePos
-	Inits []Node
+	Pos  cpp.FilePos
+	Type CType
+	Init *InitializerList
 }
 
+func (i *Initializer) GetType() CType      { return i.Type }
 func (i *Initializer) GetPos() cpp.FilePos { return i.Pos }
+
+type InitializerList struct {
+	Pos     cpp.FilePos
+	Members []Node
+}
+
+func (i *InitializerList) GetPos() cpp.FilePos { return i.Pos }
 
 type Return struct {
 	Pos cpp.FilePos
