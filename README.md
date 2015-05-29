@@ -1,4 +1,4 @@
-# {"C", "WIP", "minimalist"};
+# {"C", "Compiler", "WIP", "minimalist"};
 
 ![](https://raw.githubusercontent.com/andrewchambers/cc-images/master/Gopher.png)
 
@@ -6,8 +6,8 @@ Artwork by [Egon Elbre](https://twitter.com/egonelbre) based on the [Go gopher](
 
 ## Goals
 
+- C11 Compatibility, GNU Compatibility.
 - Aggressive removal of cruft.
-- C11 Compatibility.
 - Windows and *nix as equals.
 - Build from source in the blink of an eye.
 - Easy to contribute.
