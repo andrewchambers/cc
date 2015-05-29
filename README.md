@@ -1,4 +1,4 @@
-# {"C", "Compiler", "WIP", "minimalist"};
+# {"C", "Compiler", "WIP", "Minimalist"};
 
 ![](https://raw.githubusercontent.com/andrewchambers/cc-images/master/Gopher.png)
 
