@@ -77,18 +77,12 @@ func IsPtrType(t CType) bool {
 
 func IsIntType(t CType) bool {
 	prim, ok := t.(Primitive)
-	if !ok {
-		return false
-	}
-	return prim >= CEnum && prim < CFloat
+	return ok && (prim >= CEnum && prim < CFloat)
 }
 
 func IsSignedIntType(t CType) bool {
 	prim, ok := t.(Primitive)
-	if !ok {
-		return false
-	}
-	return prim >= CEnum && prim <= CLLong
+	return ok && (prim >= CEnum && prim <= CLLong)
 }
 
 func IsScalarType(t CType) bool {
@@ -102,12 +96,15 @@ func IsArrType(t CType) bool {
 
 func IsCharType(t CType) bool {
 	prim, ok := t.(Primitive)
-	if !ok {
-		return false
-	}
-	return prim == CChar
+	return ok && prim == CChar
+}
+
+func IsCharPtr(t CType) bool {
+	p, ok := t.(*Ptr)
+	return ok && IsCharType(p.PointsTo)
 }
 
 func IsCharArr(t CType) bool {
-	return IsArrType(t) && IsCharType(t)
+	arr, ok := t.(*Array)
+	return ok && IsCharType(arr.MemberType)
 }

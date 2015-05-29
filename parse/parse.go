@@ -640,8 +640,13 @@ func (p *parser) parseDecl(isGlobal bool) Node {
 			if isTypedef {
 				p.errorPos(initPos, "cannot initialize a typedef")
 			}
+
 			init = p.parseInitializer()
-			init = nil
+			if isGlobal {
+				_ = p.nodeToStatic(ty, init)
+			} else {
+				panic("unimplemented")
+			}
 			/*
 				folded, err = Fold(p.szdesc, init)
 				if err != nil {

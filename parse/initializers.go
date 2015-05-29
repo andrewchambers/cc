@@ -1,76 +1,98 @@
 package parse
 
-import (
-	"fmt"
-	"github.com/andrewchambers/cc/cpp"
-)
-
 // Anything that can be used to staticially initialize a global variable is
 // represented by the Data
 type StaticData interface{}
 
-type SymbolicData struct {
-	DataDeps []StaticData
-	Label    string
-	Type     CType
+type StaticPtrDerived struct {
+	Sz       int
+	PtrLabel string
 	Sym      string
 	Val      int64
 }
 
-type ConstantData struct {
-	DataDeps []StaticData
-	Label    string
-	Type     CType
-	Val      int64
-}
-
-type StringData struct {
+type StaticConstant struct {
 	Label string
-	Val   string
+	Sz    int
+	Val   int64
 }
 
-type SeqDataEnt struct {
-	offset int64
-	E      StaticData
+type StaticZero struct {
+	Label string
+	Sz    int
 }
 
-type SeqData struct {
-	DataDeps []StaticData
-	Label    string
-	Type     CType
-	Ents     []SeqDataEnt
+type StaticString struct {
+	Label string
+	// May be longer than Val.
+	// Should never be less.
+	Len int
+	Val string
 }
 
-func nodeToStaticData(ty CType, n Node) (StaticData, error) {
+type StaticArray struct {
+	Label   string
+	Offsets []int
+	Vals    []StaticData
+}
+
+// Converts an initializer node static data.
+//
+// Global and static variables must check that the len of the dynamic inits
+// is 0.
+func (p *parser) nodeToStatic(ty CType, n Node) []StaticData {
 	switch n := n.(type) {
 	case *Constant:
-		return constantToStaticData(ty, n)
+		return []StaticData{p.constantToStatic(ty, n)}
 	case *InitializerList:
-		return initializerListToStaticData(ty, n)
-	default:
-		panic("unimplemented")
+		return p.initializerListToStatic(ty, n)
 	}
-	return nil, cpp.ErrWithLoc(fmt.Errorf("unimplemented initializer"), n.GetPos())
+	panic("unimplemented")
 }
 
-func constantToStaticData(ty CType, c *Constant) (StaticData, error) {
-	return nil, cpp.ErrWithLoc(fmt.Errorf("unimplemented initializer"), c.GetPos())
+func (p *parser) constantToStatic(ty CType, c *Constant) StaticData {
+	return &StaticConstant{
+		Sz:  8, // XXX get type size.
+		Val: c.Val,
+	}
 }
 
-func initializerListToStaticData(ty CType, i *InitializerList) (StaticData, error) {
+func (p *parser) initializerListToStatic(ty CType, i *InitializerList) []StaticData {
 	if IsCharArr(ty) {
 		if len(i.Members) == 1 {
 			_, ok := i.Members[0].(*String)
 			if !ok {
-				e := fmt.Errorf("bad initializer for char array")
-				return nil, cpp.ErrWithLoc(e, i.GetPos())
+				p.errorPos(i.GetPos(), "bad initializer for char array")
 			}
 		}
 		// e.g. char x[] = {"foobar"};
 		s := i.Members[0].(*String)
-		return StringData{
-			Val: s.Val,
-		}, nil
+		return []StaticData{
+			StaticString{
+				Val: s.Val,
+			}}
 	}
-	return nil, cpp.ErrWithLoc(fmt.Errorf("unimplemented initializer"), i.GetPos())
+	if IsCharPtr(ty) {
+		if len(i.Members) == 1 {
+			_, ok := i.Members[0].(*String)
+			if !ok {
+				p.errorPos(i.GetPos(), "bad initializer for char pointer")
+			}
+		}
+		// e.g. char *p = {"foobar"};
+		s := i.Members[0].(*String)
+		return []StaticData{
+			StaticString{
+				Val: s.Val,
+			},
+			StaticPtrDerived{
+				PtrLabel: "XXX TODO",
+			},
+		}
+	}
+	panic("unimplemented")
+}
+
+func (p *parser) nodeToLocalInits(s LSymbol, n Node) ([]Node, []StaticData, error) {
+	panic("unimplemented")
 }
