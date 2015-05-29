@@ -52,7 +52,6 @@ simple backend.
 
 Contributions to this project are welcome, please discuss ideas on the project gitter before commencing work.
 You will probably need to discuss progress/direction for various aspects of the compiler to avoid duplicate/wasted work.
-I will try to maintain a code review culture in order to maintain a high standard of work.
 
 ## Bug reports
 
