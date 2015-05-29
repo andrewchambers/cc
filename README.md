@@ -27,11 +27,11 @@ partially implemented.
 - Ensure your ```$GOPATH``` environmental variable is setup correctly.
 - Run the following in a terminal.
 ```
-$ mkdir -p $GOPATH/src/github.com/andrewchambers/cc
-$ cd $GOPATH/src/github.com/andrewchambers/cc
+$ mkdir -p $GOPATH/src/github.com/andrewchambers/
+$ cd $GOPATH/src/github.com/andrewchambers/
 $ git clone https://github.com/andrewchambers/cc
 $ sh ./test.sh
-$ go install ./cmd/x64cc
+$ go install github.com/andrewchambers/cc/cmd/x64cc
 $ x64cc -h
 ```
 
