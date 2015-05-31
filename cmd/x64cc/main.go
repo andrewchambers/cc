@@ -4,8 +4,8 @@ import (
 	"flag"
 	"fmt"
 	"github.com/andrewchambers/cc/cpp"
-	"github.com/andrewchambers/cc/helper"
 	"github.com/andrewchambers/cc/parse"
+	"github.com/andrewchambers/cc/report"
 	"io"
 	"os"
 )
@@ -74,5 +74,7 @@ func main() {
 		}
 	}
 	err = compileFile(input, output)
-	helper.ReportError(err)
+	if err != nil {
+		report.ReportError(err)
+	}
 }
