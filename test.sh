@@ -10,5 +10,6 @@ do
 		echo $T OK
 	else 
 		echo $T FAIL
+		exit 1
 	fi
 done
