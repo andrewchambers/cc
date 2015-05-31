@@ -11,6 +11,11 @@ type Expr interface {
 	GetType() CType
 }
 
+type TranslationUnit struct {
+	TopLevels      []Node
+	AnonymousInits []Node
+}
+
 type Constant struct {
 	Val  int64
 	Pos  cpp.FilePos
@@ -206,11 +211,10 @@ func (c *Call) GetType() CType      { return c.Type }
 func (c *Call) GetPos() cpp.FilePos { return c.Pos }
 
 type DeclList struct {
-	Pos         cpp.FilePos
-	Storage     SClass
-	Symbols     []Symbol
-	Inits       []Node
-	FoldedInits []ConstantValue
+	Pos     cpp.FilePos
+	Storage SClass
+	Symbols []Symbol
+	Inits   []Node
 }
 
 func (d *DeclList) GetPos() cpp.FilePos { return d.Pos }

@@ -19,7 +19,8 @@ func (e *emitter) NextLabel() string {
 	return fmt.Sprintf(".LL%d", e.labelcounter)
 }
 
-func Emit(toplevels []parse.Node, o io.Writer) error {
+func Emit(tu *parse.TranslationUnit, o io.Writer) error {
+	toplevels := tu.TopLevels
 	e := &emitter{
 		o: o,
 	}
@@ -36,7 +37,7 @@ func Emit(toplevels []parse.Node, o io.Writer) error {
 				if !ok {
 					panic("internal error")
 				}
-				e.emitGlobal(global, tl.FoldedInits[idx])
+				e.emitGlobal(global, tl.Inits[idx])
 			}
 		default:
 			panic(tl)
@@ -53,7 +54,7 @@ func (e *emitter) emiti(s string, args ...interface{}) {
 	e.emit("  "+s, args...)
 }
 
-func (e *emitter) emitGlobal(g *parse.GSymbol, init parse.ConstantValue) {
+func (e *emitter) emitGlobal(g *parse.GSymbol, init parse.Node) {
 	_, ok := g.Type.(*parse.FunctionType)
 	if ok {
 		return
@@ -66,18 +67,19 @@ func (e *emitter) emitGlobal(g *parse.GSymbol, init parse.ConstantValue) {
 		e.emit("%s:\n", g.Label)
 		switch {
 		case g.Type == parse.CInt:
-			v := init.(*parse.ConstantInt)
+			v := init.(*parse.Constant)
 			e.emit(".quad %v\n", v.Val)
 		case parse.IsPtrType(g.Type):
 			switch init := init.(type) {
 			case *parse.ConstantGPtr:
-				e.emit(".quad %s\n", init.Label)
-			case *parse.ConstantString:
+				e.emit(".quad %s\n", init.PtrLabel)
+			case *parse.String:
 				e.emit(".quad %s\n", init.Label)
 				e.emit("%s:\n", init.Label)
 				e.emit(".string %s\n", init.Val)
 			}
 		default:
+			panic("unimplemented")
 		}
 	}
 }

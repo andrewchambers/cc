@@ -37,11 +37,11 @@ func compileFile(path string, out io.Writer) error {
 	}
 	lexer := cpp.Lex(path, f)
 	pp := cpp.New(lexer, nil)
-	toplevels, err := parse.Parse(x64SzDesc, pp)
+	tu, err := parse.Parse(x64SzDesc, pp)
 	if err != nil {
 		return err
 	}
-	return Emit(toplevels, out)
+	return Emit(tu, out)
 }
 
 func main() {

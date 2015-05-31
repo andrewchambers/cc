@@ -2,53 +2,28 @@ package parse
 
 import (
 	"fmt"
+	"github.com/andrewchambers/cc/cpp"
 )
 
-type ConstantValue interface{}
-
 type ConstantGPtr struct {
-	Label string
-	Off   int64
-	Type  CType
+	Pos      cpp.FilePos
+	PtrLabel string
+	Offset   int64
+	Type     CType
 }
 
-type ConstantPtr struct {
-	Val  ConstantValue
-	Off  int64
-	Type CType
-}
-
-type ConstantString struct {
-	Val   string
-	Type  CType
-	Label string
-}
-
-type ConstantArr struct {
-	Inits map[int]ConstantValue
-	Type  CType
-}
-
-type ConstantInt struct {
-	Val  int64
-	Type CType
+func (c *ConstantGPtr) GetPos() cpp.FilePos {
+	return c.Pos
 }
 
 // To fold a node means to compute the simplified form which can replace it without
 // changing the meaning of the program.
-func Fold(desc TargetSizeDesc, n Node) (ConstantValue, error) {
+func (p *parser) fold(n Node) (Node, error) {
 	switch n := n.(type) {
 	case *Constant:
-		return &ConstantInt{
-			Type: n.Type,
-			Val:  n.Val,
-		}, nil
+		return n, nil
 	case *String:
-		return &ConstantString{
-			Type:  &Ptr{PointsTo: CChar},
-			Val:   n.Val,
-			Label: n.Label,
-		}, nil
+		return n, nil
 	case *Unop:
 		switch n.Op {
 		case '&':
@@ -62,14 +37,15 @@ func Fold(desc TargetSizeDesc, n Node) (ConstantValue, error) {
 				return nil, fmt.Errorf("'&' requires a static or global identifier")
 			}
 			return &ConstantGPtr{
-				Off:   0,
-				Label: gsym.Label,
-				Type:  n.Type,
+				Pos:      n.GetPos(),
+				Offset:   0,
+				PtrLabel: gsym.Label,
+				Type:     n.Type,
 			}, nil
 		}
 	default:
-
 	}
-
+	fmt.Printf("%#v\n", n)
+	panic("...")
 	return nil, fmt.Errorf("not a valid constant value")
 }

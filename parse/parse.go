@@ -35,6 +35,8 @@ type parser struct {
 	structs *scope
 	decls   *scope
 
+	tu *TranslationUnit
+
 	pp          *cpp.Preprocessor
 	curt, nextt *cpp.Token
 	lcounter    int
@@ -135,13 +137,18 @@ func (p *parser) nextLabel() string {
 	return fmt.Sprintf(".L%d", p.lcounter)
 }
 
-func Parse(szdesc TargetSizeDesc, pp *cpp.Preprocessor) (toplevels []Node, errRet error) {
+func (p *parser) addAnonymousString(s *String) {
+	p.tu.AnonymousInits = append(p.tu.AnonymousInits, s)
+}
+
+func Parse(szdesc TargetSizeDesc, pp *cpp.Preprocessor) (tu *TranslationUnit, errRet error) {
 	p := &parser{}
 	p.szdesc = szdesc
 	p.pp = pp
 	p.types = newScope(nil)
 	p.decls = newScope(nil)
 	p.structs = newScope(nil)
+	p.tu = &TranslationUnit{}
 
 	defer func() {
 		if e := recover(); e != nil {
@@ -151,8 +158,8 @@ func Parse(szdesc TargetSizeDesc, pp *cpp.Preprocessor) (toplevels []Node, errRe
 	}()
 	p.next()
 	p.next()
-	toplevels = p.parseTranslationUnit()
-	return toplevels, nil
+	p.parseTranslationUnit()
+	return p.tu, nil
 }
 
 func (p *parser) errorPos(pos cpp.FilePos, m string, vals ...interface{}) {
@@ -194,13 +201,11 @@ func (p *parser) ensureScalar(n Expr) {
 	}
 }
 
-func (p *parser) parseTranslationUnit() []Node {
-	var topLevels []Node
+func (p *parser) parseTranslationUnit() {
 	for p.curt.Kind != cpp.EOF {
 		toplevel := p.parseDecl(true)
-		topLevels = append(topLevels, toplevel)
+		p.tu.TopLevels = append(p.tu.TopLevels, toplevel)
 	}
-	return topLevels
 }
 
 func (p *parser) isDeclStart(t *cpp.Token) bool {
@@ -334,13 +339,14 @@ func (p *parser) parseCase() Node {
 	if !IsIntType(expr.GetType()) {
 		p.errorPos(expr.GetPos(), "expected an integral type")
 	}
-	v, err := Fold(p.szdesc, expr)
+	v, err := p.fold(expr)
 	if err != nil {
 		p.errorPos(expr.GetPos(), err.Error())
 	}
 	p.expect(':')
 	anonlabel := p.nextLabel()
-	i := v.(*ConstantInt)
+	i := v.(*Constant)
+	// XXX TODO
 	swc := SwitchCase{
 		V:     i.Val,
 		Label: anonlabel,
@@ -633,24 +639,15 @@ func (p *parser) parseDecl(isGlobal bool) Node {
 		declList.Symbols = append(declList.Symbols, sym)
 		var init Node
 		var initPos cpp.FilePos
-		var folded ConstantValue
 		if p.curt.Kind == '=' {
 			p.next()
 			initPos = p.curt.Pos
 			if isTypedef {
 				p.errorPos(initPos, "cannot initialize a typedef")
 			}
-			init = p.parseInitializer(nil, true)
-			folded, err = Fold(p.szdesc, init)
-			if err != nil {
-				folded = nil
-				if isGlobal {
-					p.errorPos(initPos, err.Error())
-				}
-			}
+			init = p.parseInitializer(ty, true)
 		}
 		declList.Inits = append(declList.Inits, init)
-		declList.FoldedInits = append(declList.FoldedInits, folded)
 		if p.curt.Kind != ',' {
 			break
 		}
@@ -973,11 +970,12 @@ func (p *parser) parseDeclaratorTail(basety CType) CType {
 				dimn = p.parseAssignmentExpr()
 			}
 			p.expect(']')
-			dim, err := Fold(p.szdesc, dimn)
+			dim, err := p.fold(dimn)
 			if err != nil {
 				p.errorPos(dimn.GetPos(), "invalid constant Expr for array dimensions")
 			}
-			i := dim.(*ConstantInt)
+			i := dim.(*Constant)
+			// XXX
 			ret = &Array{
 				Dim:        int(i.Val),
 				MemberType: ret,
@@ -1011,43 +1009,51 @@ func (p *parser) parseDeclaratorTail(basety CType) CType {
 }
 
 func (p *parser) parseInitializer(ty CType, constant bool) Node {
-	return p.parseAssignmentExpr()
-	/*
-		_ = p.curt.Pos
-		if IsScalarType(ty) {
-			var init Expr
-			if p.curt.Kind == '{' {
-				p.expect('{')
-				init = p.parseAssignmentExpr()
-				p.expect('}')
-			} else {
-				init = p.parseAssignmentExpr()
-			}
-			return init
-		} else if IsCharArr(ty) {
-			switch p.curt.Kind {
-			case cpp.STRING:
-				p.expect(cpp.STRING)
-			case '{':
-				p.expect('{')
-				p.expect(cpp.STRING)
-				p.expect('}')
-			default:
-			}
-		} else if IsArrType(ty) {
-			arr := ty.(*Array)
+	_ = p.curt.Pos
+	if IsScalarType(ty) {
+		var init Expr
+		if p.curt.Kind == '{' {
 			p.expect('{')
-			var inits []Node
-			for p.curt.Kind != '}' {
-				inits = append(inits, p.parseInitializer(arr.MemberType, true))
-				if p.curt.Kind == ',' {
-					continue
-				}
-			}
+			init = p.parseAssignmentExpr()
 			p.expect('}')
+		} else {
+			init = p.parseAssignmentExpr()
 		}
+		// XXX ensure types are compatible.
+		// XXX Add cast.
+		if constant {
+			c, err := p.fold(init)
+			if err != nil {
+				p.errorPos(init.GetPos(), err.Error())
+			}
+			return c
+		} else {
+			return init
+		}
+	} /* else if IsCharArr(ty) {
+		switch p.curt.Kind {
+		case cpp.STRING:
+			p.expect(cpp.STRING)
+		case '{':
+			p.expect('{')
+			p.expect(cpp.STRING)
+			p.expect('}')
+		default:
+		}
+	} else if IsArrType(ty) {
+		arr := ty.(*Array)
+		p.expect('{')
+		var inits []Node
+		for p.curt.Kind != '}' {
+			inits = append(inits, p.parseInitializer(arr.MemberType, true))
+			if p.curt.Kind == ',' {
+				continue
+			}
+		}
+		p.expect('}')
+	}
 	*/
-	return nil
+	panic("unimplemented")
 }
 
 func isAssignmentOperator(k cpp.TokenKind) bool {
@@ -1463,11 +1469,14 @@ func (p *parser) parsePrimaryExpr() Expr {
 	case cpp.STRING:
 		s := p.curt
 		p.next()
-		return &String{
+		l := p.nextLabel()
+		rstr := &String{
 			Pos:   s.Pos,
 			Val:   s.Val,
-			Label: p.nextLabel(),
+			Label: l,
 		}
+		p.addAnonymousString(rstr)
+		return rstr
 	case '(':
 		p.next()
 		expr := p.parseExpr()
