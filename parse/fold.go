@@ -16,9 +16,13 @@ func (c *ConstantGPtr) GetPos() cpp.FilePos {
 	return c.Pos
 }
 
+func (c *ConstantGPtr) GetType() CType {
+	return c.Type
+}
+
 // To fold a node means to compute the simplified form which can replace it without
 // changing the meaning of the program.
-func (p *parser) fold(n Node) (Node, error) {
+func (p *parser) fold(n Expr) (Expr, error) {
 	switch n := n.(type) {
 	case *Constant:
 		return n, nil

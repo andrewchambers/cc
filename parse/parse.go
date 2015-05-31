@@ -637,7 +637,7 @@ func (p *parser) parseDecl(isGlobal bool) Node {
 			p.errorPos(name.Pos, err.Error())
 		}
 		declList.Symbols = append(declList.Symbols, sym)
-		var init Node
+		var init Expr
 		var initPos cpp.FilePos
 		if p.curt.Kind == '=' {
 			p.next()
@@ -965,7 +965,7 @@ func (p *parser) parseDeclaratorTail(basety CType) CType {
 		switch p.curt.Kind {
 		case '[':
 			p.next()
-			var dimn Node
+			var dimn Expr
 			if p.curt.Kind != ']' {
 				dimn = p.parseAssignmentExpr()
 			}
@@ -974,8 +974,10 @@ func (p *parser) parseDeclaratorTail(basety CType) CType {
 			if err != nil {
 				p.errorPos(dimn.GetPos(), "invalid constant Expr for array dimensions")
 			}
-			i := dim.(*Constant)
-			// XXX
+			i, ok := dim.(*Constant)
+			if !ok || !IsIntType(i.Type) {
+				p.errorPos(dimn.GetPos(), "Expected an int type for array length")
+			}
 			ret = &Array{
 				Dim:        int(i.Val),
 				MemberType: ret,
@@ -1008,7 +1010,7 @@ func (p *parser) parseDeclaratorTail(basety CType) CType {
 	}
 }
 
-func (p *parser) parseInitializer(ty CType, constant bool) Node {
+func (p *parser) parseInitializer(ty CType, constant bool) Expr {
 	_ = p.curt.Pos
 	if IsScalarType(ty) {
 		var init Expr

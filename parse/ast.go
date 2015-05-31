@@ -214,7 +214,7 @@ type DeclList struct {
 	Pos     cpp.FilePos
 	Storage SClass
 	Symbols []Symbol
-	Inits   []Node
+	Inits   []Expr
 }
 
 func (d *DeclList) GetPos() cpp.FilePos { return d.Pos }

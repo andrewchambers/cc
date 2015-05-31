@@ -54,7 +54,7 @@ func (e *emitter) emiti(s string, args ...interface{}) {
 	e.emit("  "+s, args...)
 }
 
-func (e *emitter) emitGlobal(g *parse.GSymbol, init parse.Node) {
+func (e *emitter) emitGlobal(g *parse.GSymbol, init parse.Expr) {
 	_, ok := g.Type.(*parse.FunctionType)
 	if ok {
 		return
@@ -66,13 +66,30 @@ func (e *emitter) emitGlobal(g *parse.GSymbol, init parse.Node) {
 	} else {
 		e.emit("%s:\n", g.Label)
 		switch {
-		case g.Type == parse.CInt:
+		case parse.IsIntType(g.Type):
 			v := init.(*parse.Constant)
-			e.emit(".quad %v\n", v.Val)
+			switch getSize(g.Type) {
+			case 8:
+				e.emit(".quad %d\n", v.Val)
+			case 4:
+				e.emit(".word %d\n", v.Val)
+			case 2:
+				e.emit(".short %d\n", v.Val)
+			case 1:
+				e.emit(".byte %d\n", v.Val)
+			}
+
 		case parse.IsPtrType(g.Type):
 			switch init := init.(type) {
 			case *parse.ConstantGPtr:
-				e.emit(".quad %s\n", init.PtrLabel)
+				switch {
+				case init.Offset > 0:
+					e.emit(".quad %s + %d\n", init.Offset)
+				case init.Offset < 0:
+					e.emit(".quad %s - %d\n", init.Offset)
+				default:
+					e.emit(".quad %s\n", init.PtrLabel)
+				}
 			case *parse.String:
 				e.emit(".quad %s\n", init.Label)
 				e.emit("%s:\n", init.Label)
