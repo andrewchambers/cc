@@ -72,7 +72,7 @@ func (e *emitter) emitGlobal(g *parse.GSymbol, init parse.Expr) {
 			case 8:
 				e.emit(".quad %d\n", v.Val)
 			case 4:
-				e.emit(".word %d\n", v.Val)
+				e.emit(".long %d\n", v.Val)
 			case 2:
 				e.emit(".short %d\n", v.Val)
 			case 1:
