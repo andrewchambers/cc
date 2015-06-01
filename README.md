@@ -34,6 +34,7 @@ $ sh ./test.sh
 $ go install github.com/andrewchambers/cc/cmd/x64cc
 $ x64cc -h
 ```
+or just use go get.
 
 ## Contact
 
