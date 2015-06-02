@@ -56,9 +56,7 @@ You will probably need to discuss progress/direction for various aspects of the 
 
 ## Bug reports
 
-The compiler is currently so immature that it is trivial to find bugs. I don't need bug reports unless
-you are also willing to fix the bug yourself in a pull request or by emailing a diff. If you want to tackle an issue, be sure to add a
-self contained snippet or file that reproduces the issue.
+Most things don't work, so please avoid filing obvious issues for now, If in doubt, write message in gitter.
 
 When the compiler is more mature, we can do automatic bug hunting using the following resources:
 
