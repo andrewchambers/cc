@@ -35,6 +35,12 @@ var primAlignTab = [...]int{
 
 func getSize(t parse.CType) int {
 	switch t := t.(type) {
+	case *parse.CStruct:
+		sz := 0
+		for _, t := range t.Types {
+			sz += getSize(t)
+		}
+		return sz
 	case *parse.Array:
 		return t.Dim * getSize(t.MemberType)
 	case *parse.Ptr:

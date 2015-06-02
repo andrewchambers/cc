@@ -171,7 +171,7 @@ type Selector struct {
 	Op      cpp.TokenKind
 	Pos     cpp.FilePos
 	Type    CType
-	Operand Node
+	Operand Expr
 	Sel     string
 }
 

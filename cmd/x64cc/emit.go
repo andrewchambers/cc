@@ -285,8 +285,47 @@ func (e *emitter) emitExpr(expr parse.Node) {
 		e.emitIndex(expr)
 	case *parse.Cast:
 		e.emitCast(expr)
+	case *parse.Selector:
+		e.emitSelector(expr)
 	default:
 		panic(expr)
+	}
+}
+
+func getStructOffset(s *parse.CStruct, member string) int {
+	offset := 0
+	for idx, n := range s.Names {
+		if n == member {
+			return offset
+		}
+		offset += getSize(s.Types[idx])
+	}
+	// Error should have been caught in parse.
+	panic("internal error")
+}
+
+func (e *emitter) emitSelector(s *parse.Selector) {
+	e.emitExpr(s.Operand)
+	ty := s.Operand.GetType()
+	offset := 0
+	switch ty := ty.(type) {
+	case *parse.CStruct:
+		offset = getStructOffset(ty, s.Sel)
+	default:
+		panic("internal error")
+	}
+	if offset != 0 {
+		e.emiti("add $%d, %%rax\n", offset)
+	}
+	switch getSize(s.GetType()) {
+	case 1:
+		e.emiti("movb (%%rax), %%al\n")
+	case 4:
+		e.emiti("movl (%%rax), %%eax\n")
+	case 8:
+		e.emiti("movq (%%rax), %%rax\n")
+	default:
+		panic("unimplemented")
 	}
 }
 
@@ -595,6 +634,29 @@ func (e *emitter) emitAssign(b *parse.Binop) {
 		e.emiti("add %%rcx, %%rax\n")
 		e.emiti("pop %%rcx\n")
 		e.emiti("movq %%rcx,(%%rax)\n")
+	case *parse.Selector:
+		e.emiti("push %%rax\n")
+		e.emitExpr(l.Operand)
+		ty := l.Operand.GetType()
+		offset := 0
+		switch ty := ty.(type) {
+		case *parse.CStruct:
+			offset = getStructOffset(ty, l.Sel)
+		default:
+			panic("internal error")
+		}
+		e.emiti("add $%d,%%rax\n", offset)
+		e.emiti("pop %%rcx\n")
+		switch getSize(ty) {
+		case 1:
+			e.emiti("movb %%cl, (%%rax)\n")
+		case 4:
+			e.emiti("movl %%ecx, (%%rax)\n")
+		case 8:
+			e.emiti("movq %%rcx, (%%rax)\n")
+		default:
+			panic("unimplemented")
+		}
 	case *parse.Unop:
 		if l.Op != '*' {
 			panic("internal error")
@@ -631,5 +693,7 @@ func (e *emitter) emitAssign(b *parse.Binop) {
 				panic("unimplemented")
 			}
 		}
+	default:
+		panic(b.L)
 	}
 }

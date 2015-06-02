@@ -1491,7 +1491,6 @@ func (p *parser) parsePrimaryExpr() Expr {
 }
 
 func (p *parser) parseStruct() CType {
-	spos := p.curt.Pos
 	p.expect(cpp.STRUCT)
 	var ret *CStruct
 	sname := ""
@@ -1503,37 +1502,40 @@ func (p *parser) parseStruct() CType {
 		if err != nil && p.curt.Kind != '{' {
 			p.errorPos(npos, err.Error())
 		}
-		ret = sym.(*TSymbol).Type.(*CStruct)
-	}
-	if p.curt.Kind != '{' {
-		if ret == nil {
-			p.errorPos(spos, "invalid struct")
-		}
-		return ret
-	}
-	p.expect('{')
-	ret = &CStruct{}
-	for {
-		if p.curt.Kind == '}' {
-			break
-		}
-		_, basety := p.parseDeclSpecifiers()
-		for {
-			name, ty := p.parseDeclarator(basety, false)
-			ret.Names = append(ret.Names, name.Val)
-			ret.Types = append(ret.Types, ty)
-			if p.curt.Kind == ',' {
-				p.next()
-				continue
-			}
-			break
-		}
-		p.expect(';')
-	}
-	p.expect('}')
-	if sname != "" {
-		err := p.structs.define(sname, ret)
 		if err == nil {
+			ret = sym.(*TSymbol).Type.(*CStruct)
+		}
+	}
+	if p.curt.Kind == '{' {
+		p.expect('{')
+		ret = &CStruct{}
+		for {
+			if p.curt.Kind == '}' {
+				break
+			}
+			_, basety := p.parseDeclSpecifiers()
+			for {
+				name, ty := p.parseDeclarator(basety, false)
+				ret.Names = append(ret.Names, name.Val)
+				ret.Types = append(ret.Types, ty)
+				if p.curt.Kind == ',' {
+					p.next()
+					continue
+				}
+				break
+			}
+			p.expect(';')
+		}
+		p.expect('}')
+	}
+	if sname != "" {
+		// TODO:
+		// If ret is nil, is this a predefine?
+		// Do we need an incomplete type?
+		err := p.structs.define(sname, &TSymbol{
+			Type: ret,
+		})
+		if err != nil {
 			p.errorPos(npos, err.Error())
 		}
 	}

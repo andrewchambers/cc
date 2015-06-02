@@ -76,5 +76,6 @@ func main() {
 	err = compileFile(input, output)
 	if err != nil {
 		report.ReportError(err)
+		os.Exit(1)
 	}
 }
