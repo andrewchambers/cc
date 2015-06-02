@@ -56,7 +56,7 @@ You will probably need to discuss progress/direction for various aspects of the 
 
 ## Bug reports
 
-Most things don't work, so please avoid filing obvious issues for now, If in doubt, write message in gitter.
+Most things don't work, this is currently the state of affairs, If in doubt, write message in gitter before creating an issue. Failing test cases will be welcome once expected failures are part of the test runner.
 
 When the compiler is more mature, we can do automatic bug hunting using the following resources:
 
