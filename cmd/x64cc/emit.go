@@ -20,11 +20,22 @@ func (e *emitter) NextLabel() string {
 }
 
 func Emit(tu *parse.TranslationUnit, o io.Writer) error {
-	toplevels := tu.TopLevels
 	e := &emitter{
 		o: o,
 	}
-	for _, tl := range toplevels {
+
+	for _, init := range tu.AnonymousInits {
+		switch init := init.(type) {
+		case *parse.String:
+			e.emit(".data\n")
+			e.emit("%s:\n", init.Label)
+			e.emit(".string %s\n", init.Val)
+		default:
+			panic(init)
+		}
+	}
+
+	for _, tl := range tu.TopLevels {
 		switch tl := tl.(type) {
 		case *parse.Function:
 			e.emitFunction(tl)
@@ -78,7 +89,6 @@ func (e *emitter) emitGlobal(g *parse.GSymbol, init parse.Expr) {
 			case 1:
 				e.emit(".byte %d\n", v.Val)
 			}
-
 		case parse.IsPtrType(g.Type):
 			switch init := init.(type) {
 			case *parse.ConstantGPtr:
@@ -92,8 +102,6 @@ func (e *emitter) emitGlobal(g *parse.GSymbol, init parse.Expr) {
 				}
 			case *parse.String:
 				e.emit(".quad %s\n", init.Label)
-				e.emit("%s:\n", init.Label)
-				e.emit(".string %s\n", init.Val)
 			}
 		default:
 			panic("unimplemented")
@@ -287,6 +295,8 @@ func (e *emitter) emitExpr(expr parse.Node) {
 		e.emitCast(expr)
 	case *parse.Selector:
 		e.emitSelector(expr)
+	case *parse.String:
+		e.emiti("leaq %s(%%rip), %%rax\n", expr.Label)
 	default:
 		panic(expr)
 	}

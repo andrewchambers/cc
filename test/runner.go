@@ -138,7 +138,7 @@ func ExecuteTests(tdir string) error {
 func main() {
 	flag.Parse()
 	pass := true
-	for _, tdir := range []string{"testcases/execute", "testcases/bugs"} {
+	for _, tdir := range []string{"test/testcases/execute", "test/testcases/bugs"} {
 		err := ExecuteTests(tdir)
 		if err != nil {
 			fmt.Printf("%s FAIL: %s\n", tdir, err)
