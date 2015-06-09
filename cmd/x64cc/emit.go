@@ -94,7 +94,7 @@ func (e *emitter) emitScalarExtend(sz int, signed bool) {
 			e.emiti("movzbq %%al, %%eax\n")
 			return
 		default:
-	        panic("internal error")
+			panic("internal error")
 		}
 	}
 }
@@ -111,7 +111,7 @@ func (e *emitter) emitScalarLoadFromPtr(reg string, sz int, signed bool) {
 		case 1:
 			e.emiti("movsbq (%%%s), %%rax\n", reg)
 		default:
-	        panic("internal error")
+			panic("internal error")
 		}
 	} else {
 		switch sz {
@@ -123,8 +123,8 @@ func (e *emitter) emitScalarLoadFromPtr(reg string, sz int, signed bool) {
 			e.emiti("movzwq (%%%s), %%rax\n", reg)
 		case 1:
 			e.emiti("movzbq (%%%s), %%rax\n", reg)
-	    default:
-	        panic("internal error")
+		default:
+			panic("internal error")
 		}
 	}
 }
@@ -140,7 +140,7 @@ func (e *emitter) emitScalarStoreToPtr(reg string, sz int) {
 	case 1:
 		e.emiti("movb %%al, (%%%s)\n", reg)
 	default:
-	    panic("internal error")
+		panic("internal error")
 	}
 }
 
@@ -202,7 +202,6 @@ func (e *emitter) emitLoadPtr(ty parse.CType) {
 		panic(ty)
 	}
 }
-
 
 func (e *emitter) emitStoreGlobal(label string, ty parse.CType) {
 	switch {
