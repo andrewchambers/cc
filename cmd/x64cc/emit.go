@@ -65,6 +65,194 @@ func (e *emitter) emiti(s string, args ...interface{}) {
 	e.emit("  "+s, args...)
 }
 
+func (e *emitter) emitScalarExtend(sz int, signed bool) {
+	if signed {
+		switch sz {
+		case 8:
+			// Nothing to do.
+		case 4:
+			e.emiti("movsdq %%eax, %%rax\n")
+		case 2:
+			e.emiti("movswq %%ax, %%rax\n")
+		case 1:
+			e.emiti("movsbq %%al, %%rax\n")
+		default:
+			panic("internal error")
+		}
+	} else {
+		switch sz {
+		case 8:
+			// Nothing to do.
+		case 4:
+			// *NOTE* This zeros top half of rax.
+			e.emiti("mov %%eax, %%eax\n")
+			return
+		case 2:
+			e.emiti("movzwq %%ax, %%eax\n")
+			return
+		case 1:
+			e.emiti("movzbq %%al, %%eax\n")
+			return
+		default:
+	        panic("internal error")
+		}
+	}
+}
+
+func (e *emitter) emitScalarLoadFromPtr(reg string, sz int, signed bool) {
+	if signed {
+		switch sz {
+		case 8:
+			e.emiti("movq (%%%s), %%rax\n", reg)
+		case 4:
+			e.emiti("movslq (%%%s), %%rax\n", reg)
+		case 2:
+			e.emiti("movswq (%%%s), %%rax\n", reg)
+		case 1:
+			e.emiti("movsbq (%%%s), %%rax\n", reg)
+		default:
+	        panic("internal error")
+		}
+	} else {
+		switch sz {
+		case 8:
+			e.emiti("movq (%%%s), %%rax\n", reg)
+		case 4:
+			e.emiti("movzlq (%%%s), %%rax\n", reg)
+		case 2:
+			e.emiti("movzwq (%%%s), %%rax\n", reg)
+		case 1:
+			e.emiti("movzbq (%%%s), %%rax\n", reg)
+	    default:
+	        panic("internal error")
+		}
+	}
+}
+
+func (e *emitter) emitScalarStoreToPtr(reg string, sz int) {
+	switch sz {
+	case 8:
+		e.emiti("movq %%rax, (%%%s)\n", reg)
+	case 4:
+		e.emiti("movl %%eax, (%%%s)\n", reg)
+	case 2:
+		e.emiti("movw %%ax, (%%%s)\n", reg)
+	case 1:
+		e.emiti("movb %%al, (%%%s)\n", reg)
+	default:
+	    panic("internal error")
+	}
+}
+
+func (e *emitter) emitLoadGlobal(label string, ty parse.CType) {
+	switch {
+	case parse.IsCFunction(ty):
+		e.emiti("leaq %s(%%rip), %%rax\n", label)
+	case parse.IsIntType(ty):
+		e.emiti("leaq %s(%%rip), %%rcx\n", label)
+		if parse.IsSignedIntType(ty) {
+			e.emitScalarLoadFromPtr("rcx", getSize(ty), true)
+		} else {
+			e.emitScalarLoadFromPtr("rcx", getSize(ty), false)
+		}
+	case parse.IsPtrType(ty):
+		e.emiti("leaq %s(%%rip), %%rcx\n", label)
+		e.emitScalarLoadFromPtr("rcx", getSize(ty), false)
+	case parse.IsArrType(ty):
+		e.emiti("leaq %s(%%rip), %%rax\n", label)
+	default:
+		panic(ty)
+	}
+}
+
+func (e *emitter) emitLoadLocal(offset int, ty parse.CType) {
+	switch {
+	case parse.IsIntType(ty):
+		e.emiti("leaq %d(%%rbp), %%rcx\n", offset)
+		if parse.IsSignedIntType(ty) {
+			e.emitScalarLoadFromPtr("rcx", getSize(ty), true)
+		} else {
+			e.emitScalarLoadFromPtr("rcx", getSize(ty), false)
+		}
+	case parse.IsPtrType(ty):
+		e.emiti("leaq %d(%%rbp), %%rcx\n", offset)
+		e.emitScalarLoadFromPtr("rcx", getSize(ty), false)
+	case parse.IsArrType(ty):
+		e.emiti("leaq %d(%%rbp), %%rax\n", offset)
+	case parse.IsStruct(ty):
+		e.emiti("leaq %d(%%rbp), %%rax\n", offset)
+	default:
+		panic(ty)
+	}
+}
+
+func (e *emitter) emitLoadPtr(ty parse.CType) {
+	switch {
+	case parse.IsIntType(ty):
+		if parse.IsSignedIntType(ty) {
+			e.emitScalarLoadFromPtr("rax", getSize(ty), true)
+		} else {
+			e.emitScalarLoadFromPtr("rax", getSize(ty), false)
+		}
+	case parse.IsPtrType(ty):
+		e.emitScalarLoadFromPtr("rax", getSize(ty), false)
+	case parse.IsArrType(ty):
+	case parse.IsStruct(ty):
+	default:
+		panic(ty)
+	}
+}
+
+
+func (e *emitter) emitStoreGlobal(label string, ty parse.CType) {
+	switch {
+	case parse.IsIntType(ty):
+		e.emiti("leaq %s(%%rip), %%rcx\n", label)
+		if parse.IsSignedIntType(ty) {
+			e.emitScalarStoreToPtr("rcx", getSize(ty))
+		} else {
+			e.emitScalarStoreToPtr("rcx", getSize(ty))
+		}
+	case parse.IsPtrType(ty):
+		e.emiti("leaq %s(%%rip), %%rcx\n", label)
+		e.emitScalarStoreToPtr("rcx", getSize(ty))
+	default:
+		panic(ty)
+	}
+}
+
+func (e *emitter) emitStoreLocal(offset int, ty parse.CType) {
+	switch {
+	case parse.IsIntType(ty):
+		e.emiti("leaq %d(%%rbp), %%rcx\n", offset)
+		if parse.IsSignedIntType(ty) {
+			e.emitScalarStoreToPtr("rcx", getSize(ty))
+		} else {
+			e.emitScalarStoreToPtr("rcx", getSize(ty))
+		}
+	case parse.IsPtrType(ty):
+		e.emiti("leaq %d(%%rbp), %%rcx\n", offset)
+		e.emitScalarStoreToPtr("rcx", getSize(ty))
+	default:
+		panic(ty)
+	}
+}
+
+func (e *emitter) emitStorePtr(reg string, ty parse.CType) {
+	switch {
+	case parse.IsIntType(ty):
+		if parse.IsSignedIntType(ty) {
+			e.emitScalarStoreToPtr(reg, getSize(ty))
+		} else {
+			e.emitScalarStoreToPtr(reg, getSize(ty))
+		}
+	case parse.IsPtrType(ty):
+		e.emitScalarStoreToPtr(reg, getSize(ty))
+	default:
+		panic(ty)
+	}
+}
+
 func (e *emitter) emitGlobal(g *parse.GSymbol, init parse.Expr) {
 	_, ok := g.Type.(*parse.FunctionType)
 	if ok {
@@ -327,15 +515,17 @@ func (e *emitter) emitSelector(s *parse.Selector) {
 	if offset != 0 {
 		e.emiti("add $%d, %%rax\n", offset)
 	}
-	switch getSize(s.GetType()) {
-	case 1:
-		e.emiti("movb (%%rax), %%al\n")
-	case 4:
-		e.emiti("movl (%%rax), %%eax\n")
-	case 8:
-		e.emiti("movq (%%rax), %%rax\n")
+	switch {
+	case parse.IsIntType(s.Type):
+		if parse.IsSignedIntType(s.Type) {
+			e.emitScalarLoadFromPtr("rax", getSize(s.Type), true)
+		} else {
+			e.emitScalarLoadFromPtr("rax", getSize(s.Type), false)
+		}
+	case parse.IsPtrType(s.Type):
+		e.emitScalarLoadFromPtr("rax", getSize(s.Type), false)
 	default:
-		panic("unimplemented")
+		panic(s.Type)
 	}
 }
 
@@ -344,34 +534,9 @@ func (e *emitter) emitIdent(i *parse.Ident) {
 	switch sym := sym.(type) {
 	case *parse.LSymbol:
 		offset := e.loffsets[sym]
-		if parse.IsIntType(sym.Type) || parse.IsPtrType(sym.Type) {
-			switch getSize(sym.Type) {
-			case 1:
-				e.emiti("movb %d(%%rbp), %%al\n", offset)
-			case 4:
-				e.emiti("movl %d(%%rbp), %%eax\n", offset)
-			case 8:
-				e.emiti("movq %d(%%rbp), %%rax\n", offset)
-			default:
-				panic("unimplemented")
-			}
-		} else {
-			e.emiti("leaq %d(%%rbp), %%rax\n", offset)
-		}
+		e.emitLoadLocal(offset, sym.Type)
 	case *parse.GSymbol:
-		e.emiti("leaq %s(%%rip), %%rax\n", sym.Label)
-		if parse.IsIntType(sym.Type) || parse.IsPtrType(sym.Type) {
-			switch getSize(sym.Type) {
-			case 1:
-				e.emiti("movb (%%rax), %%al\n")
-			case 4:
-				e.emiti("movl (%%rax), %%eax\n")
-			case 8:
-				e.emiti("movq (%%rax), %%rax\n")
-			default:
-				panic("unimplemented")
-			}
-		}
+		e.emitLoadGlobal(sym.Label, sym.Type)
 	}
 }
 
@@ -423,60 +588,11 @@ func (e *emitter) emitCast(c *parse.Cast) {
 	to := c.Type
 	switch {
 	case parse.IsPtrType(to):
-		if parse.IsPtrType(from) {
+		if parse.IsPtrType(from) || parse.IsIntType(from) {
 			return
-		}
-		if parse.IsIntType(from) {
-			switch getSize(to) {
-			case 8:
-				return
-			case 4:
-				// *NOTE* This zeros top half of rax.
-				e.emiti("mov %%eax, %%eax\n")
-				return
-			case 2:
-				e.emiti("movzwq %%ax, %%eax\n")
-				return
-			case 1:
-				e.emiti("movzbq %%al, %%eax\n")
-				return
-			}
 		}
 	case parse.IsIntType(to):
-		if parse.IsPtrType(from) {
-			// Free truncation
-			return
-		}
-		if parse.IsIntType(from) {
-			if getSize(to) <= getSize(from) {
-				// Free truncation
-				return
-			}
-			if parse.IsSignedIntType(from) {
-				switch getSize(from) {
-				case 4:
-					e.emiti("movsdq %%eax, %%rax\n")
-				case 2:
-					e.emiti("movswq %%ax, %%rax\n")
-				case 1:
-					e.emiti("movsbq %%al, %%rax\n")
-				default:
-					panic("internal error")
-				}
-			} else {
-				switch getSize(to) {
-				case 4:
-					// *NOTE* This zeros top half of rax.
-					e.emiti("mov %%eax, %%eax\n")
-					return
-				case 2:
-					e.emiti("movzwq %%ax, %%eax\n")
-					return
-				case 1:
-					e.emiti("movzbq %%al, %%eax\n")
-					return
-				}
-			}
+		if parse.IsPtrType(from) || parse.IsIntType(from) {
 			return
 		}
 	}
@@ -534,15 +650,7 @@ func (e *emitter) emitBinop(b *parse.Binop) {
 			default:
 				panic("internal error")
 			}
-			switch getSize(b.GetType()) {
-			case 8:
-				e.emiti("cmp %%rcx, %%rax\n")
-			case 4:
-				e.emiti("cmp %%ecx, %%eax\n")
-			default:
-				// There shouldn't be arith operations on anything else.
-				panic("internal error")
-			}
+			e.emiti("cmp %%rcx, %%rax\n")
 			e.emiti("%s %s\n", opc, lset)
 			e.emiti("movq $0, %%rax\n")
 			e.emiti("jmp %s\n", lafter)
@@ -621,14 +729,7 @@ func (e *emitter) emitIndex(idx *parse.Index) {
 	e.emitExpr(idx.Arr)
 	e.emiti("pop %%rcx\n")
 	e.emiti("addq %%rcx, %%rax\n")
-	switch getSize(idx.GetType()) {
-	case 1:
-		e.emiti("movb (%%rax), %%al\n")
-	case 4:
-		e.emiti("movl (%%rax), %%eax\n")
-	case 8:
-		e.emiti("movq (%%rax), %%rax\n")
-	}
+	e.emitLoadPtr(idx.GetType())
 }
 
 func (e *emitter) emitAssign(b *parse.Binop) {
@@ -643,7 +744,7 @@ func (e *emitter) emitAssign(b *parse.Binop) {
 		e.emiti("pop %%rcx\n")
 		e.emiti("add %%rcx, %%rax\n")
 		e.emiti("pop %%rcx\n")
-		e.emiti("movq %%rcx,(%%rax)\n")
+		e.emitStorePtr("rcx", l.GetType())
 	case *parse.Selector:
 		e.emiti("push %%rax\n")
 		e.emitExpr(l.Operand)
@@ -657,16 +758,7 @@ func (e *emitter) emitAssign(b *parse.Binop) {
 		}
 		e.emiti("add $%d,%%rax\n", offset)
 		e.emiti("pop %%rcx\n")
-		switch getSize(ty) {
-		case 1:
-			e.emiti("movb %%cl, (%%rax)\n")
-		case 4:
-			e.emiti("movl %%ecx, (%%rax)\n")
-		case 8:
-			e.emiti("movq %%rcx, (%%rax)\n")
-		default:
-			panic("unimplemented")
-		}
+		e.emitStorePtr("rcx", l.GetType())
 	case *parse.Unop:
 		if l.Op != '*' {
 			panic("internal error")
@@ -674,34 +766,15 @@ func (e *emitter) emitAssign(b *parse.Binop) {
 		e.emiti("push %%rax\n")
 		e.emitExpr(l.Operand)
 		e.emiti("pop %%rcx\n")
-		e.emiti("movq %%rcx, (%%rax)\n")
+		e.emitStorePtr("rcx", l.GetType())
 	case *parse.Ident:
 		sym := l.Sym
 		switch sym := sym.(type) {
 		case *parse.GSymbol:
-			e.emiti("leaq %s(%%rip), %%rcx\n", sym.Label)
-			switch getSize(sym.Type) {
-			case 1:
-				e.emiti("movb %%al, (%%rcx)\n")
-			case 4:
-				e.emiti("movl %%eax, (%%rcx)\n")
-			case 8:
-				e.emiti("movq %%rax, (%%rcx)\n")
-			default:
-				panic("unimplemented")
-			}
+			e.emitStoreGlobal(sym.Label, sym.Type)
 		case *parse.LSymbol:
 			offset := e.loffsets[sym]
-			switch getSize(sym.Type) {
-			case 1:
-				e.emiti("movb %%al, %d(%%rbp)\n", offset)
-			case 4:
-				e.emiti("movl %%eax, %d(%%rbp)\n", offset)
-			case 8:
-				e.emiti("movq %%rax, %d(%%rbp)\n", offset)
-			default:
-				panic("unimplemented")
-			}
+			e.emitStoreLocal(offset, sym.Type)
 		}
 	default:
 		panic(b.L)

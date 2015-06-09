@@ -111,3 +111,13 @@ func IsCharType(t CType) bool {
 func IsCharArr(t CType) bool {
 	return IsArrType(t) && IsCharType(t)
 }
+
+func IsStruct(t CType) bool {
+	_, ok := t.(*CStruct)
+	return ok
+}
+
+func IsCFunction(t CType) bool {
+	_, ok := t.(*FunctionType)
+	return ok
+}
