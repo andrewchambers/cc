@@ -8,7 +8,7 @@ Artwork by [Egon Elbre](https://twitter.com/egonelbre) based on the [Go gopher](
 
 - C11 Compatibility, GNU Compatibility.
 - Aggressive removal of cruft.
-- Windows and *nix as equals.
+- Multiplatform.
 - Build from source in the blink of an eye.
 - Easy to contribute.
 
