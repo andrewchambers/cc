@@ -158,7 +158,7 @@ func Parse(szdesc TargetSizeDesc, pp *cpp.Preprocessor) (tu *TranslationUnit, er
 	}()
 	p.next()
 	p.next()
-	p.parseTranslationUnit()
+	p.TUnit()
 	return p.tu, nil
 }
 
@@ -201,9 +201,9 @@ func (p *parser) ensureScalar(n Expr) {
 	}
 }
 
-func (p *parser) parseTranslationUnit() {
+func (p *parser) TUnit() {
 	for p.curt.Kind != cpp.EOF {
-		toplevel := p.parseDecl(true)
+		toplevel := p.Decl(true)
 		p.tu.TopLevels = append(p.tu.TopLevels, toplevel)
 	}
 }
@@ -222,18 +222,18 @@ func (p *parser) isDeclStart(t *cpp.Token) bool {
 	return false
 }
 
-func (p *parser) parseStmt() Node {
+func (p *parser) Stmt() Node {
 	if p.nextt.Kind == ':' && p.curt.Kind == cpp.IDENT {
 		return p.parseLabeledStmt()
 	}
 	if p.isDeclStart(p.curt) {
-		return p.parseDecl(false)
+		return p.Decl(false)
 	} else {
 		switch p.curt.Kind {
 		case cpp.CASE:
-			return p.parseCase()
+			return p.Case()
 		case cpp.DEFAULT:
-			return p.parseDefault()
+			return p.Default()
 		case cpp.GOTO:
 			return p.parseGoto()
 		case ';':
@@ -243,24 +243,24 @@ func (p *parser) parseStmt() Node {
 				Pos: pos,
 			}
 		case cpp.SWITCH:
-			return p.parseSwitch()
+			return p.Switch()
 		case cpp.RETURN:
-			return p.parseReturn()
+			return p.Return()
 		case cpp.WHILE:
-			return p.parseWhile()
+			return p.While()
 		case cpp.DO:
-			return p.parseDoWhile()
+			return p.DoWhile()
 		case cpp.FOR:
-			return p.parseFor()
+			return p.For()
 		case cpp.BREAK, cpp.CONTINUE:
-			return p.parseBreakCont()
+			return p.BreakCont()
 		case cpp.IF:
-			return p.parseIf()
+			return p.If()
 		case '{':
-			return p.parseBlock()
+			return p.Block()
 		default:
 			pos := p.curt.Pos
-			expr := p.parseExpr()
+			expr := p.Expr()
 			p.expect(';')
 			return &ExprStmt{
 				Pos:  pos,
@@ -271,13 +271,13 @@ func (p *parser) parseStmt() Node {
 	panic("unreachable.")
 }
 
-func (p *parser) parseSwitch() Node {
+func (p *parser) Switch() Node {
 	sw := &Switch{}
 	sw.Pos = p.curt.Pos
 	sw.LAfter = p.nextLabel()
 	p.expect(cpp.SWITCH)
 	p.expect('(')
-	expr := p.parseExpr()
+	expr := p.Expr()
 	sw.Expr = expr
 	if !IsIntType(expr.GetType()) {
 		p.errorPos(expr.GetPos(), "switch expression expects an integral type")
@@ -285,7 +285,7 @@ func (p *parser) parseSwitch() Node {
 	p.expect(')')
 	p.pushSwitch(sw)
 	p.pushBreak(sw.LAfter)
-	stmt := p.parseStmt()
+	stmt := p.Stmt()
 	sw.Stmt = stmt
 	p.popBreak()
 	p.popSwitch()
@@ -324,18 +324,18 @@ func (p *parser) parseLabeledStmt() Node {
 		Pos:       pos,
 		Label:     label,
 		AnonLabel: anonlabel,
-		Stmt:      p.parseStmt(),
+		Stmt:      p.Stmt(),
 	}
 }
 
-func (p *parser) parseCase() Node {
+func (p *parser) Case() Node {
 	pos := p.curt.Pos
 	p.expect(cpp.CASE)
 	sw := p.getSwitch()
 	if sw == nil {
 		p.errorPos(pos, "'case' outside a switch statement")
 	}
-	expr := p.parseExpr()
+	expr := p.Expr()
 	if !IsIntType(expr.GetType()) {
 		p.errorPos(expr.GetPos(), "expected an integral type")
 	}
@@ -355,12 +355,12 @@ func (p *parser) parseCase() Node {
 	return &LabeledStmt{
 		Pos:       pos,
 		AnonLabel: anonlabel,
-		Stmt:      p.parseStmt(),
+		Stmt:      p.Stmt(),
 		IsCase:    true,
 	}
 }
 
-func (p *parser) parseDefault() Node {
+func (p *parser) Default() Node {
 	pos := p.curt.Pos
 	p.expect(cpp.DEFAULT)
 	sw := p.getSwitch()
@@ -376,12 +376,12 @@ func (p *parser) parseDefault() Node {
 	return &LabeledStmt{
 		Pos:       pos,
 		AnonLabel: anonlabel,
-		Stmt:      p.parseStmt(),
+		Stmt:      p.Stmt(),
 		IsDefault: true,
 	}
 }
 
-func (p *parser) parseBreakCont() Node {
+func (p *parser) BreakCont() Node {
 	pos := p.curt.Pos
 	label := ""
 	isbreak := p.curt.Kind == cpp.BREAK
@@ -408,10 +408,10 @@ func (p *parser) parseBreakCont() Node {
 	}
 }
 
-func (p *parser) parseReturn() Node {
+func (p *parser) Return() Node {
 	pos := p.curt.Pos
 	p.expect(cpp.RETURN)
-	expr := p.parseExpr()
+	expr := p.Expr()
 	p.expect(';')
 	return &Return{
 		Pos: pos,
@@ -419,19 +419,19 @@ func (p *parser) parseReturn() Node {
 	}
 }
 
-func (p *parser) parseIf() Node {
+func (p *parser) If() Node {
 	ifpos := p.curt.Pos
 	lelse := p.nextLabel()
 	p.expect(cpp.IF)
 	p.expect('(')
-	expr := p.parseExpr()
+	expr := p.Expr()
 	p.ensureScalar(expr)
 	p.expect(')')
-	stmt := p.parseStmt()
+	stmt := p.Stmt()
 	var els Node
 	if p.curt.Kind == cpp.ELSE {
 		p.next()
-		els = p.parseStmt()
+		els = p.Stmt()
 	}
 	return &If{
 		Pos:   ifpos,
@@ -442,7 +442,7 @@ func (p *parser) parseIf() Node {
 	}
 }
 
-func (p *parser) parseFor() Node {
+func (p *parser) For() Node {
 	pos := p.curt.Pos
 	lstart := p.nextLabel()
 	lend := p.nextLabel()
@@ -450,19 +450,19 @@ func (p *parser) parseFor() Node {
 	p.expect(cpp.FOR)
 	p.expect('(')
 	if p.curt.Kind != ';' {
-		init = p.parseExpr()
+		init = p.Expr()
 	}
 	p.expect(';')
 	if p.curt.Kind != ';' {
-		cond = p.parseExpr()
+		cond = p.Expr()
 	}
 	p.expect(';')
 	if p.curt.Kind != ')' {
-		step = p.parseExpr()
+		step = p.Expr()
 	}
 	p.expect(')')
 	p.pushBreakCont(lend, lstart)
-	body := p.parseStmt()
+	body := p.Stmt()
 	p.popBreakCont()
 	return &For{
 		Pos:    pos,
@@ -475,17 +475,17 @@ func (p *parser) parseFor() Node {
 	}
 }
 
-func (p *parser) parseWhile() Node {
+func (p *parser) While() Node {
 	pos := p.curt.Pos
 	lstart := p.nextLabel()
 	lend := p.nextLabel()
 	p.expect(cpp.WHILE)
 	p.expect('(')
-	cond := p.parseExpr()
+	cond := p.Expr()
 	p.ensureScalar(cond)
 	p.expect(')')
 	p.pushBreakCont(lend, lstart)
-	body := p.parseStmt()
+	body := p.Stmt()
 	p.popBreakCont()
 	return &While{
 		Pos:    pos,
@@ -496,18 +496,18 @@ func (p *parser) parseWhile() Node {
 	}
 }
 
-func (p *parser) parseDoWhile() Node {
+func (p *parser) DoWhile() Node {
 	pos := p.curt.Pos
 	lstart := p.nextLabel()
 	lcond := p.nextLabel()
 	lend := p.nextLabel()
 	p.expect(cpp.DO)
 	p.pushBreakCont(lend, lcond)
-	body := p.parseStmt()
+	body := p.Stmt()
 	p.popBreakCont()
 	p.expect(cpp.WHILE)
 	p.expect('(')
-	cond := p.parseExpr()
+	cond := p.Expr()
 	p.expect(')')
 	p.expect(';')
 	return &DoWhile{
@@ -520,12 +520,12 @@ func (p *parser) parseDoWhile() Node {
 	}
 }
 
-func (p *parser) parseBlock() *CompndStmt {
+func (p *parser) Block() *CompndStmt {
 	var stmts []Node
 	pos := p.curt.Pos
 	p.expect('{')
 	for p.curt.Kind != '}' {
-		stmts = append(stmts, p.parseStmt())
+		stmts = append(stmts, p.Stmt())
 	}
 	p.expect('}')
 	return &CompndStmt{
@@ -534,11 +534,11 @@ func (p *parser) parseBlock() *CompndStmt {
 	}
 }
 
-func (p *parser) parseFuncBody(f *Function) {
+func (p *parser) FuncBody(f *Function) {
 	p.labels = make(map[string]string)
 	p.gotos = nil
 	for p.curt.Kind != '}' {
-		stmt := p.parseStmt()
+		stmt := p.Stmt()
 		f.Body = append(f.Body, stmt)
 	}
 	for _, fixup := range p.gotos {
@@ -550,12 +550,12 @@ func (p *parser) parseFuncBody(f *Function) {
 	}
 }
 
-func (p *parser) parseDecl(isGlobal bool) Node {
+func (p *parser) Decl(isGlobal bool) Node {
 	firstDecl := true
 	declPos := p.curt.Pos
 	var name *cpp.Token
 	declList := &DeclList{}
-	sc, ty := p.parseDeclSpecifiers()
+	sc, ty := p.DeclSpecs()
 	declList.Storage = sc
 	isTypedef := sc == SC_TYPEDEF
 
@@ -565,7 +565,7 @@ func (p *parser) parseDecl(isGlobal bool) Node {
 	}
 
 	for {
-		name, ty = p.parseDeclarator(ty, false)
+		name, ty = p.Declarator(ty, false)
 		if name == nil {
 			panic("internal error")
 		}
@@ -606,7 +606,7 @@ func (p *parser) parseDecl(isGlobal bool) Node {
 					ParamSymbols: psyms,
 				}
 				p.expect('{')
-				p.parseFuncBody(f)
+				p.FuncBody(f)
 				p.expect('}')
 				p.popScope()
 				return f
@@ -645,7 +645,7 @@ func (p *parser) parseDecl(isGlobal bool) Node {
 			if isTypedef {
 				p.errorPos(initPos, "cannot initialize a typedef")
 			}
-			init = p.parseInitializer(ty, true)
+			init = p.Initializer(ty, true)
 		}
 		declList.Inits = append(declList.Inits, init)
 		if p.curt.Kind != ',' {
@@ -661,9 +661,9 @@ func (p *parser) parseDecl(isGlobal bool) Node {
 	return declList
 }
 
-func (p *parser) parseParamDecl() (*cpp.Token, CType) {
-	_, ty := p.parseDeclSpecifiers()
-	return p.parseDeclarator(ty, true)
+func (p *parser) ParamDecl() (*cpp.Token, CType) {
+	_, ty := p.DeclSpecs()
+	return p.Declarator(ty, true)
 }
 
 func isStorageClass(k cpp.TokenKind) (bool, SClass) {
@@ -816,7 +816,7 @@ var declSpecLut = [...]dSpecLutEnt{
 	}, CDouble},
 }
 
-func (p *parser) parseDeclSpecifiers() (SClass, CType) {
+func (p *parser) DeclSpecs() (SClass, CType) {
 	dspecpos := p.curt.Pos
 	scassigned := false
 	sc := SC_AUTO
@@ -930,36 +930,36 @@ loop:
 //
 // A delcarator missing an identifier.
 
-func (p *parser) parseDeclarator(basety CType, abstract bool) (*cpp.Token, CType) {
+func (p *parser) Declarator(basety CType, abstract bool) (*cpp.Token, CType) {
 	for p.curt.Kind == cpp.CONST || p.curt.Kind == cpp.VOLATILE {
 		p.next()
 	}
 	switch p.curt.Kind {
 	case '*':
 		p.next()
-		name, ty := p.parseDeclarator(basety, abstract)
+		name, ty := p.Declarator(basety, abstract)
 		return name, &Ptr{ty}
 	case '(':
 		forward := &ForwardedType{}
 		p.next()
-		name, ty := p.parseDeclarator(forward, abstract)
+		name, ty := p.Declarator(forward, abstract)
 		p.expect(')')
-		forward.Type = p.parseDeclaratorTail(basety)
+		forward.Type = p.DeclaratorTail(basety)
 		return name, ty
 	case cpp.IDENT:
 		name := p.curt
 		p.next()
-		return name, p.parseDeclaratorTail(basety)
+		return name, p.DeclaratorTail(basety)
 	default:
 		if abstract {
-			return nil, p.parseDeclaratorTail(basety)
+			return nil, p.DeclaratorTail(basety)
 		}
 		p.errorPos(p.curt.Pos, "expected ident, '(' or '*' but got %s", p.curt.Kind)
 	}
 	panic("unreachable")
 }
 
-func (p *parser) parseDeclaratorTail(basety CType) CType {
+func (p *parser) DeclaratorTail(basety CType) CType {
 	ret := basety
 	for {
 		switch p.curt.Kind {
@@ -967,7 +967,7 @@ func (p *parser) parseDeclaratorTail(basety CType) CType {
 			p.next()
 			var dimn Expr
 			if p.curt.Kind != ']' {
-				dimn = p.parseAssignmentExpr()
+				dimn = p.AssignmentExpr()
 			}
 			p.expect(']')
 			dim, err := p.fold(dimn)
@@ -988,7 +988,7 @@ func (p *parser) parseDeclaratorTail(basety CType) CType {
 			p.next()
 			if p.curt.Kind != ')' {
 				for {
-					pnametok, pty := p.parseParamDecl()
+					pnametok, pty := p.ParamDecl()
 					pname := ""
 					if pnametok != nil {
 						pname = pnametok.Val
@@ -1010,16 +1010,16 @@ func (p *parser) parseDeclaratorTail(basety CType) CType {
 	}
 }
 
-func (p *parser) parseInitializer(ty CType, constant bool) Expr {
+func (p *parser) Initializer(ty CType, constant bool) Expr {
 	_ = p.curt.Pos
 	if IsScalarType(ty) {
 		var init Expr
 		if p.curt.Kind == '{' {
 			p.expect('{')
-			init = p.parseAssignmentExpr()
+			init = p.AssignmentExpr()
 			p.expect('}')
 		} else {
-			init = p.parseAssignmentExpr()
+			init = p.AssignmentExpr()
 		}
 		// XXX ensure types are compatible.
 		// XXX Add cast.
@@ -1067,10 +1067,10 @@ func isAssignmentOperator(k cpp.TokenKind) bool {
 	return false
 }
 
-func (p *parser) parseExpr() Expr {
+func (p *parser) Expr() Expr {
 	var ret Expr
 	for {
-		ret = p.parseAssignmentExpr()
+		ret = p.AssignmentExpr()
 		if p.curt.Kind != ',' {
 			break
 		}
@@ -1079,13 +1079,13 @@ func (p *parser) parseExpr() Expr {
 	return ret
 }
 
-func (p *parser) parseAssignmentExpr() Expr {
-	l := p.parseCondExpr()
+func (p *parser) AssignmentExpr() Expr {
+	l := p.CondExpr()
 	if isAssignmentOperator(p.curt.Kind) {
 		pos := p.curt.Pos
 		op := p.curt.Kind
 		p.next()
-		r := p.parseAssignmentExpr()
+		r := p.AssignmentExpr()
 		l = &Binop{
 			Pos:  pos,
 			Op:   op,
@@ -1098,11 +1098,11 @@ func (p *parser) parseAssignmentExpr() Expr {
 }
 
 // Aka Ternary operator.
-func (p *parser) parseCondExpr() Expr {
-	return p.parseLogOrExpr()
+func (p *parser) CondExpr() Expr {
+	return p.LogOrExpr()
 }
 
-func (p *parser) parseLogOrExpr() Expr {
+func (p *parser) LogOrExpr() Expr {
 	l := p.parseLogAndExpr()
 	for p.curt.Kind == cpp.LOR {
 		pos := p.curt.Pos
@@ -1302,8 +1302,8 @@ func (p *parser) parseCastExpr() Expr {
 }
 
 func (p *parser) parseTypeName() CType {
-	_, ty := p.parseDeclSpecifiers()
-	_, ty = p.parseDeclarator(ty, true)
+	_, ty := p.DeclSpecs()
+	_, ty = p.Declarator(ty, true)
 	return ty
 }
 
@@ -1360,7 +1360,7 @@ loop:
 				ty = ptr.PointsTo
 			}
 			p.next()
-			idx := p.parseExpr()
+			idx := p.Expr()
 			p.expect(']')
 			l = &Index{
 				Arr:  l,
@@ -1407,7 +1407,7 @@ loop:
 			p.next()
 			if p.curt.Kind != ')' {
 				for {
-					args = append(args, p.parseAssignmentExpr())
+					args = append(args, p.AssignmentExpr())
 					if p.curt.Kind == ',' {
 						p.next()
 						continue
@@ -1481,7 +1481,7 @@ func (p *parser) parsePrimaryExpr() Expr {
 		return rstr
 	case '(':
 		p.next()
-		expr := p.parseExpr()
+		expr := p.Expr()
 		p.expect(')')
 		return expr
 	default:
@@ -1513,9 +1513,9 @@ func (p *parser) parseStruct() CType {
 			if p.curt.Kind == '}' {
 				break
 			}
-			_, basety := p.parseDeclSpecifiers()
+			_, basety := p.DeclSpecs()
 			for {
-				name, ty := p.parseDeclarator(basety, false)
+				name, ty := p.Declarator(basety, false)
 				ret.Names = append(ret.Names, name.Val)
 				ret.Types = append(ret.Types, ty)
 				if p.curt.Kind == ',' {
