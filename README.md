@@ -1,4 +1,4 @@
-# {"C", "Compiler", "WIP", "Minimalist"};
+# { "Minimalist", "C", "Compiler"}; /* TODO: Finish */
 
 ![](https://raw.githubusercontent.com/andrewchambers/cc-images/master/Gopher.png)
 
@@ -6,11 +6,9 @@ Artwork by [Egon Elbre](https://twitter.com/egonelbre) based on the [Go gopher](
 
 ## Goals
 
-- C11 Compatibility, GNU Compatibility.
 - Aggressive removal of cruft.
-- Multiplatform.
-- Build from source in the blink of an eye.
-- Easy to contribute.
+- Fast.
+- Simple.
 
 ## Status 
 [![Build Status](https://travis-ci.org/andrewchambers/cc.svg?branch=master)](https://travis-ci.org/andrewchambers/cc)
@@ -23,18 +21,7 @@ partially implemented.
 
 ## Building
 
-- Install the go compiler, and a working version of gcc.
-- Ensure your ```$GOPATH``` environmental variable is setup correctly.
-- Run the following in a terminal.
-```
-$ mkdir -p $GOPATH/src/github.com/andrewchambers/
-$ cd $GOPATH/src/github.com/andrewchambers/
-$ git clone https://github.com/andrewchambers/cc
-$ sh ./test.sh
-$ go install github.com/andrewchambers/cc/cmd/x64cc
-$ x64cc -h
-```
-or just use go get.
+```go get github.com/andrewchambers/cc/cmd/x64cc```
 
 ## Contact
 
@@ -45,18 +32,13 @@ or just use go get.
 The code is heavily inspired by https://github.com/rui314/8cc as well as http://bellard.org/tcc/. 
 I recommend studying the source code of 8cc before contributing here, as 8cc is currently far more mature.
 
-The compiler is implemented in Go. Go has excellent support for cross-platform code, tests, refactoring, analysis, documentation, code coverage, so we should try to use them.
+- The compiler is implemented in Go.
+- The compiler *currenty* does no optimization, this is intentional.
+- Contributions to this project are welcome, I will respond on gitter or via email.
 
-The compiler currenty does no optimization, this is intentional. This may change in the future, but I would
-prefer a slow, but working program, to a broken program. 100 percent test coverage is reachable with a
-simple backend.
+## Bugs
 
-Contributions to this project are welcome, please discuss ideas on the project gitter before commencing work.
-You will probably need to discuss progress/direction for various aspects of the compiler to avoid duplicate/wasted work.
-
-## Bug reports
-
-Most things don't work, this is currently the state of affairs. If in doubt, write message in gitter before creating an issue. Failing test cases will be welcome once expected failures are part of the test runner.
+Yes.
 
 When the compiler is more mature, we can do automatic bug hunting using the following resources:
 
