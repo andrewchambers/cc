@@ -1,4 +1,4 @@
-# { "Minimalist", "C", "Compiler"}; /* TODO: Finish */
+# { "Minimalist", "C", "Compiler"}; /* WIP */
 
 ![](https://raw.githubusercontent.com/andrewchambers/cc-images/master/Gopher.png)
 
@@ -55,5 +55,5 @@ The bugs can then be automatically reduced to minimal form using http://embed.cs
 - Allow preprocessor include paths from archives to allow sdk's to be packaged as a single binary + archive.
 - Implement a backend that is similar to llvm, expose this as a library for other language frontends.
 - A companion assembler/linker to remove the dependence on binutils.
-- An SSA optimizing backend AFTER feature completion.
+- An SSA optimizing backend.
 - Compilation of Go1.4 so we can bootstrap ourselves.
