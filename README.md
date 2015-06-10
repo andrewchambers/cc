@@ -48,9 +48,9 @@ When the compiler is more mature, we can do automatic bug hunting using the foll
 
 The bugs can then be automatically reduced to minimal form using http://embed.cs.utah.edu/creduce/ (https://github.com/csmith-project/creduce).
 
-## Fun Ideas
+## Ideas
 - Concurrency using goroutines - C can be compiled a function at a time, so there is a lot of room for this.
-- Compile toolchain to javascript using Gopherjs, cross compile using javascript.
+- Compile toolchain to javascript using Gopherjs, make a demo site.
 - Implement a companion Go -> C compiler, then compile ourselves with it.
 - Allow preprocessor include paths from archives to allow sdk's to be packaged as a single binary + archive.
 - Implement a backend that is similar to llvm, expose this as a library for other language frontends.
