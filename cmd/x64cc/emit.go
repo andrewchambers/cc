@@ -676,36 +676,15 @@ func (e *emitter) Assign(b *parse.Binop) {
 		}
 		e.asm("push %%rax\n")
 		e.Expr(l.Operand)
-		e.asm("pop %%rcx\n")
-		e.asm("movq %%rcx, (%%rax)\n")
+		e.asm("movq %%rax, %%rcx\n")
+		e.asm("pop %%rax\n")
+		e.StoreToPtr("rcx", l.GetType())
 	case *parse.Ident:
-		sym := l.Sym
-		switch sym := sym.(type) {
-		case *parse.GSymbol:
-			e.asm("leaq %s(%%rip), %%rcx\n", sym.Label)
-			switch getSize(sym.Type) {
-			case 1:
-				e.asm("movb %%al, (%%rcx)\n")
-			case 4:
-				e.asm("movl %%eax, (%%rcx)\n")
-			case 8:
-				e.asm("movq %%rax, (%%rcx)\n")
-			default:
-				panic("unimplemented")
-			}
-		case *parse.LSymbol:
-			offset := e.loffsets[sym]
-			switch getSize(sym.Type) {
-			case 1:
-				e.asm("movb %%al, %d(%%rbp)\n", offset)
-			case 4:
-				e.asm("movl %%eax, %d(%%rbp)\n", offset)
-			case 8:
-				e.asm("movq %%rax, %d(%%rbp)\n", offset)
-			default:
-				panic("unimplemented")
-			}
-		}
+		e.asm("pushq %%rax\n")
+		e.GetAddr(l)
+		e.asm("movq %%rax, %%rcx\n")
+		e.asm("popq %%rax\n")
+		e.StoreToPtr("rcx", l.GetType())
 	default:
 		panic(b.L)
 	}
