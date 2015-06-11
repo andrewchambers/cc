@@ -58,12 +58,12 @@ type Cast struct {
 func (c *Cast) GetType() CType      { return c.Type }
 func (c *Cast) GetPos() cpp.FilePos { return c.Pos }
 
-type CompndStmt struct {
+type Block struct {
 	Pos  cpp.FilePos
 	Body []Node
 }
 
-func (c *CompndStmt) GetPos() cpp.FilePos { return c.Pos }
+func (b *Block) GetPos() cpp.FilePos { return b.Pos }
 
 type EmptyStmt struct {
 	Pos cpp.FilePos

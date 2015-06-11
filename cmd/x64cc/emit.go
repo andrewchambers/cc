@@ -179,8 +179,8 @@ func (e *emitter) Stmt(stmt parse.Node) {
 		e.For(stmt)
 	case *parse.Return:
 		e.Return(stmt)
-	case *parse.CompndStmt:
-		e.CompndStmt(stmt)
+	case *parse.Block:
+		e.Block(stmt)
 	case *parse.ExprStmt:
 		e.Expr(stmt.Expr)
 	case *parse.Goto:
@@ -254,7 +254,7 @@ func (e *emitter) For(fr *parse.For) {
 	e.raw("%s:\n", fr.LEnd)
 }
 
-func (e *emitter) CompndStmt(c *parse.CompndStmt) {
+func (e *emitter) Block(c *parse.Block) {
 	for _, stmt := range c.Body {
 		e.Stmt(stmt)
 	}

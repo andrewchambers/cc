@@ -520,7 +520,7 @@ func (p *parser) DoWhile() Node {
 	}
 }
 
-func (p *parser) Block() *CompndStmt {
+func (p *parser) Block() *Block {
 	var stmts []Node
 	pos := p.curt.Pos
 	p.expect('{')
@@ -528,7 +528,7 @@ func (p *parser) Block() *CompndStmt {
 		stmts = append(stmts, p.Stmt())
 	}
 	p.expect('}')
-	return &CompndStmt{
+	return &Block{
 		Pos:  pos,
 		Body: stmts,
 	}
