@@ -123,7 +123,7 @@ func ExecuteTests(tdir string) error {
 		}
 		err = RunWithTimeout(bname, 5*time.Second)
 		if err != nil {
-			fmt.Printf("%s FAIL: link - %s\n", tc, err)
+			fmt.Printf("%s FAIL: execute - %s\n", tc, err)
 			continue
 		}
 		fmt.Printf("PASS: %s\n", tc)

@@ -100,6 +100,16 @@ func IsArrType(t CType) bool {
 	return ok
 }
 
+func IsCFuncType(t CType) bool {
+	_, ok := t.(*CFuncT)
+	return ok
+}
+
+func IsStructType(t CType) bool {
+	_, ok := t.(*CStruct)
+	return ok
+}
+
 func IsCharType(t CType) bool {
 	prim, ok := t.(Primitive)
 	if !ok {

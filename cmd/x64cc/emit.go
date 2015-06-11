@@ -58,7 +58,12 @@ func Emit(tu *parse.TranslationUnit, o io.Writer) error {
 }
 
 func (e *emitter) raw(s string, args ...interface{}) {
-	fmt.Fprintf(e.o, s, args...)
+	_, err := fmt.Fprintf(e.o, s, args...)
+	if err != nil {
+		// Fail emitting assembly.
+		// We need to die.
+		panic(err)
+	}
 }
 
 func (e *emitter) asm(s string, args ...interface{}) {
@@ -105,6 +110,99 @@ func (e *emitter) Global(g *parse.GSymbol, init parse.Expr) {
 			}
 		default:
 			panic("unimplemented")
+		}
+	}
+}
+
+func (e *emitter) LoadScalarFromPtr(reg string, sz int, signed bool) {
+	if signed {
+		switch sz {
+		case 8:
+			e.asm("movq (%%%s), %%rax\n", reg)
+		case 4:
+			e.asm("movslq (%%%s), %%rax\n", reg)
+		case 2:
+			e.asm("movswq (%%%s), %%rax\n", reg)
+		case 1:
+			e.asm("movsbq (%%%s), %%rax\n", reg)
+		default:
+			panic("internal error")
+		}
+	} else {
+		switch sz {
+		case 8:
+			e.asm("movq (%%%s), %%rax\n", reg)
+		case 4:
+			e.asm("movzlq (%%%s), %%rax\n", reg)
+		case 2:
+			e.asm("movzwq (%%%s), %%rax\n", reg)
+		case 1:
+			e.asm("movzbq (%%%s), %%rax\n", reg)
+		default:
+			panic("internal error")
+		}
+	}
+}
+
+func (e *emitter) StoreScalarToPtr(reg string, sz int) {
+	switch sz {
+	case 8:
+		e.asm("movq %%rax, (%%%s)\n", reg)
+	case 4:
+		e.asm("movl %%eax, (%%%s)\n", reg)
+	case 2:
+		e.asm("movw %%ax, (%%%s)\n", reg)
+	case 1:
+		e.asm("movb %%al, (%%%s)\n", reg)
+	default:
+		panic("internal error")
+	}
+}
+
+func (e *emitter) LoadFromPtr(reg string, ty parse.CType) {
+	switch {
+	case parse.IsIntType(ty):
+		if parse.IsSignedIntType(ty) {
+			e.LoadScalarFromPtr(reg, getSize(ty), true)
+		} else {
+			e.LoadScalarFromPtr(reg, getSize(ty), false)
+		}
+	case parse.IsPtrType(ty):
+		e.LoadScalarFromPtr(reg, getSize(ty), false)
+	case parse.IsCFuncType(ty):
+	case parse.IsArrType(ty):
+	case parse.IsStructType(ty):
+	default:
+		panic(ty)
+	}
+}
+
+func (e *emitter) StoreToPtr(reg string, ty parse.CType) {
+	switch {
+	case parse.IsIntType(ty):
+		if parse.IsSignedIntType(ty) {
+			e.StoreScalarToPtr(reg, getSize(ty))
+		} else {
+			e.StoreScalarToPtr(reg, getSize(ty))
+		}
+	case parse.IsPtrType(ty):
+		e.StoreScalarToPtr(reg, getSize(ty))
+	default:
+		panic(ty)
+	}
+}
+
+func (e *emitter) GetAddr(n parse.Expr) {
+	switch n := n.(type) {
+	case *parse.Ident:
+		switch s := n.Sym.(type) {
+		case *parse.LSymbol:
+			offset := e.loffsets[s]
+			e.asm("leaq %d(%%rbp), %%rax\n", offset)
+		case *parse.GSymbol:
+			e.asm("leaq %s(%%rip), %%rax\n", s.Label)
+		default:
+			panic(n)
 		}
 	}
 }
@@ -292,7 +390,7 @@ func (e *emitter) Expr(expr parse.Node) {
 	case *parse.Index:
 		e.Index(expr)
 	case *parse.Cast:
-		e.emitCast(expr)
+		e.Cast(expr)
 	case *parse.Selector:
 		e.Selector(expr)
 	case *parse.String:
@@ -340,39 +438,8 @@ func (e *emitter) Selector(s *parse.Selector) {
 }
 
 func (e *emitter) Ident(i *parse.Ident) {
-	sym := i.Sym
-	switch sym := sym.(type) {
-	case *parse.LSymbol:
-		offset := e.loffsets[sym]
-		if parse.IsIntType(sym.Type) || parse.IsPtrType(sym.Type) {
-			switch getSize(sym.Type) {
-			case 1:
-				e.asm("movb %d(%%rbp), %%al\n", offset)
-			case 4:
-				e.asm("movl %d(%%rbp), %%eax\n", offset)
-			case 8:
-				e.asm("movq %d(%%rbp), %%rax\n", offset)
-			default:
-				panic("unimplemented")
-			}
-		} else {
-			e.asm("leaq %d(%%rbp), %%rax\n", offset)
-		}
-	case *parse.GSymbol:
-		e.asm("leaq %s(%%rip), %%rax\n", sym.Label)
-		if parse.IsIntType(sym.Type) || parse.IsPtrType(sym.Type) {
-			switch getSize(sym.Type) {
-			case 1:
-				e.asm("movb (%%rax), %%al\n")
-			case 4:
-				e.asm("movl (%%rax), %%eax\n")
-			case 8:
-				e.asm("movq (%%rax), %%rax\n")
-			default:
-				panic("unimplemented")
-			}
-		}
-	}
+	e.GetAddr(i)
+	e.LoadFromPtr("rax", i.GetType())
 }
 
 func isIntRegArg(t parse.CType) bool {
@@ -417,66 +484,17 @@ func (e *emitter) Call(c *parse.Call) {
 	}
 }
 
-func (e *emitter) emitCast(c *parse.Cast) {
+func (e *emitter) Cast(c *parse.Cast) {
 	e.Expr(c.Operand)
 	from := c.Operand.GetType()
 	to := c.Type
 	switch {
 	case parse.IsPtrType(to):
-		if parse.IsPtrType(from) {
+		if parse.IsPtrType(from) || parse.IsIntType(from) {
 			return
-		}
-		if parse.IsIntType(from) {
-			switch getSize(to) {
-			case 8:
-				return
-			case 4:
-				// *NOTE* This zeros top half of rax.
-				e.asm("mov %%eax, %%eax\n")
-				return
-			case 2:
-				e.asm("movzwq %%ax, %%eax\n")
-				return
-			case 1:
-				e.asm("movzbq %%al, %%eax\n")
-				return
-			}
 		}
 	case parse.IsIntType(to):
-		if parse.IsPtrType(from) {
-			// Free truncation
-			return
-		}
-		if parse.IsIntType(from) {
-			if getSize(to) <= getSize(from) {
-				// Free truncation
-				return
-			}
-			if parse.IsSignedIntType(from) {
-				switch getSize(from) {
-				case 4:
-					e.asm("movsdq %%eax, %%rax\n")
-				case 2:
-					e.asm("movswq %%ax, %%rax\n")
-				case 1:
-					e.asm("movsbq %%al, %%rax\n")
-				default:
-					panic("internal error")
-				}
-			} else {
-				switch getSize(to) {
-				case 4:
-					// *NOTE* This zeros top half of rax.
-					e.asm("mov %%eax, %%eax\n")
-					return
-				case 2:
-					e.asm("movzwq %%ax, %%eax\n")
-					return
-				case 1:
-					e.asm("movzbq %%al, %%eax\n")
-					return
-				}
-			}
+		if parse.IsPtrType(from) || parse.IsIntType(from) {
 			return
 		}
 	}
@@ -534,15 +552,7 @@ func (e *emitter) emitBinop(b *parse.Binop) {
 			default:
 				panic("internal error")
 			}
-			switch getSize(b.GetType()) {
-			case 8:
-				e.asm("cmp %%rcx, %%rax\n")
-			case 4:
-				e.asm("cmp %%ecx, %%eax\n")
-			default:
-				// There shouldn't be arith operations on anything else.
-				panic("internal error")
-			}
+			e.asm("cmp %%rcx, %%rax\n")
 			e.asm("%s %s\n", opc, lset)
 			e.asm("movq $0, %%rax\n")
 			e.asm("jmp %s\n", lafter)
@@ -621,14 +631,7 @@ func (e *emitter) Index(idx *parse.Index) {
 	e.Expr(idx.Arr)
 	e.asm("pop %%rcx\n")
 	e.asm("addq %%rcx, %%rax\n")
-	switch getSize(idx.GetType()) {
-	case 1:
-		e.asm("movb (%%rax), %%al\n")
-	case 4:
-		e.asm("movl (%%rax), %%eax\n")
-	case 8:
-		e.asm("movq (%%rax), %%rax\n")
-	}
+	e.LoadFromPtr("rax", idx.GetType())
 }
 
 func (e *emitter) Assign(b *parse.Binop) {
