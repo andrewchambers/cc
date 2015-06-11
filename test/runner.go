@@ -108,22 +108,22 @@ func ExecuteTests(tdir string) error {
 		runcount += 1
 		err = cfg.Compile(tc, sname)
 		if err != nil {
-			fmt.Printf("%s FAIL: compile - %s\n", tc, err)
+			fmt.Printf("FAIL: %s compile - %s\n", tc, err)
 			continue
 		}
 		err = cfg.Assemble(sname, oname)
 		if err != nil {
-			fmt.Printf("%s FAIL: assemble - %s\n", tc, err)
+			fmt.Printf("FAIL: %s assemble - %s\n", tc, err)
 			continue
 		}
 		err = cfg.Link(oname, bname)
 		if err != nil {
-			fmt.Printf("%s FAIL: link - %s\n", tc, err)
+			fmt.Printf("FAIL: %s link - %s\n", tc, err)
 			continue
 		}
 		err = RunWithTimeout(bname, 5*time.Second)
 		if err != nil {
-			fmt.Printf("%s FAIL: execute - %s\n", tc, err)
+			fmt.Printf("FAIL: %s execute - %s\n", tc, err)
 			continue
 		}
 		fmt.Printf("PASS: %s\n", tc)

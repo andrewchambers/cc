@@ -1367,8 +1367,7 @@ loop:
 				Idx:  idx,
 				Type: ty,
 			}
-		case '.', cpp.ARROW:
-			op := p.curt.Kind
+		case '.':
 			pos := p.curt.Pos
 			strct, isStruct := l.GetType().(*CStruct)
 			p.next()
@@ -1382,7 +1381,31 @@ loop:
 				p.errorPos(pos, "struct does not have field %s", sel.Val)
 			}
 			l = &Selector{
-				Op:      op,
+				Op:      '.',
+				Pos:     pos,
+				Operand: l,
+				Type:    ty,
+				Sel:     sel.Val,
+			}
+		case cpp.ARROW:
+			pos := p.curt.Pos
+			p.next()
+			pty, isPtr := l.GetType().(*Ptr)
+			if !isPtr {
+				p.errorPos(l.GetPos(), "expected a pointer")
+			}
+			sty, isPStruct := pty.PointsTo.(*CStruct)
+			if !isPStruct {
+				p.errorPos(l.GetPos(), "expected a pointer to a struct")
+			}
+			sel := p.curt
+			p.expect(cpp.IDENT)
+			ty := sty.FieldType(sel.Val)
+			if ty == nil {
+				p.errorPos(pos, "struct does not have field %s", sel.Val)
+			}
+			l = &Selector{
+				Op:      cpp.ARROW,
 				Pos:     pos,
 				Operand: l,
 				Type:    ty,
@@ -1527,16 +1550,16 @@ func (p *parser) Struct() CType {
 			p.expect(';')
 		}
 		p.expect('}')
-	}
-	if sname != "" {
-		// TODO:
-		// If ret is nil, is this a predefine?
-		// Do we need an incomplete type?
-		err := p.structs.define(sname, &TSymbol{
-			Type: ret,
-		})
-		if err != nil {
-			p.errorPos(npos, err.Error())
+		if sname != "" {
+			// TODO:
+			// If ret is nil, is this a predefine?
+			// Do we need an incomplete type?
+			err := p.structs.define(sname, &TSymbol{
+				Type: ret,
+			})
+			if err != nil {
+				p.errorPos(npos, err.Error())
+			}
 		}
 	}
 	return ret
