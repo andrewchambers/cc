@@ -181,8 +181,8 @@ func (s *Selector) GetPos() cpp.FilePos { return s.Pos }
 type Binop struct {
 	Op   cpp.TokenKind
 	Pos  cpp.FilePos
-	L    Node
-	R    Node
+	L    Expr
+	R    Expr
 	Type CType
 }
 

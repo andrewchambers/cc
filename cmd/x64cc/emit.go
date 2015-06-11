@@ -204,6 +204,30 @@ func (e *emitter) GetAddr(n parse.Expr) {
 		default:
 			panic(n)
 		}
+	case *parse.Unop:
+		// Op must be '*' in this case.
+		// If not, it is a bug in the frontend.
+		e.Expr(n.Operand)
+	case *parse.Index:
+		e.Expr(n.Idx)
+		sz := getSize(n.GetType())
+		if sz != 1 {
+			e.asm("imul $%d, %%rax\n", sz)
+		}
+		e.asm("pushq %%rax\n")
+		e.Expr(n.Arr)
+		e.asm("popq %%rcx\n")
+		e.asm("addq %%rcx, %%rax\n")
+	case *parse.Selector:
+		var ty *parse.CStruct
+		if n.Op == cpp.ARROW {
+			e.Expr(n.Operand)
+			ty = n.Operand.GetType().(*parse.Ptr).PointsTo.(*parse.CStruct)
+		} else {
+			e.GetAddr(n.Operand)
+			ty = n.Operand.GetType().(*parse.CStruct)
+		}
+		e.asm("addq $%d, %%rax\n", getStructOffset(ty, n.Sel))
 	}
 }
 
@@ -414,27 +438,12 @@ func getStructOffset(s *parse.CStruct, member string) int {
 
 func (e *emitter) Selector(s *parse.Selector) {
 	e.Expr(s.Operand)
-	ty := s.Operand.GetType()
-	offset := 0
-	switch ty := ty.(type) {
-	case *parse.CStruct:
-		offset = getStructOffset(ty, s.Sel)
-	default:
-		panic("internal error")
-	}
+	ty := s.Operand.GetType().(*parse.CStruct)
+	offset := getStructOffset(ty, s.Sel)
 	if offset != 0 {
 		e.asm("add $%d, %%rax\n", offset)
 	}
-	switch getSize(s.GetType()) {
-	case 1:
-		e.asm("movb (%%rax), %%al\n")
-	case 4:
-		e.asm("movl (%%rax), %%eax\n")
-	case 8:
-		e.asm("movq (%%rax), %%rax\n")
-	default:
-		panic("unimplemented")
-	}
+	e.LoadFromPtr("rax", s.GetType())
 }
 
 func (e *emitter) Ident(i *parse.Ident) {
@@ -590,13 +599,12 @@ func (e *emitter) Unop(u *parse.Unop) {
 		case *parse.Index:
 			e.Expr(operand.Idx)
 			sz := getSize(operand.GetType())
-			e.asm("imul $%d, %%rax\n", sz)
 			if sz != 1 {
 				e.asm("imul $%d, %%rax\n", sz)
 			}
-			e.asm("push %%rax\n")
+			e.asm("pushq %%rax\n")
 			e.Expr(operand.Arr)
-			e.asm("pop %%rcx\n")
+			e.asm("popq %%rcx\n")
 			e.asm("addq %%rcx, %%rax\n")
 		default:
 			panic("internal error")
@@ -604,14 +612,9 @@ func (e *emitter) Unop(u *parse.Unop) {
 	case '!':
 		e.Expr(u.Operand)
 		e.asm("xor %%rcx, %%rcx\n")
-		switch getSize(u.GetType()) {
-		case 8:
-			e.asm("test %%rax, %%rax\n")
-		case 4:
-			e.asm("test %%eax, %%eax\n")
-		}
+		e.asm("test %%rax, %%rax\n")
 		e.asm("setnz %%cl\n")
-		e.asm("mov %%rcx, %%rax\n")
+		e.asm("movq %%rcx, %%rax\n")
 	case '-':
 		e.Expr(u.Operand)
 		e.asm("neg %%rax\n")
@@ -636,56 +639,9 @@ func (e *emitter) Index(idx *parse.Index) {
 
 func (e *emitter) Assign(b *parse.Binop) {
 	e.Expr(b.R)
-	switch l := b.L.(type) {
-	case *parse.Index:
-		e.asm("push %%rax\n")
-		e.Expr(l.Idx)
-		e.asm("imul $%d, %%rax\n", 4)
-		e.asm("push %%rax\n")
-		e.Expr(l.Arr)
-		e.asm("pop %%rcx\n")
-		e.asm("add %%rcx, %%rax\n")
-		e.asm("pop %%rcx\n")
-		e.asm("movq %%rcx,(%%rax)\n")
-	case *parse.Selector:
-		e.asm("push %%rax\n")
-		e.Expr(l.Operand)
-		ty := l.Operand.GetType()
-		offset := 0
-		switch ty := ty.(type) {
-		case *parse.CStruct:
-			offset = getStructOffset(ty, l.Sel)
-		default:
-			panic("internal error")
-		}
-		e.asm("add $%d,%%rax\n", offset)
-		e.asm("pop %%rcx\n")
-		switch getSize(ty) {
-		case 1:
-			e.asm("movb %%cl, (%%rax)\n")
-		case 4:
-			e.asm("movl %%ecx, (%%rax)\n")
-		case 8:
-			e.asm("movq %%rcx, (%%rax)\n")
-		default:
-			panic("unimplemented")
-		}
-	case *parse.Unop:
-		if l.Op != '*' {
-			panic("internal error")
-		}
-		e.asm("push %%rax\n")
-		e.Expr(l.Operand)
-		e.asm("movq %%rax, %%rcx\n")
-		e.asm("pop %%rax\n")
-		e.StoreToPtr("rcx", l.GetType())
-	case *parse.Ident:
-		e.asm("pushq %%rax\n")
-		e.GetAddr(l)
-		e.asm("movq %%rax, %%rcx\n")
-		e.asm("popq %%rax\n")
-		e.StoreToPtr("rcx", l.GetType())
-	default:
-		panic(b.L)
-	}
+	e.asm("pushq %%rax\n")
+	e.GetAddr(b.L)
+	e.asm("movq %%rax, %%rcx\n")
+	e.asm("popq %%rax\n")
+	e.StoreToPtr("rcx", b.L.GetType())
 }
