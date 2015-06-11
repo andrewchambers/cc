@@ -879,7 +879,7 @@ loop:
 			if spec != nullspec {
 				p.error("TODO...")
 			}
-			ty = p.parseStruct()
+			ty = p.Struct()
 			return sc, ty
 		case cpp.UNION:
 		case cpp.VOLATILE, cpp.CONST:
@@ -1103,12 +1103,12 @@ func (p *parser) CondExpr() Expr {
 }
 
 func (p *parser) LogOrExpr() Expr {
-	l := p.parseLogAndExpr()
+	l := p.LogAndExpr()
 	for p.curt.Kind == cpp.LOR {
 		pos := p.curt.Pos
 		op := p.curt.Kind
 		p.next()
-		r := p.parseLogAndExpr()
+		r := p.LogAndExpr()
 		l = &Binop{
 			Pos:  pos,
 			Op:   op,
@@ -1120,13 +1120,13 @@ func (p *parser) LogOrExpr() Expr {
 	return l
 }
 
-func (p *parser) parseLogAndExpr() Expr {
-	l := p.parseInclusiveOrExpr()
+func (p *parser) LogAndExpr() Expr {
+	l := p.OrExpr()
 	for p.curt.Kind == cpp.LAND {
 		pos := p.curt.Pos
 		op := p.curt.Kind
 		p.next()
-		r := p.parseInclusiveOrExpr()
+		r := p.OrExpr()
 		l = &Binop{
 			Pos:  pos,
 			Op:   op,
@@ -1138,13 +1138,13 @@ func (p *parser) parseLogAndExpr() Expr {
 	return l
 }
 
-func (p *parser) parseInclusiveOrExpr() Expr {
-	l := p.parseExclusiveOrExpr()
+func (p *parser) OrExpr() Expr {
+	l := p.XorExpr()
 	for p.curt.Kind == '|' {
 		pos := p.curt.Pos
 		op := p.curt.Kind
 		p.next()
-		r := p.parseExclusiveOrExpr()
+		r := p.XorExpr()
 		l = &Binop{
 			Pos:  pos,
 			Op:   op,
@@ -1156,13 +1156,13 @@ func (p *parser) parseInclusiveOrExpr() Expr {
 	return l
 }
 
-func (p *parser) parseExclusiveOrExpr() Expr {
-	l := p.parseAndExpr()
+func (p *parser) XorExpr() Expr {
+	l := p.AndExpr()
 	for p.curt.Kind == '^' {
 		pos := p.curt.Pos
 		op := p.curt.Kind
 		p.next()
-		r := p.parseAndExpr()
+		r := p.AndExpr()
 		l = &Binop{
 			Pos:  pos,
 			Op:   op,
@@ -1174,13 +1174,13 @@ func (p *parser) parseExclusiveOrExpr() Expr {
 	return l
 }
 
-func (p *parser) parseAndExpr() Expr {
-	l := p.parseEqualityExpr()
+func (p *parser) AndExpr() Expr {
+	l := p.EqlExpr()
 	for p.curt.Kind == '&' {
 		pos := p.curt.Pos
 		op := p.curt.Kind
 		p.next()
-		r := p.parseEqualityExpr()
+		r := p.EqlExpr()
 		l = &Binop{
 			Pos:  pos,
 			Op:   op,
@@ -1192,13 +1192,13 @@ func (p *parser) parseAndExpr() Expr {
 	return l
 }
 
-func (p *parser) parseEqualityExpr() Expr {
-	l := p.parseRelationalExpr()
+func (p *parser) EqlExpr() Expr {
+	l := p.RelExpr()
 	for p.curt.Kind == cpp.EQL || p.curt.Kind == cpp.NEQ {
 		pos := p.curt.Pos
 		op := p.curt.Kind
 		p.next()
-		r := p.parseRelationalExpr()
+		r := p.RelExpr()
 		l = &Binop{
 			Pos:  pos,
 			Op:   op,
@@ -1210,13 +1210,13 @@ func (p *parser) parseEqualityExpr() Expr {
 	return l
 }
 
-func (p *parser) parseRelationalExpr() Expr {
-	l := p.parseShiftExpr()
+func (p *parser) RelExpr() Expr {
+	l := p.ShiftExpr()
 	for p.curt.Kind == '>' || p.curt.Kind == '<' || p.curt.Kind == cpp.LEQ || p.curt.Kind == cpp.GEQ {
 		pos := p.curt.Pos
 		op := p.curt.Kind
 		p.next()
-		r := p.parseShiftExpr()
+		r := p.ShiftExpr()
 		l = &Binop{
 			Pos:  pos,
 			Op:   op,
@@ -1228,13 +1228,13 @@ func (p *parser) parseRelationalExpr() Expr {
 	return l
 }
 
-func (p *parser) parseShiftExpr() Expr {
-	l := p.parseAdditiveExpr()
+func (p *parser) ShiftExpr() Expr {
+	l := p.AddExpr()
 	for p.curt.Kind == cpp.SHL || p.curt.Kind == cpp.SHR {
 		pos := p.curt.Pos
 		op := p.curt.Kind
 		p.next()
-		r := p.parseAdditiveExpr()
+		r := p.AddExpr()
 		l = &Binop{
 			Pos:  pos,
 			Op:   op,
@@ -1246,13 +1246,13 @@ func (p *parser) parseShiftExpr() Expr {
 	return l
 }
 
-func (p *parser) parseAdditiveExpr() Expr {
-	l := p.parseMultiplicativeExpr()
+func (p *parser) AddExpr() Expr {
+	l := p.MulExpr()
 	for p.curt.Kind == '+' || p.curt.Kind == '-' {
 		pos := p.curt.Pos
 		op := p.curt.Kind
 		p.next()
-		r := p.parseMultiplicativeExpr()
+		r := p.MulExpr()
 		l = &Binop{
 			Pos:  pos,
 			Op:   op,
@@ -1264,13 +1264,13 @@ func (p *parser) parseAdditiveExpr() Expr {
 	return l
 }
 
-func (p *parser) parseMultiplicativeExpr() Expr {
-	l := p.parseCastExpr()
+func (p *parser) MulExpr() Expr {
+	l := p.CastExpr()
 	for p.curt.Kind == '*' || p.curt.Kind == '/' || p.curt.Kind == '%' {
 		pos := p.curt.Pos
 		op := p.curt.Kind
 		p.next()
-		r := p.parseCastExpr()
+		r := p.CastExpr()
 		l = &Binop{
 			Pos:  pos,
 			Op:   op,
@@ -1282,15 +1282,15 @@ func (p *parser) parseMultiplicativeExpr() Expr {
 	return l
 }
 
-func (p *parser) parseCastExpr() Expr {
+func (p *parser) CastExpr() Expr {
 	// Cast
 	if p.curt.Kind == '(' {
 		if p.isDeclStart(p.nextt) {
 			pos := p.curt.Pos
 			p.expect('(')
-			ty := p.parseTypeName()
+			ty := p.TypeName()
 			p.expect(')')
-			operand := p.parseUnaryExpr()
+			operand := p.UnaryExpr()
 			return &Cast{
 				Pos:     pos,
 				Operand: operand,
@@ -1298,25 +1298,25 @@ func (p *parser) parseCastExpr() Expr {
 			}
 		}
 	}
-	return p.parseUnaryExpr()
+	return p.UnaryExpr()
 }
 
-func (p *parser) parseTypeName() CType {
+func (p *parser) TypeName() CType {
 	_, ty := p.DeclSpecs()
 	_, ty = p.Declarator(ty, true)
 	return ty
 }
 
-func (p *parser) parseUnaryExpr() Expr {
+func (p *parser) UnaryExpr() Expr {
 	switch p.curt.Kind {
 	case cpp.INC, cpp.DEC:
 		p.next()
-		p.parseUnaryExpr()
+		p.UnaryExpr()
 	case '*', '+', '-', '!', '~', '&':
 		pos := p.curt.Pos
 		op := p.curt.Kind
 		p.next()
-		operand := p.parseCastExpr()
+		operand := p.CastExpr()
 		ty := operand.GetType()
 		if op == '&' {
 			ty = &Ptr{
@@ -1336,13 +1336,13 @@ func (p *parser) parseUnaryExpr() Expr {
 			Type:    ty,
 		}
 	default:
-		return p.parsePostfixExpr()
+		return p.PostExpr()
 	}
 	panic("unreachable")
 }
 
-func (p *parser) parsePostfixExpr() Expr {
-	l := p.parsePrimaryExpr()
+func (p *parser) PostExpr() Expr {
+	l := p.PrimaryExpr()
 loop:
 	for {
 		switch p.curt.Kind {
@@ -1447,7 +1447,7 @@ func constantToExpr(t *cpp.Token) (Expr, error) {
 	}
 }
 
-func (p *parser) parsePrimaryExpr() Expr {
+func (p *parser) PrimaryExpr() Expr {
 	switch p.curt.Kind {
 	case cpp.IDENT:
 		sym, err := p.decls.lookup(p.curt.Val)
@@ -1490,7 +1490,7 @@ func (p *parser) parsePrimaryExpr() Expr {
 	panic("unreachable")
 }
 
-func (p *parser) parseStruct() CType {
+func (p *parser) Struct() CType {
 	p.expect(cpp.STRUCT)
 	var ret *CStruct
 	sname := ""
