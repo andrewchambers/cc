@@ -32,7 +32,7 @@ func (s *CStruct) FieldType(n string) CType {
 	return nil
 }
 
-type FunctionType struct {
+type CFuncT struct {
 	RetType  CType
 	ArgTypes []CType
 	ArgNames []string

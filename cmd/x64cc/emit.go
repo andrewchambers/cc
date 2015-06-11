@@ -11,7 +11,7 @@ type emitter struct {
 	o            io.Writer
 	labelcounter int
 	loffsets     map[*parse.LSymbol]int
-	f            *parse.Function
+	f            *parse.CFunc
 }
 
 func (e *emitter) NextLabel() string {
@@ -37,8 +37,8 @@ func Emit(tu *parse.TranslationUnit, o io.Writer) error {
 
 	for _, tl := range tu.TopLevels {
 		switch tl := tl.(type) {
-		case *parse.Function:
-			e.Function(tl)
+		case *parse.CFunc:
+			e.CFunc(tl)
 		case *parse.DeclList:
 			if tl.Storage == parse.SC_TYPEDEF {
 				continue
@@ -66,7 +66,7 @@ func (e *emitter) asm(s string, args ...interface{}) {
 }
 
 func (e *emitter) Global(g *parse.GSymbol, init parse.Expr) {
-	_, ok := g.Type.(*parse.FunctionType)
+	_, ok := g.Type.(*parse.CFuncT)
 	if ok {
 		return
 	}
@@ -113,7 +113,7 @@ var intParamLUT = [...]string{
 	"%rdi", "%rsi", "%rdx", "%rcx", "r8", "r9",
 }
 
-func (e *emitter) Function(f *parse.Function) {
+func (e *emitter) CFunc(f *parse.CFunc) {
 	e.f = f
 	e.raw(".text\n")
 	e.raw(".global %s\n", f.Name)
@@ -136,7 +136,7 @@ func (e *emitter) Function(f *parse.Function) {
 	e.f = nil
 }
 
-func (e *emitter) calcLocalOffsets(f *parse.Function) (int, map[*parse.LSymbol]int) {
+func (e *emitter) calcLocalOffsets(f *parse.CFunc) (int, map[*parse.LSymbol]int) {
 	loffset := 0
 	loffsets := make(map[*parse.LSymbol]int)
 	addLSymbol := func(lsym *parse.LSymbol) {

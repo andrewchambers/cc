@@ -189,16 +189,16 @@ type Binop struct {
 func (b *Binop) GetType() CType      { return b.Type }
 func (b *Binop) GetPos() cpp.FilePos { return b.Pos }
 
-type Function struct {
+type CFunc struct {
 	Name         string
 	Pos          cpp.FilePos
-	FuncType     *FunctionType
+	FuncType     *CFuncT
 	ParamSymbols []*LSymbol
 	Body         []Node
 }
 
-func (f *Function) GetType() CType      { return f.FuncType }
-func (f *Function) GetPos() cpp.FilePos { return f.Pos }
+func (f *CFunc) GetType() CType      { return f.FuncType }
+func (f *CFunc) GetPos() cpp.FilePos { return f.Pos }
 
 type Call struct {
 	Pos      cpp.FilePos

@@ -534,7 +534,7 @@ func (p *parser) Block() *Block {
 	}
 }
 
-func (p *parser) FuncBody(f *Function) {
+func (p *parser) FuncBody(f *CFunc) {
 	p.labels = make(map[string]string)
 	p.gotos = nil
 	for p.curt.Kind != '}' {
@@ -575,7 +575,7 @@ func (p *parser) Decl(isGlobal bool) Node {
 				if isTypedef {
 					p.errorPos(name.Pos, "cannot typedef a function")
 				}
-				fty, ok := ty.(*FunctionType)
+				fty, ok := ty.(*CFuncT)
 				if !ok {
 					p.errorPos(name.Pos, "expected a function")
 				}
@@ -599,7 +599,7 @@ func (p *parser) Decl(isGlobal bool) Node {
 						p.errorPos(declPos, "multiple params with name %s", name)
 					}
 				}
-				f := &Function{
+				f := &CFunc{
 					Name:         name.Val,
 					FuncType:     fty,
 					Pos:          declPos,
@@ -983,7 +983,7 @@ func (p *parser) DeclaratorTail(basety CType) CType {
 				MemberType: ret,
 			}
 		case '(':
-			fret := &FunctionType{}
+			fret := &CFuncT{}
 			fret.RetType = basety
 			p.next()
 			if p.curt.Kind != ')' {
@@ -1390,15 +1390,15 @@ loop:
 			}
 		case '(':
 			parenpos := p.curt.Pos
-			var fty *FunctionType
+			var fty *CFuncT
 			switch ty := l.GetType().(type) {
 			case *Ptr:
-				functy, ok := ty.PointsTo.(*FunctionType)
+				functy, ok := ty.PointsTo.(*CFuncT)
 				if !ok {
 					p.errorPos(l.GetPos(), "expected a function pointer")
 				}
 				fty = functy
-			case *FunctionType:
+			case *CFuncT:
 				fty = ty
 			default:
 				p.errorPos(l.GetPos(), "expected a func or func pointer")
