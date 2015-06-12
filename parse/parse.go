@@ -268,7 +268,6 @@ func (p *parser) Stmt() Node {
 			}
 		}
 	}
-	panic("unreachable.")
 }
 
 func (p *parser) Switch() Node {

@@ -61,7 +61,7 @@ func RunWithInOutTemplate(in, out, templ string, timeout time.Duration) error {
 func RunWithTimeout(command string, timeout time.Duration) error {
 	args := strings.Split(command, " ")
 	if len(args) == 0 {
-		return fmt.Errorf("malformed command %s")
+		return fmt.Errorf("malformed command %s", command)
 	}
 	bin := args[0]
 	args = args[1:]

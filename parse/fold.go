@@ -49,7 +49,5 @@ func (p *parser) fold(n Expr) (Expr, error) {
 		}
 	default:
 	}
-	fmt.Printf("%#v\n", n)
-	panic("...")
 	return nil, fmt.Errorf("not a valid constant value")
 }

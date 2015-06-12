@@ -261,7 +261,7 @@ func (t *Token) copy() *Token {
 
 func (t Token) String() string {
 	if t.wasExpanded() {
-		fmt.Sprintf("%s expanded from macro at %s", t.Val, t.Pos)
+		return fmt.Sprintf("%s expanded from macro at %s", t.Val, t.Pos)
 	}
 	return fmt.Sprintf("%s at %s", t.Val, t.Pos)
 }
