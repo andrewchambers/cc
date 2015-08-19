@@ -14,7 +14,7 @@ Artwork by [Egon Elbre](https://twitter.com/egonelbre) based on the [Go gopher](
 
 *NOT UNDER DEVELOPMENT*
 
-This compiler has been ported to C here https://github.com/andrewchambers/c. This was done to allow self hosting far earlier, increase 
+This compiler has been ported to C here https://github.com/andrewchambers/c where development continues. This was done to allow self hosting far earlier, increase 
 speed, increase portability, and decrease binary size. Interestingly, the C version is less lines of code too.
 
 ## Building
