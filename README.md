@@ -11,13 +11,11 @@ Artwork by [Egon Elbre](https://twitter.com/egonelbre) based on the [Go gopher](
 - Simple.
 
 ## Status 
-[![Build Status](https://travis-ci.org/andrewchambers/cc.svg?branch=master)](https://travis-ci.org/andrewchambers/cc)
 
-- Currently only x86_64 is supported.
-- Not much works yet, but this will change.
+*NOT UNDER DEVELOPMENT*
 
-It is a work in progress and a hobby project. The test suite is the best idea of what currently works, though other features may be
-partially implemented.
+This compiler has been ported to C here https://github.com/andrewchambers/c. This was done to allow self hosting far earlier, increase 
+speed, increase portability, and decrease binary size. Interestingly, the C version is less lines of code too.
 
 ## Building
 
